@@ -9,6 +9,7 @@ use crate::game::level::{
     asset_path_to_filesystem_path, bottom_left_to_world, clamp_level_position,
     load_level_from_asset_path,
 };
+use crate::audio_settings::AudioSettings;
 use crate::LevelSelection;
 
 use super::{
@@ -19,6 +20,7 @@ use super::{
 pub(super) fn setup_game_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    audio_settings: Res<AudioSettings>,
     level_selection: Res<LevelSelection>,
     windows: Query<&Window, With<PrimaryWindow>>,
 ) {
@@ -77,7 +79,11 @@ pub(super) fn setup_game_view(
             } else {
                 commands.spawn((
                     AudioPlayer::new(asset_server.load(music_asset_path)),
-                    PlaybackSettings::LOOP,
+                    PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Loop,
+                        volume: bevy::audio::Volume::new(audio_settings.music_volume),
+                        ..default()
+                    },
                     GameViewEntity,
                 ));
             }

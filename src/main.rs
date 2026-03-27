@@ -2,7 +2,9 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use avian2d::{math::Vector, prelude::{Gravity, PhysicsPlugins}};
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
+use crate::audio_settings::AudioSettings;
 
+mod audio_settings;
 mod game;
 mod views;
 
@@ -94,6 +96,7 @@ pub(crate) struct MainCamera;
 
 fn main() {
     let level_selection = LevelSelection::from_cli_arg(std::env::args().nth(1));
+    let audio_settings = AudioSettings::load_from_disk();
 
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
@@ -108,6 +111,7 @@ fn main() {
         })
         .init_resource::<MenuSelection>()
         .insert_resource(level_selection)
+        .insert_resource(audio_settings)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "PlasmaBob".into(),

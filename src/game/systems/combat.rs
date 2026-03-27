@@ -14,6 +14,7 @@ use crate::game::components::npc::Npc;
 use crate::game::components::player::{Player, PlasmaAttack};
 use crate::game::components::plasma::{PlasmaBeam, PLASMA_BEAM_HEIGHT, PLASMA_EXPAND_SPEED, PLASMA_Z};
 use crate::game::components::SpawnedLevelEntity;
+use crate::audio_settings::AudioSettings;
 use crate::AppState;
 
 use super::{GameViewEntity, LevelQuotes, PLAYER_INVINCIBILITY_SECONDS};
@@ -106,6 +107,7 @@ pub(super) fn despawn_dead_entities(
 
 pub(super) fn play_hostile_death_quotes(
     mut commands: Commands,
+    audio_settings: Res<AudioSettings>,
     quotes: Option<Res<LevelQuotes>>,
     dead_hostiles: Query<
         (Entity, &Health),
@@ -140,7 +142,11 @@ pub(super) fn play_hostile_death_quotes(
 
         commands.spawn((
             AudioPlayer::new(quote_handle),
-            PlaybackSettings::DESPAWN,
+            PlaybackSettings {
+                mode: bevy::audio::PlaybackMode::Despawn,
+                volume: bevy::audio::Volume::new(audio_settings.effects_volume),
+                ..default()
+            },
             GameViewEntity,
         ));
         commands.entity(entity).insert(DeathQuotePlayed);
