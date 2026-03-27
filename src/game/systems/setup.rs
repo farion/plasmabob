@@ -1,0 +1,389 @@
+use avian2d::prelude::{Collider, RigidBody};
+use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::prelude::*;
+use bevy::sprite::Anchor;
+use bevy::window::PrimaryWindow;
+
+use crate::game::components::{self, SpawnedLevelEntity};
+use crate::game::level::{
+    asset_path_to_filesystem_path, bottom_left_to_world, clamp_level_position,
+    load_level_from_asset_path,
+};
+use crate::LevelSelection;
+
+use super::{
+    ActiveLevelBounds, GameViewEntity, LEVEL_BOUNDARY_THICKNESS, TerrainBackgroundConfig,
+    TerrainBackgroundReady,
+};
+
+pub(super) fn setup_game_view(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    level_selection: Res<LevelSelection>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+) {
+    let window = windows.single();
+    let window_size = Vec2::new(window.width(), window.height());
+    let mut warnings = Vec::new();
+    let mut spawned_count = 0usize;
+
+    let (status_title, status_detail) = match load_level_from_asset_path(level_selection.asset_path()) {
+        Ok(level_definition) => {
+            let level_bounds = match level_definition.bounds_size() {
+                Some(bounds) if bounds.x > 0.0 && bounds.y > 0.0 => Some(bounds),
+                Some(bounds) => {
+                    warnings.push(format!(
+                        "Ignoring invalid level bounds {}x{}; both values must be > 0",
+                        bounds.x, bounds.y
+                    ));
+                    None
+                }
+                None => None,
+            };
+
+            let active_level_bounds = level_bounds
+                .map(|level_size| ActiveLevelBounds::from_window_and_level_size(window_size, level_size));
+
+            if let Some(bounds) = active_level_bounds {
+                commands.insert_resource(bounds);
+            }
+
+            commands.spawn((
+                TerrainBackgroundConfig {
+                    image: asset_server.load(level_definition.terrain_background_asset_path()),
+                },
+                GameViewEntity,
+            ));
+
+            let music_asset_path = level_definition.music_asset_path();
+            let music_filesystem_path = asset_path_to_filesystem_path(&music_asset_path);
+            if !music_asset_path.ends_with(".ogg") {
+                warnings.push(format!(
+                    "Level music '{}' is invalid: only .ogg is supported",
+                    music_asset_path
+                ));
+            } else if !music_filesystem_path.exists() {
+                warnings.push(format!(
+                    "Level music '{}' was not found at {}",
+                    music_asset_path,
+                    music_filesystem_path.display()
+                ));
+            } else if !is_supported_ogg_audio_file(&music_filesystem_path) {
+                warnings.push(format!(
+                    "Level music '{}' is not a supported OGG audio stream (expected Vorbis/Opus)",
+                    music_asset_path
+                ));
+            } else {
+                commands.spawn((
+                    AudioPlayer::new(asset_server.load(music_asset_path)),
+                    PlaybackSettings::LOOP,
+                    GameViewEntity,
+                ));
+            }
+
+            if let Some(bounds) = active_level_bounds {
+                spawn_level_boundaries(&mut commands, bounds);
+            }
+
+            for entity_definition in &level_definition.entities {
+                let Some(entity_type) = level_definition.entity_types.get(&entity_definition.entity_type)
+                else {
+                    warnings.push(format!(
+                        "{} references unknown entity_type '{}'",
+                        entity_definition.id, entity_definition.entity_type
+                    ));
+                    continue;
+                };
+
+                let is_player = entity_type.components.iter().any(|component| component == "player");
+
+                // Resolve z-index: instance override -> type default -> component heuristic.
+                let z = entity_definition
+                    .z_index
+                    .or(entity_type.z_index)
+                    .unwrap_or_else(|| {
+                        if is_player {
+                            20.0
+                        } else if entity_type.components.iter().any(|c| c == "npc") {
+                            10.0
+                        } else {
+                            0.0
+                        }
+                    });
+
+                let level_position = if is_player {
+                    level_bounds
+                        .map(|level_size| {
+                            clamp_level_position(
+                                entity_definition.x,
+                                entity_definition.y,
+                                entity_type.size(),
+                                level_size,
+                            )
+                        })
+                        .unwrap_or(Vec2::new(entity_definition.x, entity_definition.y))
+                } else {
+                    Vec2::new(entity_definition.x, entity_definition.y)
+                };
+
+                if is_player
+                    && (level_position.x != entity_definition.x || level_position.y != entity_definition.y)
+                {
+                    warnings.push(format!(
+                        "Clamped player spawn from ({}, {}) to ({}, {}) to fit level bounds",
+                        entity_definition.x, entity_definition.y, level_position.x, level_position.y
+                    ));
+                }
+
+                let world_position = bottom_left_to_world(
+                    window_size,
+                    level_position.x,
+                    level_position.y,
+                    entity_type.size(),
+                    z,
+                );
+
+                warnings.extend(components::spawn_entity(
+                    &mut commands,
+                    &asset_server,
+                    entity_definition,
+                    entity_type,
+                    world_position,
+                ));
+                spawned_count += 1;
+            }
+
+            (
+                format!("Loaded {spawned_count} entities from {}", level_selection.asset_path()),
+                match level_bounds {
+                    Some(level_size) => format!(
+                        "Level origin is bottom-left (0,0). Boundaries: {} x {}. Camera keeps Bob at 40% screen width when possible.",
+                        level_size.x, level_size.y
+                    ),
+                    None => {
+                        "Level origin is bottom-left (0,0). No boundaries defined; camera follows Bob freely."
+                            .to_string()
+                    }
+                },
+            )
+        }
+        Err(error) => (
+            format!("Could not load {}", level_selection.asset_path()),
+            error.to_string(),
+        ),
+    };
+
+    spawn_overlay(&mut commands, status_title, status_detail, &warnings);
+}
+
+fn is_supported_ogg_audio_file(path: &std::path::Path) -> bool {
+    let Ok(bytes) = std::fs::read(path) else {
+        return false;
+    };
+
+    // Accept common OGG audio codecs used by Bevy/rodio.
+    bytes.windows(6).any(|window| window == b"vorbis") || bytes.windows(8).any(|window| window == b"OpusHead")
+}
+
+fn spawn_level_boundaries(commands: &mut Commands, level_bounds: ActiveLevelBounds) {
+    let half_thickness = LEVEL_BOUNDARY_THICKNESS * 0.5;
+    let vertical_center_y = (level_bounds.bottom + level_bounds.top) * 0.5;
+    let horizontal_center_x = (level_bounds.left + level_bounds.right) * 0.5;
+    let vertical_wall_height =
+        (level_bounds.top - level_bounds.bottom) + LEVEL_BOUNDARY_THICKNESS * 2.0;
+    let horizontal_wall_width =
+        (level_bounds.right - level_bounds.left) + LEVEL_BOUNDARY_THICKNESS * 2.0;
+
+    let walls = [
+        (
+            "Left",
+            Vec3::new(level_bounds.left - half_thickness, vertical_center_y, 50.0),
+            Vec2::new(LEVEL_BOUNDARY_THICKNESS, vertical_wall_height),
+        ),
+        (
+            "Right",
+            Vec3::new(level_bounds.right + half_thickness, vertical_center_y, 50.0),
+            Vec2::new(LEVEL_BOUNDARY_THICKNESS, vertical_wall_height),
+        ),
+        (
+            "Bottom",
+            Vec3::new(horizontal_center_x, level_bounds.bottom - half_thickness, 50.0),
+            Vec2::new(horizontal_wall_width, LEVEL_BOUNDARY_THICKNESS),
+        ),
+        (
+            "Top",
+            Vec3::new(horizontal_center_x, level_bounds.top + half_thickness, 50.0),
+            Vec2::new(horizontal_wall_width, LEVEL_BOUNDARY_THICKNESS),
+        ),
+    ];
+
+    for (name, translation, size) in walls {
+        commands.spawn((
+            Name::new(format!("LevelBoundary:{name}")),
+            Transform::from_translation(translation),
+            Collider::rectangle(size.x, size.y),
+            RigidBody::Static,
+            SpawnedLevelEntity,
+        ));
+    }
+}
+
+pub(super) fn spawn_terrain_background_tiles(
+    mut commands: Commands,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    images: Res<Assets<Image>>,
+    active_level_bounds: Option<Res<ActiveLevelBounds>>,
+    configs: Query<(Entity, &TerrainBackgroundConfig), Without<TerrainBackgroundReady>>,
+) {
+    let window = windows.single();
+
+    for (entity, config) in &configs {
+        let Some(image) = images.get(&config.image) else {
+            continue;
+        };
+
+        let image_width = image.texture_descriptor.size.width as f32;
+        let image_height = image.texture_descriptor.size.height as f32;
+
+        if image_width <= 0.0 || image_height <= 0.0 {
+            continue;
+        }
+
+        let tile_height = window.height();
+        let tile_width = (image_width / image_height) * tile_height;
+        let (start_x, span_width, start_y) = match active_level_bounds.as_deref().copied() {
+            Some(bounds) => (bounds.left, bounds.right - bounds.left, bounds.bottom),
+            None => (-(window.width() * 0.5), window.width(), -(window.height() * 0.5)),
+        };
+        let tile_count = ((span_width / tile_width).ceil() as usize).saturating_add(1);
+
+        for index in 0..tile_count {
+            let x = start_x + (index as f32 * tile_width);
+            let y = start_y;
+
+            commands.spawn((
+                Sprite {
+                    image: config.image.clone(),
+                    custom_size: Some(Vec2::new(tile_width, tile_height)),
+                    anchor: Anchor::BottomLeft,
+                    ..default()
+                },
+                Transform::from_xyz(x, y, -100.0),
+                GameViewEntity,
+            ));
+        }
+
+        commands.entity(entity).insert(TerrainBackgroundReady);
+    }
+}
+
+fn spawn_overlay(
+    commands: &mut Commands,
+    status_title: String,
+    status_detail: String,
+    warnings: &[String],
+) {
+    let warning_text = if warnings.is_empty() {
+        "No component warnings".to_string()
+    } else {
+        format!("Warnings: {}", warnings.join(" | "))
+    };
+
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                padding: UiRect::all(Val::Px(20.0)),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                justify_content: JustifyContent::FlexStart,
+                row_gap: Val::Px(8.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.35)),
+            Visibility::Hidden,
+            super::DebugOverlayRoot,
+            GameViewEntity,
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Game View"),
+                TextFont {
+                    font_size: 38.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                GameViewEntity,
+            ));
+            parent.spawn((
+                Text::new(status_title),
+                TextFont {
+                    font_size: 24.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.3, 0.7, 1.0)),
+                GameViewEntity,
+            ));
+            parent.spawn((
+                Text::new(status_detail),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.85, 0.85, 0.85)),
+                GameViewEntity,
+            ));
+            parent.spawn((
+                Text::new(warning_text),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(1.0, 0.8, 0.35)),
+                GameViewEntity,
+            ));
+            parent.spawn((
+                Text::new("Press O to toggle overlay | Press L to toggle hitboxes | Press Esc to return"),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                GameViewEntity,
+            ));
+        });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_vorbis_ogg_marker() {
+        let path = std::env::temp_dir().join("plasmabob_test_vorbis.ogg");
+        std::fs::write(&path, b"OggS....vorbis....").expect("should write temp ogg file");
+
+        let result = is_supported_ogg_audio_file(&path);
+
+        let _ = std::fs::remove_file(&path);
+        assert!(result);
+    }
+
+    #[test]
+    fn rejects_non_audio_ogg_content() {
+        let path = std::env::temp_dir().join("plasmabob_test_non_audio.ogg");
+        std::fs::write(&path, b"OggS....theora....").expect("should write temp ogg file");
+
+        let result = is_supported_ogg_audio_file(&path);
+
+        let _ = std::fs::remove_file(&path);
+        assert!(!result);
+    }
+}
+
+
+
+
