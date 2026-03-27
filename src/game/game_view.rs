@@ -104,7 +104,11 @@ impl Plugin for GameViewPlugin {
                 combat::tick_invincibility_timers,
                 combat::apply_hostile_contact_damage,
                 combat::shoot_plasma.before(combat::update_plasma_beams),
-                (combat::update_plasma_beams, combat::maintain_player_fight_state)
+                (
+                    combat::update_plasma_beams,
+                    combat::update_plasma_impact_particles,
+                    combat::maintain_player_fight_state,
+                )
                     .chain()
                     .before(animation::tick_hit_state_timers)
                     .before(animation::apply_state_animation),

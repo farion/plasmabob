@@ -3,8 +3,11 @@ use std::collections::HashSet;
 use avian2d::prelude::SpatialQuery;
 use avian2d::prelude::SpatialQueryFilter;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::ecs::query::QueryFilter;
 use bevy::math::Dir2;
 use bevy::prelude::*;
+use bevy::render::render_asset::RenderAssetUsages;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::game::components::animation::{AnimationState, EntityState, HIT_STATE_SECONDS, HitStateTimer, can_set_state};
 use crate::game::components::collision::Collision;
@@ -12,7 +15,12 @@ use crate::game::components::health::{Damage, Health, InvincibilityTimer};
 use crate::game::components::hostile::Hostile;
 use crate::game::components::npc::Npc;
 use crate::game::components::player::{Player, PlasmaAttack};
-use crate::game::components::plasma::{PlasmaBeam, PLASMA_BEAM_HEIGHT, PLASMA_EXPAND_SPEED, PLASMA_Z};
+use crate::game::components::plasma::{
+    PlasmaBeam, PLASMA_BEAM_PARTICLE_COUNT, PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE,
+    PLASMA_BEAM_PARTICLE_WIGGLE_SPEED, PLASMA_BEAM_VISUAL_HALF_HEIGHT, PLASMA_EXPAND_SPEED,
+    PLASMA_IMPACT_LIFETIME_SECS, PLASMA_IMPACT_MAX_SPEED, PLASMA_IMPACT_MIN_SPEED,
+    PLASMA_IMPACT_PARTICLE_COUNT, PLASMA_ORIGIN_HEIGHT_RATIO_FROM_BOTTOM, PLASMA_Z,
+};
 use crate::game::components::SpawnedLevelEntity;
 use crate::audio_settings::AudioSettings;
 use crate::AppState;
@@ -21,6 +29,21 @@ use super::{GameViewEntity, LevelQuotes, PLAYER_INVINCIBILITY_SECONDS};
 
 #[derive(Component)]
 pub(super) struct DeathQuotePlayed;
+
+#[derive(Component)]
+pub(super) struct PlasmaBeamParticle {
+    normalized_distance: f32,
+    lane: f32,
+    phase: f32,
+    layer_scale: f32,
+}
+
+#[derive(Component)]
+pub(super) struct PlasmaImpactParticle {
+    velocity: Vec2,
+    lifetime: Timer,
+    start_size: f32,
+}
 
 pub(super) fn tick_invincibility_timers(
     mut commands: Commands,
@@ -158,6 +181,8 @@ pub(super) fn shoot_plasma(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
+    mut images: ResMut<Assets<Image>>,
+    mut plasma_particle_image: Local<Option<Handle<Image>>>,
     spatial_query: SpatialQuery,
     mut players: Query<
         (Entity, &Transform, &Sprite, &Health, &mut PlasmaAttack, &mut AnimationState, Option<&HitStateTimer>),
@@ -166,6 +191,8 @@ pub(super) fn shoot_plasma(
     collision_query: Query<Entity, With<Collision>>,
     hostile_query: Query<Entity, (With<Hostile>, With<Health>)>,
 ) {
+    let particle_image = ensure_plasma_particle_image(&mut plasma_particle_image, &mut images);
+
     for (player_entity, transform, sprite, health, mut plasma_attack, mut state, hit_timer) in &mut players {
         if health.is_dead() {
             continue;
@@ -184,7 +211,7 @@ pub(super) fn shoot_plasma(
         }
 
         let direction = if sprite.flip_x { -1.0f32 } else { 1.0 };
-        let origin = transform.translation.truncate();
+        let origin = plasma_origin_from_player(transform, sprite);
         let dir2 = if sprite.flip_x { Dir2::NEG_X } else { Dir2::X };
 
         let filter = SpatialQueryFilter {
@@ -209,13 +236,8 @@ pub(super) fn shoot_plasma(
             })
             .unwrap_or((plasma_attack.range, None));
 
-        commands.spawn((
+        let mut beam_entity = commands.spawn((
             Name::new(format!("PlasmaBeam:{}", player_entity.index())),
-            Sprite {
-                color: Color::srgb(0.0, 0.85, 1.0),
-                custom_size: Some(Vec2::new(1.0, PLASMA_BEAM_HEIGHT)),
-                ..default()
-            },
             Transform::from_xyz(origin.x, origin.y, PLASMA_Z),
             PlasmaBeam::new(
                 player_entity,
@@ -226,6 +248,53 @@ pub(super) fn shoot_plasma(
             ),
             GameViewEntity,
         ));
+
+        beam_entity.with_children(|parent| {
+            for index in 0..PLASMA_BEAM_PARTICLE_COUNT {
+                let seed = index as u32 + 1;
+                let normalized_distance = if PLASMA_BEAM_PARTICLE_COUNT <= 1 {
+                    1.0
+                } else {
+                    index as f32 / (PLASMA_BEAM_PARTICLE_COUNT - 1) as f32
+                };
+                // Cube the lane to keep most particles near the center so the cloud reads as a beam.
+                let lane = ((hash_to_unit(seed.wrapping_mul(29)) * 2.0) - 1.0).powi(3);
+                let phase = hash_to_unit(seed.wrapping_mul(53)) * std::f32::consts::TAU;
+                let core_size = 4.0 + hash_to_unit(seed.wrapping_mul(97)) * 5.0;
+                let glow_size = core_size * 2.0;
+                let alpha = 0.55 + hash_to_unit(seed.wrapping_mul(11)) * 0.25;
+
+                parent.spawn((
+                    Sprite {
+                        color: Color::srgba(0.2, 0.98, 1.0, alpha),
+                        custom_size: Some(Vec2::splat(core_size)),
+                        ..Sprite::from_image(particle_image.clone())
+                    },
+                    Transform::from_xyz(0.0, 0.0, hash_to_unit(seed.wrapping_mul(7)) * 0.2),
+                    PlasmaBeamParticle {
+                        normalized_distance,
+                        lane,
+                        phase,
+                        layer_scale: 1.0,
+                    },
+                ));
+
+                parent.spawn((
+                    Sprite {
+                        color: Color::srgba(0.12, 0.75, 1.0, alpha * 0.45),
+                        custom_size: Some(Vec2::splat(glow_size)),
+                        ..Sprite::from_image(particle_image.clone())
+                    },
+                    Transform::from_xyz(0.0, 0.0, -0.1 + hash_to_unit(seed.wrapping_mul(17)) * 0.15),
+                    PlasmaBeamParticle {
+                        normalized_distance,
+                        lane,
+                        phase: phase + 0.9,
+                        layer_scale: 1.8,
+                    },
+                ));
+            }
+        });
 
         info!(
             "Plasma beam fired: dir={} max_length={:.0} target={:?}",
@@ -238,15 +307,28 @@ pub(super) fn shoot_plasma(
 pub(super) fn update_plasma_beams(
     mut commands: Commands,
     time: Res<Time>,
-    mut beams: Query<(Entity, &mut PlasmaBeam, &mut Transform, &mut Sprite), Without<Player>>,
-    player_query: Query<&Transform, (With<Player>, Without<PlasmaBeam>)>,
+    mut images: ResMut<Assets<Image>>,
+    mut plasma_particle_image: Local<Option<Handle<Image>>>,
+    mut beams: Query<(Entity, &mut PlasmaBeam, &mut Transform, &Children), Without<Player>>,
+    player_query: Query<
+        (&Transform, &Sprite),
+        (With<Player>, Without<PlasmaBeam>, Without<PlasmaBeamParticle>),
+    >,
+    mut beam_particles: Query<
+        (&PlasmaBeamParticle, &mut Transform, &mut Sprite),
+        (Without<Player>, Without<PlasmaBeam>),
+    >,
     mut health_query: Query<(Entity, &mut Health, &mut AnimationState), With<Hostile>>,
 ) {
-    for (entity, mut beam, mut transform, mut sprite) in &mut beams {
+    let particle_image = ensure_plasma_particle_image(&mut plasma_particle_image, &mut images);
+
+    for (entity, mut beam, mut transform, children) in &mut beams {
         if !beam.stopped {
             // Follow the player's current world position so the beam origin moves with them.
             let current_origin = match player_query.get(beam.player_entity) {
-                Ok(player_transform) => player_transform.translation.truncate(),
+                Ok((player_transform, player_sprite)) => {
+                    plasma_origin_from_player(player_transform, player_sprite)
+                }
                 Err(_) => {
                     // Player was despawned - remove the orphaned beam.
                     commands.entity(entity).despawn();
@@ -257,13 +339,25 @@ pub(super) fn update_plasma_beams(
             beam.current_length =
                 (beam.current_length + PLASMA_EXPAND_SPEED * time.delta_secs()).min(beam.max_length);
 
-            transform.translation.x = current_origin.x + beam.direction * (beam.current_length * 0.5);
+            transform.translation.x = current_origin.x;
             transform.translation.y = current_origin.y;
 
-            sprite.custom_size = Some(Vec2::new(beam.current_length, PLASMA_BEAM_HEIGHT));
+            update_beam_particles(
+                &time,
+                &beam,
+                children,
+                &mut beam_particles,
+                1.0,
+            );
 
             if beam.current_length >= beam.max_length {
                 beam.stopped = true;
+
+                if beam.target_entity.is_some() && !beam.impact_spawned {
+                    let impact_position = current_origin + Vec2::new(beam.direction * beam.max_length, 0.0);
+                    spawn_plasma_impact_explosion(&mut commands, &particle_image, impact_position);
+                    beam.impact_spawned = true;
+                }
 
                 if !beam.damage_applied {
                     if let Some(target) = beam.target_entity {
@@ -295,7 +389,14 @@ pub(super) fn update_plasma_beams(
         } else {
             // Beam has stopped - fade alpha during linger, then despawn.
             let remaining = 1.0 - beam.linger_timer.fraction();
-            sprite.color = Color::srgba(0.0, 0.85, 1.0, remaining);
+
+            update_beam_particles(
+                &time,
+                &beam,
+                children,
+                &mut beam_particles,
+                remaining,
+            );
 
             beam.linger_timer.tick(time.delta());
             if beam.linger_timer.finished() {
@@ -303,6 +404,176 @@ pub(super) fn update_plasma_beams(
             }
         }
     }
+}
+
+pub(super) fn update_plasma_impact_particles(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut particles: Query<(Entity, &mut PlasmaImpactParticle, &mut Transform, &mut Sprite)>,
+) {
+    for (entity, mut particle, mut transform, mut sprite) in &mut particles {
+        transform.translation.x += particle.velocity.x * time.delta_secs();
+        transform.translation.y += particle.velocity.y * time.delta_secs();
+        particle.velocity *= 0.86;
+
+        particle.lifetime.tick(time.delta());
+        let remaining = 1.0 - particle.lifetime.fraction();
+
+        sprite.color = Color::srgba(0.25, 0.95, 1.0, remaining.clamp(0.0, 1.0));
+        let size = particle.start_size * (0.6 + remaining.max(0.0));
+        sprite.custom_size = Some(Vec2::splat(size));
+
+        if particle.lifetime.finished() {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn update_beam_particles<F: QueryFilter>(
+    time: &Time,
+    beam: &PlasmaBeam,
+    children: &Children,
+    beam_particles: &mut Query<(&PlasmaBeamParticle, &mut Transform, &mut Sprite), F>,
+    alpha_multiplier: f32,
+) {
+    for child in children.iter() {
+        let Ok((particle, mut particle_transform, mut particle_sprite)) = beam_particles.get_mut(*child)
+        else {
+            continue;
+        };
+
+        let wave = (time.elapsed_secs() * PLASMA_BEAM_PARTICLE_WIGGLE_SPEED + particle.phase).sin();
+        let taper = 1.0 - (particle.normalized_distance * 0.45);
+        let y_offset = (particle.lane * PLASMA_BEAM_VISUAL_HALF_HEIGHT)
+            + (wave * PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE * taper * particle.layer_scale);
+
+        particle_transform.translation.x = beam.direction * beam.current_length * particle.normalized_distance;
+        particle_transform.translation.y = y_offset;
+
+        let core_boost = 1.0 - particle.lane.abs() * 0.45;
+        let alpha = (0.35 + core_boost * 0.65) * alpha_multiplier;
+        let color = if particle.layer_scale > 1.0 {
+            Color::srgba(0.1, 0.75, 1.0, (alpha * 0.5).clamp(0.0, 1.0))
+        } else {
+            Color::srgba(0.25, 1.0, 1.0, alpha.clamp(0.0, 1.0))
+        };
+        particle_sprite.color = color;
+    }
+}
+
+fn spawn_plasma_impact_explosion(
+    commands: &mut Commands,
+    particle_image: &Handle<Image>,
+    impact_position: Vec2,
+) {
+
+    for index in 0..PLASMA_IMPACT_PARTICLE_COUNT {
+        let seed = index as u32 + 101;
+        let angle = hash_to_unit(seed.wrapping_mul(37)) * std::f32::consts::TAU;
+        let speed = PLASMA_IMPACT_MIN_SPEED
+            + hash_to_unit(seed.wrapping_mul(71)) * (PLASMA_IMPACT_MAX_SPEED - PLASMA_IMPACT_MIN_SPEED);
+        let velocity = Vec2::new(angle.cos(), angle.sin()) * speed;
+        let size = 4.0 + hash_to_unit(seed.wrapping_mul(13)) * 8.0;
+
+        commands.spawn((
+            Name::new("PlasmaImpactParticle"),
+            Sprite {
+                image: particle_image.clone(),
+                color: Color::srgba(0.45, 1.0, 1.0, 1.0),
+                custom_size: Some(Vec2::splat(size)),
+                ..default()
+            },
+            Transform::from_xyz(impact_position.x, impact_position.y, PLASMA_Z + 0.5),
+            PlasmaImpactParticle {
+                velocity,
+                lifetime: Timer::from_seconds(PLASMA_IMPACT_LIFETIME_SECS, TimerMode::Once),
+                start_size: size,
+            },
+            GameViewEntity,
+        ));
+    }
+
+    commands.spawn((
+        Name::new("PlasmaImpactFlash"),
+        Sprite {
+            image: particle_image.clone(),
+            color: Color::srgba(0.65, 1.0, 1.0, 0.75),
+            custom_size: Some(Vec2::splat(46.0)),
+            ..default()
+        },
+        Transform::from_xyz(impact_position.x, impact_position.y, PLASMA_Z + 0.6),
+        PlasmaImpactParticle {
+            velocity: Vec2::ZERO,
+            lifetime: Timer::from_seconds(PLASMA_IMPACT_LIFETIME_SECS * 0.55, TimerMode::Once),
+            start_size: 46.0,
+        },
+        GameViewEntity,
+    ));
+}
+
+fn plasma_origin_from_player(transform: &Transform, sprite: &Sprite) -> Vec2 {
+    let size = sprite.custom_size.unwrap_or(Vec2::new(96.0, 128.0));
+    let y_from_bottom = size.y * PLASMA_ORIGIN_HEIGHT_RATIO_FROM_BOTTOM;
+    let y = transform.translation.y - (size.y * 0.5) + y_from_bottom;
+    Vec2::new(transform.translation.x, y)
+}
+
+fn hash_to_unit(seed: u32) -> f32 {
+    let mut value = seed.wrapping_mul(747_796_405).wrapping_add(2_891_336_453);
+    value = (value >> ((value >> 28) + 4)) ^ value;
+    value = value.wrapping_mul(277_803_737);
+    (((value >> 22) ^ value) as f32) / (u32::MAX as f32)
+}
+
+fn ensure_plasma_particle_image(
+    local_handle: &mut Option<Handle<Image>>,
+    images: &mut Assets<Image>,
+) -> Handle<Image> {
+    if let Some(handle) = local_handle.as_ref() {
+        return handle.clone();
+    }
+
+    let handle = ensure_plasma_particle_image_from_assets(images);
+    *local_handle = Some(handle.clone());
+    handle
+}
+
+fn ensure_plasma_particle_image_from_assets(images: &mut Assets<Image>) -> Handle<Image> {
+    images.add(create_round_particle_image(32))
+}
+
+fn create_round_particle_image(size: u32) -> Image {
+    let mut data = vec![0u8; (size * size * 4) as usize];
+    let center = (size as f32 - 1.0) * 0.5;
+    let radius = center.max(1.0);
+
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 - center;
+            let dy = y as f32 - center;
+            let distance = (dx * dx + dy * dy).sqrt() / radius;
+            let softness = (1.0 - distance).clamp(0.0, 1.0);
+            let alpha = (softness * softness * 255.0) as u8;
+
+            let index = ((y * size + x) * 4) as usize;
+            data[index] = 255;
+            data[index + 1] = 255;
+            data[index + 2] = 255;
+            data[index + 3] = alpha;
+        }
+    }
+
+    Image::new(
+        Extent3d {
+            width: size,
+            height: size,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    )
 }
 
 pub(super) fn maintain_player_fight_state(
