@@ -331,7 +331,7 @@ pub(super) fn update_plasma_beams(
                 }
                 Err(_) => {
                     // Player was despawned - remove the orphaned beam.
-                    commands.entity(entity).despawn();
+                    commands.entity(entity).despawn_recursive();
                     continue;
                 }
             };
@@ -400,7 +400,7 @@ pub(super) fn update_plasma_beams(
 
             beam.linger_timer.tick(time.delta());
             if beam.linger_timer.finished() {
-                commands.entity(entity).despawn();
+                commands.entity(entity).despawn_recursive();
             }
         }
     }

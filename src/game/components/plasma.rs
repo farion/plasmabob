@@ -7,7 +7,7 @@ pub(crate) const PLASMA_Z: f32 = 15.0;
 /// Vertical start point of the beam measured from the entity's bottom edge (0.0..=1.0).
 pub(crate) const PLASMA_ORIGIN_HEIGHT_RATIO_FROM_BOTTOM: f32 = 0.7;
 /// Number of particles used to visualize a single plasma beam.
-pub(crate) const PLASMA_BEAM_PARTICLE_COUNT: usize = 56;
+pub(crate) const PLASMA_BEAM_PARTICLE_COUNT: usize = 112;
 /// Half-height of the particle beam cloud around the center line.
 pub(crate) const PLASMA_BEAM_VISUAL_HALF_HEIGHT: f32 = 10.0;
 /// Sine-wave speed for beam particle jitter.
