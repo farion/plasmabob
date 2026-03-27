@@ -41,6 +41,7 @@ pub(crate) fn spawn_entity(
     entity_type: &EntityTypeDefinition,
     world_position: Vec3,
 ) -> Vec<String> {
+    let normalized_animations = entity_type.normalized_animations();
     let sprite = sprite_for_entity(asset_server, entity_type);
 
     let mut entity = commands.spawn((
@@ -50,8 +51,10 @@ pub(crate) fn spawn_entity(
         SpawnedLevelEntity,
         LevelEntityId(entity_definition.id.clone()),
         LevelEntityType(entity_definition.entity_type.clone()),
-        AnimationCatalog(entity_type.normalized_animations()),
+        AnimationCatalog(normalized_animations.clone()),
+        animation::PreloadedAnimations::from_paths(asset_server, &normalized_animations),
         animation::AnimationState::default(),
+        animation::AnimationPlayback::new(entity_type.animation_frame_seconds()),
     ));
 
     let mut warnings = Vec::new();

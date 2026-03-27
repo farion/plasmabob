@@ -6,10 +6,14 @@ use std::path::{Path, PathBuf};
 use bevy::prelude::*;
 use serde::Deserialize;
 
+const DEFAULT_ANIMATION_FRAME_MS: u64 = 500;
+
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct LevelDefinition {
     pub(crate) terrain: TerrainDefinition,
     pub(crate) music: String,
+    #[serde(default)]
+    pub(crate) quotes: Vec<String>,
     #[serde(default)]
     pub(crate) bounds: Option<LevelBoundsDefinition>,
     pub(crate) entity_types: HashMap<String, EntityTypeDefinition>,
@@ -34,6 +38,13 @@ impl LevelDefinition {
 
     pub(crate) fn music_asset_path(&self) -> String {
         normalize_asset_reference(&self.music)
+    }
+
+    pub(crate) fn quote_asset_paths(&self) -> Vec<String> {
+        self.quotes
+            .iter()
+            .map(|quote| normalize_asset_reference(quote))
+            .collect()
     }
 
     pub(crate) fn bounds_size(&self) -> Option<Vec2> {
@@ -70,6 +81,9 @@ pub(crate) struct EntityTypeDefinition {
     /// Maximum range of the plasma beam (player only). Enables the PlasmaAttack component.
     #[serde(default)]
     pub(crate) attack_range: Option<f32>,
+    /// Optional per-entity-type frame interval for cycling animation arrays.
+    #[serde(default)]
+    pub(crate) animation_frame_ms: Option<u64>,
 }
 
 impl EntityTypeDefinition {
@@ -122,6 +136,11 @@ impl EntityTypeDefinition {
             .iter()
             .map(|point| Vec2::new(point[0] - half_width, point[1] - half_height))
             .collect())
+    }
+
+    pub(crate) fn animation_frame_seconds(&self) -> f32 {
+        let interval_ms = self.animation_frame_ms.unwrap_or(DEFAULT_ANIMATION_FRAME_MS);
+        (interval_ms as f32 / 1000.0).max(0.001)
     }
 }
 
@@ -240,6 +259,7 @@ mod tests {
                 },
                 "bob": {
                     "component": ["player"],
+                    "animation_frame_ms": 250,
                     "animations": {
                         "default": ["assets/bob/default1.png", "assets/bob/default2.png"],
                         "walk": [],
@@ -276,9 +296,35 @@ mod tests {
         assert_eq!(parsed.bounds_size(), Some(Vec2::new(1584.0, 1024.0)));
         assert_eq!(parsed.terrain_background_asset_path(), "backgrounds/level1.png");
         assert_eq!(parsed.music_asset_path(), "music/level1.ogg");
+        assert!(parsed.quote_asset_paths().is_empty());
         assert_eq!(parsed.entity_types["dirt"].components, vec!["floor"]);
         assert_eq!(parsed.entity_types["cockroach"].disposition.as_deref(), Some("hostile"));
         assert_eq!(parsed.entity_types["bob"].width, 100.0);
+        assert_eq!(parsed.entity_types["bob"].animation_frame_ms, Some(250));
+    }
+
+    #[test]
+    fn uses_default_animation_frame_interval_when_missing() {
+        let json = r#"
+        {
+            "terrain": { "background": "assets/backgrounds/level1.png" },
+            "music": "assets/music/level1.ogg",
+            "entity_types": {
+                "dummy": {
+                    "component": ["npc"],
+                    "animations": { "default": ["assets/dirt/default1.png"] },
+                    "width": 16,
+                    "height": 16
+                }
+            },
+            "entities": [
+                { "id": "dummy1", "entity_type": "dummy", "x": 0, "y": 0 }
+            ]
+        }
+        "#;
+
+        let parsed: LevelDefinition = serde_json::from_str(json).expect("schema should parse");
+        assert_eq!(parsed.entity_types["dummy"].animation_frame_seconds(), 0.5);
     }
 
     #[test]

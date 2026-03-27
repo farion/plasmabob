@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::audio::AudioSource;
 
 #[path = "systems/camera.rs"]
 mod camera;
@@ -57,6 +58,11 @@ struct ActiveLevelBounds {
     top: f32,
 }
 
+#[derive(Resource, Default, Clone)]
+struct LevelQuotes {
+    clips: Vec<Handle<AudioSource>>,
+}
+
 impl ActiveLevelBounds {
     fn from_window_and_level_size(window_size: Vec2, level_size: Vec2) -> Self {
         let left = -(window_size.x * 0.5);
@@ -91,13 +97,19 @@ impl Plugin for GameViewPlugin {
             (
                 setup::spawn_terrain_background_tiles,
                 player::update_grounded,
-                (player::control_player, player::sync_player_hitbox_orientation).chain(),
+                (player::control_player, player::sync_player_hitbox_orientation)
+                    .chain()
+                    .before(combat::shoot_plasma),
                 npc::control_moving_entities,
                 combat::tick_invincibility_timers,
                 combat::apply_hostile_contact_damage,
-                combat::shoot_plasma,
-                combat::update_plasma_beams,
+                combat::shoot_plasma.before(combat::update_plasma_beams),
+                (combat::update_plasma_beams, combat::maintain_player_fight_state)
+                    .chain()
+                    .before(animation::tick_hit_state_timers)
+                    .before(animation::apply_state_animation),
                 animation::sync_death_state_from_health,
+                combat::play_hostile_death_quotes,
                 animation::tick_hit_state_timers,
                 animation::apply_state_animation,
                 combat::despawn_dead_entities,

@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use avian2d::prelude::SpatialQuery;
 use avian2d::prelude::SpatialQueryFilter;
+use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::math::Dir2;
 use bevy::prelude::*;
 
@@ -15,7 +16,10 @@ use crate::game::components::plasma::{PlasmaBeam, PLASMA_BEAM_HEIGHT, PLASMA_EXP
 use crate::game::components::SpawnedLevelEntity;
 use crate::AppState;
 
-use super::{GameViewEntity, PLAYER_INVINCIBILITY_SECONDS};
+use super::{GameViewEntity, LevelQuotes, PLAYER_INVINCIBILITY_SECONDS};
+
+#[derive(Component)]
+pub(super) struct DeathQuotePlayed;
 
 pub(super) fn tick_invincibility_timers(
     mut commands: Commands,
@@ -97,6 +101,49 @@ pub(super) fn despawn_dead_entities(
             info!("Entity {:?} died - despawning.", entity);
             commands.entity(entity).despawn_recursive();
         }
+    }
+}
+
+pub(super) fn play_hostile_death_quotes(
+    mut commands: Commands,
+    quotes: Option<Res<LevelQuotes>>,
+    dead_hostiles: Query<
+        (Entity, &Health),
+        (
+            With<Hostile>,
+            With<Npc>,
+            With<SpawnedLevelEntity>,
+            Without<DeathQuotePlayed>,
+        ),
+    >,
+) {
+    let Some(quotes) = quotes else {
+        return;
+    };
+
+    if quotes.clips.is_empty() {
+        return;
+    }
+
+    for (entity, health) in &dead_hostiles {
+        if !health.is_dead() {
+            continue;
+        }
+
+        let random_seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos() as usize)
+            .unwrap_or(0)
+            .wrapping_add(entity.index() as usize);
+        let index = random_seed % quotes.clips.len();
+        let quote_handle = quotes.clips[index].clone();
+
+        commands.spawn((
+            AudioPlayer::new(quote_handle),
+            PlaybackSettings::DESPAWN,
+            GameViewEntity,
+        ));
+        commands.entity(entity).insert(DeathQuotePlayed);
     }
 }
 
@@ -275,6 +322,45 @@ pub(super) fn return_to_main_menu(
 ) {
     if keys.just_pressed(KeyCode::Escape) {
         next_state.set(AppState::MainMenu);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_player_in_fight_while_owned_beam_exists() {
+        let mut app = App::new();
+        app.add_systems(Update, maintain_player_fight_state);
+
+        let player = app.world_mut().spawn((Player, AnimationState::default())).id();
+        app.world_mut()
+            .spawn(PlasmaBeam::new(player, 1.0, 100.0, None, 10));
+
+        app.update();
+
+        let state = app
+            .world()
+            .get::<AnimationState>(player)
+            .expect("player should have AnimationState");
+        assert_eq!(state.current, EntityState::Fight);
+    }
+
+    #[test]
+    fn leaves_player_state_when_no_beam_exists() {
+        let mut app = App::new();
+        app.add_systems(Update, maintain_player_fight_state);
+
+        let player = app.world_mut().spawn((Player, AnimationState::default())).id();
+
+        app.update();
+
+        let state = app
+            .world()
+            .get::<AnimationState>(player)
+            .expect("player should have AnimationState");
+        assert_eq!(state.current, EntityState::Default);
     }
 }
 

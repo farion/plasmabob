@@ -2,6 +2,14 @@
   "terrain": {
     "background": "assets/backgrounds/level1.png"
   },
+  "quotes": [
+    "assets/audio/quote1.ogg",
+    "assets/audio/quote2.ogg",
+    "assets/audio/quote3.ogg",
+    "assets/audio/quote4.ogg",
+    "assets/audio/quote5.ogg",
+    "assets/audio/quote6.ogg"
+  ],
   "music": "assets/music/level1.ogg",
   "bounds": {
     "width": 4584,
@@ -11,11 +19,12 @@
     "cockroach": {
       "component": ["collision", "npc", "hostile", "moving"],
       "disposition": "hostile",
+      "animation_frame_ms": 300,
       "health": 30,
       "damage": 10,
       "z_index": 10,
       "animations": {
-        "default": ["assets/cockroach/default1.png"],
+        "default": ["assets/cockroach/Schabe-Normal.png"],
         "walk": [],
         "jump": [],
         "die": [],
@@ -41,6 +50,7 @@
       "health": 100,
       "attack_range": 500,
       "damage": 25,
+      "animation_frame_ms": 180,
       "z_index": 20,
       "animations": {
         "default": ["assets/bob/Bob-Stand.png"],
@@ -51,7 +61,7 @@
         "fight": ["assets/bob/Bob-Fire.png"]
       },
       "hitbox": [[0, 72], [7, 2], [9, 0], [18, 0], [61, 3], [62, 4], [93, 48], [97, 59], [97, 61], [47, 121], [42, 126], [40, 127], [30, 127], [27, 126], [23, 124], [21, 122], [8, 106], [3, 97], [1, 93], [0, 77]],
-      "width": 98,
+      "width": 128,
       "height": 128
     }
   },

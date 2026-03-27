@@ -12,7 +12,7 @@ use crate::game::level::{
 use crate::LevelSelection;
 
 use super::{
-    ActiveLevelBounds, GameViewEntity, LEVEL_BOUNDARY_THICKNESS, TerrainBackgroundConfig,
+    ActiveLevelBounds, GameViewEntity, LEVEL_BOUNDARY_THICKNESS, LevelQuotes, TerrainBackgroundConfig,
     TerrainBackgroundReady,
 };
 
@@ -29,6 +29,7 @@ pub(super) fn setup_game_view(
 
     let (status_title, status_detail) = match load_level_from_asset_path(level_selection.asset_path()) {
         Ok(level_definition) => {
+            let mut quote_clips = Vec::new();
             let level_bounds = match level_definition.bounds_size() {
                 Some(bounds) if bounds.x > 0.0 && bounds.y > 0.0 => Some(bounds),
                 Some(bounds) => {
@@ -80,6 +81,39 @@ pub(super) fn setup_game_view(
                     GameViewEntity,
                 ));
             }
+
+            for quote_asset_path in level_definition.quote_asset_paths() {
+                let quote_filesystem_path = asset_path_to_filesystem_path(&quote_asset_path);
+
+                if !quote_asset_path.ends_with(".ogg") {
+                    warnings.push(format!(
+                        "Quote '{}' is invalid: only .ogg is supported",
+                        quote_asset_path
+                    ));
+                    continue;
+                }
+
+                if !quote_filesystem_path.exists() {
+                    warnings.push(format!(
+                        "Quote '{}' was not found at {}",
+                        quote_asset_path,
+                        quote_filesystem_path.display()
+                    ));
+                    continue;
+                }
+
+                if !is_supported_ogg_audio_file(&quote_filesystem_path) {
+                    warnings.push(format!(
+                        "Quote '{}' is not a supported OGG audio stream (expected Vorbis/Opus)",
+                        quote_asset_path
+                    ));
+                    continue;
+                }
+
+                quote_clips.push(asset_server.load(quote_asset_path));
+            }
+
+            commands.insert_resource(LevelQuotes { clips: quote_clips });
 
             if let Some(bounds) = active_level_bounds {
                 spawn_level_boundaries(&mut commands, bounds);

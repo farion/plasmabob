@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy::prelude::*;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +49,54 @@ impl AnimationState {
         self.current = next;
         self.version = self.version.saturating_add(1);
         true
+    }
+}
+
+pub(crate) const DEFAULT_ANIMATION_FRAME_SECONDS: f32 = 0.5;
+
+#[derive(Component, Debug, Clone)]
+pub(crate) struct AnimationPlayback {
+    pub(crate) state_version: u64,
+    pub(crate) frame_index: usize,
+    pub(crate) frame_elapsed: f32,
+    pub(crate) frame_duration_secs: f32,
+}
+
+impl Default for AnimationPlayback {
+    fn default() -> Self {
+        Self::new(DEFAULT_ANIMATION_FRAME_SECONDS)
+    }
+}
+
+impl AnimationPlayback {
+    pub(crate) fn new(frame_duration_secs: f32) -> Self {
+        Self {
+            state_version: 0,
+            frame_index: 0,
+            frame_elapsed: 0.0,
+            frame_duration_secs: frame_duration_secs.max(0.001),
+        }
+    }
+}
+
+#[derive(Component, Debug, Clone, Default)]
+pub(crate) struct PreloadedAnimations(pub(crate) HashMap<String, Vec<Handle<Image>>>);
+
+impl PreloadedAnimations {
+    pub(crate) fn from_paths(
+        asset_server: &AssetServer,
+        paths_by_state: &HashMap<String, Vec<String>>,
+    ) -> Self {
+        let mut handles = HashMap::with_capacity(paths_by_state.len());
+        for (state, paths) in paths_by_state {
+            let frames: Vec<Handle<Image>> = paths
+                .iter()
+                .filter(|path| !path.is_empty())
+                .map(|path| asset_server.load(path.to_string()))
+                .collect();
+            handles.insert(state.clone(), frames);
+        }
+        Self(handles)
     }
 }
 

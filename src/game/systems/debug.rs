@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::game::components::animation::AnimationState;
 use crate::game::components::health::{Damage, Health};
 use crate::game::components::hitbox::PolygonHitbox;
 use crate::game::components::player::PlasmaAttack;
@@ -14,7 +15,13 @@ pub(super) fn toggle_hitbox_debug_lines(
     mut debug_settings: ResMut<DebugRenderSettings>,
     label_query: Query<Entity, With<DebugStatsLabel>>,
     entity_query: Query<
-        (Entity, Option<&Health>, Option<&Damage>, Option<&PlasmaAttack>),
+        (
+            Entity,
+            Option<&Health>,
+            Option<&Damage>,
+            Option<&PlasmaAttack>,
+            Option<&AnimationState>,
+        ),
         With<SpawnedLevelEntity>,
     >,
 ) {
@@ -26,8 +33,8 @@ pub(super) fn toggle_hitbox_debug_lines(
 
     if debug_settings.show_hitbox_lines {
         // Spawn a stats label for each level entity that has at least one stat.
-        for (target, health, damage, plasma) in &entity_query {
-            let text = build_stats_text(health, damage, plasma);
+        for (target, health, damage, plasma, state) in &entity_query {
+            let text = build_stats_text(health, damage, plasma, state);
             if text.is_empty() {
                 continue;
             }
@@ -64,6 +71,7 @@ pub(super) fn update_debug_stats_labels(
         Option<&Health>,
         Option<&Damage>,
         Option<&PlasmaAttack>,
+        Option<&AnimationState>,
     )>,
 ) {
     if !debug_settings.show_hitbox_lines {
@@ -72,10 +80,10 @@ pub(super) fn update_debug_stats_labels(
 
     for (label_entity, label, mut transform, mut text) in &mut labels {
         match targets.get(label.target) {
-            Ok((target_transform, health, damage, plasma)) => {
+            Ok((target_transform, health, damage, plasma, state)) => {
                 let pos = target_transform.translation();
                 transform.translation = Vec3::new(pos.x, pos.y + 80.0, 100.0);
-                *text = Text2d::new(build_stats_text(health, damage, plasma));
+                *text = Text2d::new(build_stats_text(health, damage, plasma, state));
             }
             Err(_) => {
                 // Target entity was despawned - remove the dangling label.
@@ -90,6 +98,7 @@ fn build_stats_text(
     health: Option<&Health>,
     damage: Option<&Damage>,
     plasma: Option<&PlasmaAttack>,
+    state: Option<&AnimationState>,
 ) -> String {
     let mut parts: Vec<String> = Vec::new();
 
@@ -104,6 +113,10 @@ fn build_stats_text(
         parts.push(format!("DMG {}", p.damage));
     } else if let Some(dmg) = damage {
         parts.push(format!("DMG {}", dmg.0));
+    }
+
+    if let Some(state) = state {
+        parts.push(format!("STATE {}", state.current.animation_key()));
     }
 
     parts.join("\n")
@@ -155,6 +168,7 @@ pub(super) fn draw_hitbox_debug_lines(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::game::components::animation::EntityState;
 
     #[test]
     fn toggles_hitbox_debug_lines() {
@@ -168,6 +182,32 @@ mod tests {
 
         toggle_hitbox_lines(&mut settings);
         assert!(!settings.show_hitbox_lines);
+    }
+
+    #[test]
+    fn build_stats_text_includes_state_line() {
+        let state = AnimationState {
+            current: EntityState::Fight,
+            version: 0,
+        };
+
+        let text = build_stats_text(None, None, None, Some(&state));
+
+        assert_eq!(text, "STATE fight");
+    }
+
+    #[test]
+    fn build_stats_text_includes_state_with_other_stats() {
+        let health = Health { current: 7, max: 10 };
+        let state = AnimationState {
+            current: EntityState::Walk,
+            version: 3,
+        };
+
+        let text = build_stats_text(Some(&health), None, None, Some(&state));
+
+        assert!(text.contains("HP 7/10"));
+        assert!(text.contains("STATE walk"));
     }
 }
 

@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::game::components::SpawnedLevelEntity;
 use crate::MainCamera;
 
-use super::{ActiveLevelBounds, GameViewEntity};
+use super::{ActiveLevelBounds, GameViewEntity, LevelQuotes};
 
 pub(super) fn cleanup_game_view(
     mut commands: Commands,
@@ -12,6 +12,7 @@ pub(super) fn cleanup_game_view(
     level_entities: Query<Entity, With<SpawnedLevelEntity>>,
 ) {
     commands.remove_resource::<ActiveLevelBounds>();
+    commands.remove_resource::<LevelQuotes>();
 
     if let Ok(mut camera_transform) = cameras.get_single_mut() {
         camera_transform.translation.x = 0.0;
