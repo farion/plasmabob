@@ -28,7 +28,7 @@
   },
   "bob": {
     "component": ["collision", "player"],
-    "health": 10,
+    "health": 100,
     "attack_range": 500,
     "damage": 25,
     "animation_frame_ms": 180,
