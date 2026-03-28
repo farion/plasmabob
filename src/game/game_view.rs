@@ -7,6 +7,8 @@ mod camera;
 mod cleanup;
 #[path = "systems/combat.rs"]
 mod combat;
+#[path = "systems/hud.rs"]
+mod hud;
 #[path = "systems/debug.rs"]
 mod debug;
 #[path = "systems/animation.rs"]
@@ -92,9 +94,11 @@ impl Plugin for GameViewPlugin {
                 setup::setup_game_view,
                 camera::snap_camera_to_player,
                 player::configure_player_controller,
+                hud::spawn_player_health_hud,       // ← aus main
             )
                 .chain(),
         )
+        // --- Block 1: Input / Physik / Kampf ---
         .add_systems(
             Update,
             (
@@ -121,10 +125,12 @@ impl Plugin for GameViewPlugin {
             )
                 .run_if(in_state(crate::AppState::GameView)),
         )
+        // --- Block 2: Animation / UI / Debug / Zustandsübergänge ---
         .add_systems(
             Update,
             (
                 animation::sync_death_state_from_health,
+                combat::disable_dead_npc_collisions,   // ← aus main
                 combat::play_hostile_death_quotes,
                 animation::tick_hit_state_timers,
                 animation::apply_state_animation,
@@ -133,7 +139,12 @@ impl Plugin for GameViewPlugin {
                 debug::update_debug_stats_labels,
                 debug::toggle_debug_overlay,
                 debug::draw_hitbox_debug_lines,
-                combat::return_to_main_menu,
+                hud::update_player_health_hud,          // ← aus main
+                (
+                    combat::detect_player_defeated,     // ← aus main
+                    combat::detect_player_reached_exit, // ← aus main
+                    combat::return_to_main_menu,
+                ),
             )
                 .run_if(in_state(crate::AppState::GameView)),
         )
@@ -144,5 +155,4 @@ impl Plugin for GameViewPlugin {
         .add_systems(OnExit(crate::AppState::GameView), cleanup::cleanup_game_view);
     }
 }
-
 

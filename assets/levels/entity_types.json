@@ -6,14 +6,14 @@
     "health": 30,
     "damage": 10,
     "animations": {
-      "default": ["assets/cockroach/Schabe-Normal.png"],
-      "walk": [],
+      "default": ["assets/cockroach/cockroach-stand.png"],
+      "walk": ["assets/cockroach/cockroach-walk-1.png", "assets/cockroach/cockroach-walk-2.png"],
       "jump": [],
-      "die": [],
-      "hit": [],
-      "fight": []
+      "die": ["assets/cockroach/cockroach-dead.png"],
+      "hit": ["assets/cockroach/cockroach-hit.png"],
+      "fight": ["assets/cockroack/cockroach-attack.png"]
     },
-    "hitbox": [[1, 3], [11, 1], [34, 0], [81, 0], [104, 1], [113, 2], [118, 3], [129, 48], [129, 60], [128, 63], [101, 115], [98, 119], [91, 125], [89, 126], [86, 127], [55, 127], [50, 126], [40, 121], [37, 118], [4, 50], [1, 4]],
+    "hitbox": [[13, 47], [18, 6], [19, 5], [30, 5], [108, 6], [114, 7], [115, 8], [136, 42], [138, 46], [138, 55], [126, 95], [121, 106], [114, 113], [110, 116], [108, 117], [102, 119], [92, 119], [64, 118], [54, 113], [51, 111], [50, 110], [13, 49]],
     "width": 130,
     "height": 128
   },
@@ -22,9 +22,41 @@
     "animations": {
       "default": ["assets/ground/street.png"]
     },
-    "hitbox": [[0, 0], [1583, 0], [1583, 170], [0, 170]],
-    "width": 1584,
+    "hitbox": [[0, 0], [1629, 0], [1629, 153], [0, 153]],
+    "width": 1629,
     "height": 181
+  },
+  "flora1": {
+    "component": ["doodad"],
+    "animations": {
+      "default": ["assets/doodads/flora1.png"]
+    },
+    "width": 217,
+    "height": 100
+  },
+  "flora2": {
+    "component": ["doodad"],
+    "animations": {
+      "default": ["assets/doodads/flora2.png"]
+    },
+    "width": 130,
+    "height": 80
+  },
+  "runestone1": {
+    "component": ["doodad"],
+    "animations": {
+      "default": ["assets/doodads/runestone1.png"]
+    },
+    "width": 51,
+    "height": 128
+  },
+  "exit": {
+    "component": ["collision", "exit"],
+    "animations": {
+      "default": ["assets/portal/exit.png"]
+    },
+    "width": 130,
+    "height": 128
   },
   "bob": {
     "component": ["collision", "player"],

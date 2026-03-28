@@ -7,6 +7,7 @@ use crate::game::level::{EntityDefinition, EntityTypeDefinition, asset_path_to_f
 
 pub(crate) mod collision;
 pub(crate) mod doodad;
+pub(crate) mod exit;
 pub(crate) mod floor;
 pub(crate) mod health;
 pub(crate) mod hostile;
@@ -71,6 +72,7 @@ pub(crate) fn spawn_entity(
                 collision::insert(&mut entity)
             }
             "doodad" => doodad::insert(&mut entity),
+            "exit" => exit::insert(&mut entity),
             "floor" => floor::insert(&mut entity),
             "npc" => npc::insert(&mut entity),
             "hostile" => hostile::insert(&mut entity),

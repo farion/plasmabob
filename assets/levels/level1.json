@@ -12,45 +12,381 @@
   ],
   "music": "assets/music/level1.ogg",
   "bounds": {
-    "width": 4584,
+    "width": 4800,
     "height": 1024
   },
   "entity_types_path": "entity_types.json",
   "entities": [
     {
+      "id": "doodad_flora1_01",
+      "entity_type": "flora1",
+      "x": 80,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora2_01",
+      "entity_type": "flora2",
+      "x": 220,
+      "y": 170,
+      "z_index": 50
+    },
+    {
+      "id": "doodad_runestone1_01",
+      "entity_type": "runestone1",
+      "x": 360,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora1_02",
+      "entity_type": "flora1",
+      "x": 520,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora2_02",
+      "entity_type": "flora2",
+      "x": 700,
+      "y": 170,
+      "z_index": 50
+    },
+    {
+      "id": "doodad_runestone1_02",
+      "entity_type": "runestone1",
+      "x": 860,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora1_03",
+      "entity_type": "flora1",
+      "x": 1020,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora2_03",
+      "entity_type": "flora2",
+      "x": 1180,
+      "y": 170,
+      "z_index": 50
+    },
+    {
+      "id": "doodad_runestone1_03",
+      "entity_type": "runestone1",
+      "x": 1340,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora1_04",
+      "entity_type": "flora1",
+      "x": 1500,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora2_04",
+      "entity_type": "flora2",
+      "x": 1680,
+      "y": 170,
+      "z_index": 50
+    },
+    {
+      "id": "doodad_runestone1_04",
+      "entity_type": "runestone1",
+      "x": 1840,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora1_05",
+      "entity_type": "flora1",
+      "x": 2020,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora2_05",
+      "entity_type": "flora2",
+      "x": 2190,
+      "y": 170,
+      "z_index": 50
+    },
+    {
+      "id": "doodad_runestone1_05",
+      "entity_type": "runestone1",
+      "x": 2360,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora1_06",
+      "entity_type": "flora1",
+      "x": 2540,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora2_06",
+      "entity_type": "flora2",
+      "x": 2720,
+      "y": 170,
+      "z_index": 50
+    },
+    {
+      "id": "doodad_runestone1_06",
+      "entity_type": "runestone1",
+      "x": 2890,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora1_07",
+      "entity_type": "flora1",
+      "x": 3070,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora2_07",
+      "entity_type": "flora2",
+      "x": 3240,
+      "y": 170,
+      "z_index": 50
+    },
+    {
+      "id": "doodad_runestone1_07",
+      "entity_type": "runestone1",
+      "x": 3410,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora1_08",
+      "entity_type": "flora1",
+      "x": 3590,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora2_08",
+      "entity_type": "flora2",
+      "x": 3760,
+      "y": 170,
+      "z_index": 50
+    },
+    {
+      "id": "doodad_runestone1_08",
+      "entity_type": "runestone1",
+      "x": 3930,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora1_09",
+      "entity_type": "flora1",
+      "x": 4110,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora2_09",
+      "entity_type": "flora2",
+      "x": 4280,
+      "y": 170,
+      "z_index": 50
+    },
+    {
+      "id": "doodad_runestone1_09",
+      "entity_type": "runestone1",
+      "x": 4450,
+      "y": 0,
+      "z_index": 150
+    },
+    {
+      "id": "doodad_flora1_10",
+      "entity_type": "flora1",
+      "x": 4620,
+      "y": 0,
+      "z_index": 150
+    },
+    {
       "id": "street1",
       "entity_type": "street",
       "x": 0,
       "y": 0,
-      "z_index": 1
+      "z_index": 98
+    },
+    {
+      "id": "street2",
+      "entity_type": "street",
+      "x": 1629,
+      "y": 0,
+      "z_index": 98
+    },
+    {
+      "id": "street3",
+      "entity_type": "street",
+      "x": 3258,
+      "y": 0,
+      "z_index": 98
+    },
+    {
+      "id": "street4",
+      "entity_type": "street",
+      "x": 4887,
+      "y": 0,
+      "z_index": 98
+    },
+    {
+      "id": "exit",
+      "entity_type": "exit",
+      "x": 4500,
+      "y": 181,
+      "z_index": 99
     },
     {
       "id": "cockroach1",
       "entity_type": "cockroach",
       "x": 500,
       "y": 181,
-      "z_index": 10
+      "z_index": 100
     },
     {
       "id": "cockroach2",
       "entity_type": "cockroach",
       "x": 550,
       "y": 181,
-      "z_index": 10
+      "z_index": 100
     },
     {
       "id": "cockroach3",
       "entity_type": "cockroach",
       "x": 600,
       "y": 181,
-      "z_index": 10
+      "z_index": 100
+    },
+    {
+      "id": "cockroach4",
+      "entity_type": "cockroach",
+      "x": 850,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach5",
+      "entity_type": "cockroach",
+      "x": 1100,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach6",
+      "entity_type": "cockroach",
+      "x": 1350,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach7",
+      "entity_type": "cockroach",
+      "x": 1600,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach8",
+      "entity_type": "cockroach",
+      "x": 1850,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach9",
+      "entity_type": "cockroach",
+      "x": 2100,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach10",
+      "entity_type": "cockroach",
+      "x": 2350,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach11",
+      "entity_type": "cockroach",
+      "x": 2600,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach12",
+      "entity_type": "cockroach",
+      "x": 2850,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach13",
+      "entity_type": "cockroach",
+      "x": 3100,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach14",
+      "entity_type": "cockroach",
+      "x": 3350,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach15",
+      "entity_type": "cockroach",
+      "x": 3600,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach16",
+      "entity_type": "cockroach",
+      "x": 3850,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach17",
+      "entity_type": "cockroach",
+      "x": 4100,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach18",
+      "entity_type": "cockroach",
+      "x": 4350,
+      "y": 181,
+      "z_index": 100
+    },
+    {
+      "id": "cockroach19",
+      "entity_type": "cockroach",
+      "x": 4650,
+      "y": 181,
+      "z_index": 100
     },
     {
       "id": "player",
       "entity_type": "bob",
       "x": 10,
       "y": 181,
-      "z_index": 20
+      "z_index": 101
     }
   ]
 }
