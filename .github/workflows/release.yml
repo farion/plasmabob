@@ -65,7 +65,7 @@ jobs:
 
   build-macos:
     name: Build (macos-arm)
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -76,10 +76,7 @@ jobs:
           override: true
 
       - name: Build release (macos)
-        run: |
-          # Attempt to build natively on the macOS runner. If the runner is arm64
-          # this will produce an aarch64-apple-darwin binary as requested.
-          cargo build --release
+        run: cargo build --release
 
       - name: Package (tar.gz)
         run: |
