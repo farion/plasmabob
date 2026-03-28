@@ -17,6 +17,8 @@ mod animation;
 mod npc;
 #[path = "systems/player.rs"]
 mod player;
+#[path = "systems/ragdoll.rs"]
+mod ragdoll;
 #[path = "systems/setup.rs"]
 mod setup;
 
@@ -85,16 +87,18 @@ impl ActiveLevelBounds {
 
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.add_event::<crate::game::components::ragdoll::PlayerDiedEvent>()
+            .add_systems(
             OnEnter(crate::AppState::GameView),
             (
                 setup::setup_game_view,
                 camera::snap_camera_to_player,
                 player::configure_player_controller,
-                hud::spawn_player_health_hud,
+                hud::spawn_player_health_hud,       // ← aus main
             )
                 .chain(),
         )
+        // --- Block 1: Input / Physik / Kampf ---
         .add_systems(
             Update,
             (
@@ -107,6 +111,8 @@ impl Plugin for GameViewPlugin {
                 npc::control_moving_entities,
                 combat::tick_invincibility_timers,
                 combat::apply_hostile_contact_damage,
+                ragdoll::spawn_ragdoll.after(combat::apply_hostile_contact_damage),
+                ragdoll::update_ragdoll_parts,
                 combat::shoot_plasma.before(combat::update_plasma_beams),
                 (
                     combat::update_plasma_beams,
@@ -116,22 +122,27 @@ impl Plugin for GameViewPlugin {
                     .chain()
                     .before(animation::tick_hit_state_timers)
                     .before(animation::apply_state_animation),
-                (
-                    animation::sync_death_state_from_health,
-                    combat::disable_dead_npc_collisions,
-                    combat::play_hostile_death_quotes,
-                    animation::tick_hit_state_timers,
-                    animation::apply_state_animation,
-                    combat::despawn_dead_entities,
-                ),
+            )
+                .run_if(in_state(crate::AppState::GameView)),
+        )
+        // --- Block 2: Animation / UI / Debug / Zustandsübergänge ---
+        .add_systems(
+            Update,
+            (
+                animation::sync_death_state_from_health,
+                combat::disable_dead_npc_collisions,   // ← aus main
+                combat::play_hostile_death_quotes,
+                animation::tick_hit_state_timers,
+                animation::apply_state_animation,
+                combat::despawn_dead_entities,
                 debug::toggle_hitbox_debug_lines,
                 debug::update_debug_stats_labels,
                 debug::toggle_debug_overlay,
                 debug::draw_hitbox_debug_lines,
-                hud::update_player_health_hud,
+                hud::update_player_health_hud,          // ← aus main
                 (
-                    combat::detect_player_defeated,
-                    combat::detect_player_reached_exit,
+                    combat::detect_player_defeated,     // ← aus main
+                    combat::detect_player_reached_exit, // ← aus main
                     combat::return_to_main_menu,
                 ),
             )
@@ -144,5 +155,4 @@ impl Plugin for GameViewPlugin {
         .add_systems(OnExit(crate::AppState::GameView), cleanup::cleanup_game_view);
     }
 }
-
 

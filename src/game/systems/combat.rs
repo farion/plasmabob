@@ -21,6 +21,7 @@ use crate::game::components::plasma::{
     PLASMA_IMPACT_LIFETIME_SECS, PLASMA_IMPACT_MAX_SPEED, PLASMA_IMPACT_MIN_SPEED,
     PLASMA_IMPACT_PARTICLE_COUNT, PLASMA_ORIGIN_HEIGHT_RATIO_FROM_BOTTOM, PLASMA_Z,
 };
+use crate::game::components::ragdoll::{PlayerDiedEvent, RagdollActive};
 use crate::game::components::SpawnedLevelEntity;
 use crate::audio_settings::AudioSettings;
 use crate::AppState;
@@ -64,6 +65,7 @@ pub(super) fn tick_invincibility_timers(
 pub(super) fn apply_hostile_contact_damage(
     mut commands: Commands,
     hostile_query: Query<(&Damage, Option<&Health>), (With<Hostile>, Without<Player>)>,
+    hostile_transforms: Query<&Transform, (With<Hostile>, Without<Player>)>,
     mut hostile_states: Query<
         (&mut AnimationState, Option<&HitStateTimer>),
         (With<Hostile>, Without<Player>),
@@ -74,11 +76,13 @@ pub(super) fn apply_hostile_contact_damage(
             &avian2d::prelude::CollidingEntities,
             &mut Health,
             &mut AnimationState,
+            &Transform,
         ),
-        (With<Player>, Without<InvincibilityTimer>, Without<Hostile>),
+        (With<Player>, Without<InvincibilityTimer>, Without<Hostile>, Without<RagdollActive>),
     >,
+    mut player_died: EventWriter<PlayerDiedEvent>,
 ) {
-    for (player_entity, colliding_entities, mut health, mut player_state) in &mut player_query {
+    for (player_entity, colliding_entities, mut health, mut player_state, player_transform) in &mut player_query {
         if health.is_dead() {
             continue;
         }
@@ -99,6 +103,20 @@ pub(super) fn apply_hostile_contact_damage(
                     commands
                         .entity(player_entity)
                         .insert(HitStateTimer::new(HIT_STATE_SECONDS, player_state.version));
+                } else {
+                    // Bob just died — fire ragdoll event.
+                    let killer_pos = hostile_transforms
+                        .get(colliding_entity)
+                        .ok()
+                        .map(|t| t.translation.xy());
+
+                    player_died.send(PlayerDiedEvent {
+                        player_position: player_transform.translation.xy(),
+                        killer_position: killer_pos,
+                    });
+
+                    // Prevent duplicate events in subsequent frames.
+                    commands.entity(player_entity).insert(RagdollActive);
                 }
 
                 if let Ok((mut hostile_state, hostile_hit_timer)) = hostile_states.get_mut(colliding_entity)
