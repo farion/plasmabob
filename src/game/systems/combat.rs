@@ -21,11 +21,11 @@ use crate::game::components::plasma::{
     PLASMA_IMPACT_LIFETIME_SECS, PLASMA_IMPACT_MAX_SPEED, PLASMA_IMPACT_MIN_SPEED,
     PLASMA_IMPACT_PARTICLE_COUNT, PLASMA_ORIGIN_HEIGHT_RATIO_FROM_BOTTOM, PLASMA_Z,
 };
-use crate::game::components::SpawnedLevelEntity;
+use crate::game::components::{LevelEntityType, SpawnedLevelEntity};
 use crate::audio_settings::AudioSettings;
 use crate::AppState;
 
-use super::{GameViewEntity, LevelQuotes, PLAYER_INVINCIBILITY_SECONDS};
+use super::{CombatSoundEffects, GameViewEntity, LevelQuotes, PLAYER_INVINCIBILITY_SECONDS};
 
 #[derive(Component)]
 pub(super) struct DeathQuotePlayed;
@@ -136,7 +136,7 @@ pub(super) fn play_hostile_death_quotes(
     time: Res<Time>,
     audio_settings: Res<AudioSettings>,
     quotes: Option<Res<LevelQuotes>>,
-    mut cooldown: ResMut<super::QuoteCooldown>,
+    cooldown: Option<ResMut<super::QuoteCooldown>>,
     dead_hostiles: Query<
         (Entity, &Health),
         (
@@ -154,6 +154,11 @@ pub(super) fn play_hostile_death_quotes(
     if quotes.clips.is_empty() {
         return;
     }
+
+    let Some(mut cooldown) = cooldown else {
+        // If the cooldown resource isn't present, skip playing quotes to avoid panics.
+        return;
+    };
 
     cooldown.0.tick(time.delta());
 
@@ -197,6 +202,8 @@ pub(super) fn shoot_plasma(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
+    audio_settings: Res<AudioSettings>,
+    combat_sfx: Option<Res<CombatSoundEffects>>,
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
     spatial_query: SpatialQuery,
@@ -316,6 +323,18 @@ pub(super) fn shoot_plasma(
             "Plasma beam fired: dir={} max_length={:.0} target={:?}",
             direction, max_length, target_entity
         );
+
+        if let Some(combat_sfx) = combat_sfx.as_ref() {
+            commands.spawn((
+                AudioPlayer::new(combat_sfx.plasma_shot.clone()),
+                PlaybackSettings {
+                    mode: bevy::audio::PlaybackMode::Despawn,
+                    volume: bevy::audio::Volume::new(audio_settings.effects_volume),
+                    ..default()
+                },
+                GameViewEntity,
+            ));
+        }
     }
 }
 
@@ -323,6 +342,8 @@ pub(super) fn shoot_plasma(
 pub(super) fn update_plasma_beams(
     mut commands: Commands,
     time: Res<Time>,
+    audio_settings: Res<AudioSettings>,
+    combat_sfx: Option<Res<CombatSoundEffects>>,
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
     mut beams: Query<(Entity, &mut PlasmaBeam, &mut Transform, &Children), Without<Player>>,
@@ -334,7 +355,7 @@ pub(super) fn update_plasma_beams(
         (&PlasmaBeamParticle, &mut Transform, &mut Sprite),
         (Without<Player>, Without<PlasmaBeam>),
     >,
-    mut health_query: Query<(Entity, &mut Health, &mut AnimationState), With<Hostile>>,
+    mut health_query: Query<(Entity, &mut Health, &mut AnimationState, &LevelEntityType), With<Hostile>>,
 ) {
     let particle_image = ensure_plasma_particle_image(&mut plasma_particle_image, &mut images);
 
@@ -377,12 +398,15 @@ pub(super) fn update_plasma_beams(
 
                 if !beam.damage_applied {
                     if let Some(target) = beam.target_entity {
-                        if let Ok((target_entity, mut health, mut state)) = health_query.get_mut(target) {
+                        if let Ok((target_entity, mut health, mut state, level_entity_type)) =
+                            health_query.get_mut(target)
+                        {
                             if health.is_dead() {
                                 beam.damage_applied = true;
                                 continue;
                             }
 
+                            let was_alive = !health.is_dead();
                             health.take_damage(beam.damage);
                             beam.damage_applied = true;
 
@@ -392,6 +416,26 @@ pub(super) fn update_plasma_beams(
                                     HIT_STATE_SECONDS,
                                     state.version,
                                 ));
+                            }
+
+                            if was_alive && level_entity_type.0 == "cockroach" {
+                                if let Some(combat_sfx) = combat_sfx.as_ref() {
+                                    let sound = if health.is_dead() {
+                                        combat_sfx.cockroach_die.clone()
+                                    } else {
+                                        combat_sfx.plasma_hit.clone()
+                                    };
+
+                                    commands.spawn((
+                                        AudioPlayer::new(sound),
+                                        PlaybackSettings {
+                                            mode: bevy::audio::PlaybackMode::Despawn,
+                                            volume: bevy::audio::Volume::new(audio_settings.effects_volume),
+                                            ..default()
+                                        },
+                                        GameViewEntity,
+                                    ));
+                                }
                             }
 
                             info!(

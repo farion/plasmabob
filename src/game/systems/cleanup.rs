@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::game::components::SpawnedLevelEntity;
 use crate::MainCamera;
 
-use super::{ActiveLevelBounds, GameViewEntity, LevelQuotes, QuoteCooldown};
+use super::{ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LevelQuotes, QuoteCooldown};
 
 pub(super) fn cleanup_game_view(
     mut commands: Commands,
@@ -13,6 +13,7 @@ pub(super) fn cleanup_game_view(
 ) {
     commands.remove_resource::<ActiveLevelBounds>();
     commands.remove_resource::<LevelQuotes>();
+    commands.remove_resource::<CombatSoundEffects>();
     commands.remove_resource::<QuoteCooldown>();
 
     if let Ok(mut camera_transform) = cameras.get_single_mut() {

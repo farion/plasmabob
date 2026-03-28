@@ -1,3 +1,4 @@
+use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use avian2d::{math::Vector, prelude::{Gravity, PhysicsPlugins}};
@@ -149,10 +150,20 @@ fn setup_camera(mut commands: Commands) {
 fn setup_main_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    audio_settings: Res<AudioSettings>,
     mut selection: ResMut<MenuSelection>,
 ) {
     selection.index = 0;
 
+    commands.spawn((
+        AudioPlayer::new(asset_server.load("music/start.ogg")),
+        PlaybackSettings {
+            mode: bevy::audio::PlaybackMode::Loop,
+            volume: bevy::audio::Volume::new(audio_settings.music_volume),
+            ..default()
+        },
+        MainMenuEntity,
+    ));
 
     commands.spawn((
         Sprite::from_image(asset_server.load("start.png")),

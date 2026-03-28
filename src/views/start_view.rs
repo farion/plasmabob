@@ -81,4 +81,3 @@ fn cleanup_start_view(mut commands: Commands, entities: Query<Entity, With<Start
         commands.entity(entity).despawn_recursive();
     }
 }
-

@@ -67,6 +67,13 @@ struct LevelQuotes {
     clips: Vec<Handle<AudioSource>>,
 }
 
+#[derive(Resource, Clone)]
+struct CombatSoundEffects {
+    plasma_shot: Handle<AudioSource>,
+    plasma_hit: Handle<AudioSource>,
+    cockroach_die: Handle<AudioSource>,
+}
+
 #[derive(Resource)]
 struct QuoteCooldown(Timer);
 

@@ -12,8 +12,8 @@ use crate::audio_settings::AudioSettings;
 use crate::LevelSelection;
 
 use super::{
-    ActiveLevelBounds, GameViewEntity, LEVEL_BOUNDARY_THICKNESS, LevelQuotes, TerrainBackgroundConfig,
-    TerrainBackgroundReady,
+    ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LEVEL_BOUNDARY_THICKNESS, LevelQuotes,
+    TerrainBackgroundConfig, TerrainBackgroundReady, QuoteCooldown,
 };
 
 pub(super) fn setup_game_view(
@@ -89,6 +89,14 @@ pub(super) fn setup_game_view(
             }
 
             commands.insert_resource(LevelQuotes { clips: quote_clips });
+            commands.insert_resource(CombatSoundEffects {
+                plasma_shot: asset_server.load("audio/plasma-shot.ogg"),
+                plasma_hit: asset_server.load("audio/plasma-hit.ogg"),
+                cockroach_die: asset_server.load("audio/cockroach-die.ogg"),
+            });
+            // Ensure the quote cooldown is reset when a level is (re)loaded so
+            // death quotes can play immediately according to the default timer.
+            commands.insert_resource(QuoteCooldown::default());
 
             if let Some(bounds) = active_level_bounds {
                 spawn_level_boundaries(&mut commands, bounds);
