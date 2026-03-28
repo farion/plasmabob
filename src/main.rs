@@ -84,6 +84,9 @@ impl LevelSelection {
 struct MainMenuEntity;
 
 #[derive(Component)]
+struct MenuMusicEntity;
+
+#[derive(Component)]
 struct MenuButton {
     index: usize,
     action: MenuAction,
@@ -128,6 +131,7 @@ fn main() {
         .add_systems(Startup, setup_camera)
         .add_plugins(views::ViewsPlugin)
         .add_systems(OnEnter(AppState::MainMenu), setup_main_menu)
+        .add_systems(OnEnter(AppState::StartView), stop_menu_music)
         .add_systems(OnExit(AppState::MainMenu), cleanup_main_menu)
         .add_systems(
             Update,
@@ -162,7 +166,7 @@ fn setup_main_menu(
             volume: bevy::audio::Volume::new(audio_settings.music_volume),
             ..default()
         },
-        MainMenuEntity,
+        MenuMusicEntity,
     ));
 
     commands.spawn((
@@ -221,6 +225,12 @@ fn setup_main_menu(
 
 fn cleanup_main_menu(mut commands: Commands, entities: Query<Entity, With<MainMenuEntity>>) {
     for entity in &entities {
+        commands.entity(entity).despawn_recursive();
+    }
+}
+
+fn stop_menu_music(mut commands: Commands, music_entities: Query<Entity, With<MenuMusicEntity>>) {
+    for entity in &music_entities {
         commands.entity(entity).despawn_recursive();
     }
 }
