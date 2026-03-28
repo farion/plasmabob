@@ -9,11 +9,11 @@ Have Fun!
 ## Screenshot
 
 ### Startscreen
-[![Screenshot](startscreen.png)](startscreen.png)
+[![Screenshot](startscreen.jpg)](startscreen.jpg)
 
 ### Gameplay
 
-[![Screenshot](gameplay.png)](gameplay.png)
+[![Screenshot](gameplay.jpg)](gameplay.jpg)
 
 ## Tool Usage
 
