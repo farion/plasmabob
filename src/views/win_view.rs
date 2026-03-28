@@ -35,7 +35,7 @@ fn setup_win_view(mut commands: Commands) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("You Win!"),
+                Text::new("PlasmaBob Level 1 - You Win!"),
                 TextFont {
                     font_size: 56.0,
                     ..default()

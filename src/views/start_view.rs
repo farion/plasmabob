@@ -35,7 +35,7 @@ fn setup_start_view(mut commands: Commands) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("Start View"),
+                Text::new("PlasmaBob Level 1 - Get Ready!"),
                 TextFont {
                     font_size: 56.0,
                     ..default()

@@ -39,7 +39,8 @@ jobs:
         run: |
           mkdir -p dist
           cp target/release/PlasmaBob dist/PlasmaBob
-          tar -C dist -czf PlasmaBob-${{ github.ref_name }}-linux.tar.gz PlasmaBob
+          cp -r assets dist/assets
+          tar -C dist -czf PlasmaBob-${{ github.ref_name }}-linux.tar.gz PlasmaBob assets
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -68,7 +69,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path dist | Out-Null
           Copy-Item -Path target\release\PlasmaBob.exe -Destination dist\PlasmaBob.exe
-          Compress-Archive -Path dist\PlasmaBob.exe -DestinationPath PlasmaBob-${{ github.ref_name }}-windows.zip
+          Copy-Item -Path assets -Destination dist\assets -Recurse -Force
+          Compress-Archive -Path dist\PlasmaBob.exe, dist\assets -DestinationPath PlasmaBob-${{ github.ref_name }}-windows.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -95,7 +97,8 @@ jobs:
         run: |
           mkdir -p dist
           cp target/release/PlasmaBob dist/PlasmaBob
-          tar -C dist -czf PlasmaBob-${{ github.ref_name }}-macos-aarch64.tar.gz PlasmaBob
+          cp -r assets dist/assets
+          tar -C dist -czf PlasmaBob-${{ github.ref_name }}-macos-aarch64.tar.gz PlasmaBob assets
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

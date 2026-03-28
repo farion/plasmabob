@@ -35,7 +35,7 @@ fn setup_lose_view(mut commands: Commands) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("You Lost!"),
+                Text::new("PlasmaBob Level 1 - You Lost!"),
                 TextFont {
                     font_size: 56.0,
                     ..default()
