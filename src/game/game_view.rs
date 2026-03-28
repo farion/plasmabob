@@ -15,6 +15,8 @@ mod animation;
 mod npc;
 #[path = "systems/player.rs"]
 mod player;
+#[path = "systems/ragdoll.rs"]
+mod ragdoll;
 #[path = "systems/setup.rs"]
 mod setup;
 
@@ -83,7 +85,8 @@ impl ActiveLevelBounds {
 
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
+        app.add_event::<crate::game::components::ragdoll::PlayerDiedEvent>()
+            .add_systems(
             OnEnter(crate::AppState::GameView),
             (
                 setup::setup_game_view,
@@ -104,6 +107,8 @@ impl Plugin for GameViewPlugin {
                 npc::control_moving_entities,
                 combat::tick_invincibility_timers,
                 combat::apply_hostile_contact_damage,
+                ragdoll::spawn_ragdoll.after(combat::apply_hostile_contact_damage),
+                ragdoll::update_ragdoll_parts,
                 combat::shoot_plasma.before(combat::update_plasma_beams),
                 (
                     combat::update_plasma_beams,
@@ -113,6 +118,12 @@ impl Plugin for GameViewPlugin {
                     .chain()
                     .before(animation::tick_hit_state_timers)
                     .before(animation::apply_state_animation),
+            )
+                .run_if(in_state(crate::AppState::GameView)),
+        )
+        .add_systems(
+            Update,
+            (
                 animation::sync_death_state_from_health,
                 combat::play_hostile_death_quotes,
                 animation::tick_hit_state_timers,
