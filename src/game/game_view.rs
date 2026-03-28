@@ -17,6 +17,8 @@ mod animation;
 mod npc;
 #[path = "systems/player.rs"]
 mod player;
+#[path = "systems/parallax.rs"]
+mod parallax;
 #[path = "systems/setup.rs"]
 mod setup;
 
@@ -65,6 +67,18 @@ struct LevelQuotes {
     clips: Vec<Handle<AudioSource>>,
 }
 
+#[derive(Resource)]
+struct QuoteCooldown(Timer);
+
+impl Default for QuoteCooldown {
+    fn default() -> Self {
+        let mut timer = Timer::from_seconds(8.0, TimerMode::Once);
+        // Start already finished so the first quote can play immediately.
+        timer.tick(std::time::Duration::from_secs(8));
+        Self(timer)
+    }
+}
+
 impl ActiveLevelBounds {
     fn from_window_and_level_size(window_size: Vec2, level_size: Vec2) -> Self {
         let left = -(window_size.x * 0.5);
@@ -95,10 +109,12 @@ impl Plugin for GameViewPlugin {
             )
                 .chain(),
         )
+        .init_resource::<QuoteCooldown>()
         .add_systems(
             Update,
             (
                 setup::spawn_terrain_background_tiles,
+                parallax::attach_parallax_anchors,
                 player::update_grounded,
                 player::update_dust_particles,
                 (player::control_player, player::sync_player_hitbox_orientation)
@@ -139,7 +155,12 @@ impl Plugin for GameViewPlugin {
         )
         .add_systems(
             PostUpdate,
-            camera::follow_player_with_camera.run_if(in_state(crate::AppState::GameView)),
+            (
+                camera::follow_player_with_camera,
+                parallax::apply_parallax_from_camera,
+            )
+                .chain()
+                .run_if(in_state(crate::AppState::GameView)),
         )
         .add_systems(OnExit(crate::AppState::GameView), cleanup::cleanup_game_view);
     }

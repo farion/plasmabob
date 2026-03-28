@@ -19,6 +19,35 @@ pub(crate) struct LevelDefinition {
     pub(crate) entities: Vec<EntityDefinition>,
 }
 
+#[derive(Resource, Debug, Clone)]
+pub(crate) struct CachedLevelDefinition {
+    asset_path: String,
+    loaded_level: Result<LevelDefinition, String>,
+}
+
+impl CachedLevelDefinition {
+    pub(crate) fn preload(asset_path: &str) -> Self {
+        let normalized_asset_path = normalize_asset_reference(asset_path);
+        let loaded_level = load_level_from_asset_path(&normalized_asset_path)
+            .map_err(|error| error.to_string());
+
+        Self {
+            asset_path: normalized_asset_path,
+            loaded_level,
+        }
+    }
+
+    pub(crate) fn asset_path(&self) -> &str {
+        &self.asset_path
+    }
+
+    pub(crate) fn level_definition(&self) -> Result<&LevelDefinition, &str> {
+        self.loaded_level
+            .as_ref()
+            .map_err(|error| error.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 struct RawLevelDefinition {
     terrain: TerrainDefinition,

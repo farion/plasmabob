@@ -3,7 +3,7 @@ use bevy::prelude::*;
 /// Speed at which the plasma beam expands, in world-space pixels per second.
 pub(crate) const PLASMA_EXPAND_SPEED: f32 = 2400.0;
 /// Z-index for plasma beams (above floor/NPCs, below player).
-pub(crate) const PLASMA_Z: f32 = 15.0;
+pub(crate) const PLASMA_Z: f32 = 101.0;
 /// Vertical start point of the beam measured from the entity's bottom edge (0.0..=1.0).
 pub(crate) const PLASMA_ORIGIN_HEIGHT_RATIO_FROM_BOTTOM: f32 = 0.7;
 /// Number of particles used to visualize a single plasma beam.

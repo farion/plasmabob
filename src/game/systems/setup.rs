@@ -6,8 +6,7 @@ use bevy::window::PrimaryWindow;
 
 use crate::game::components::{self, SpawnedLevelEntity};
 use crate::game::level::{
-    asset_path_to_filesystem_path, bottom_left_to_world, clamp_level_position,
-    load_level_from_asset_path,
+    bottom_left_to_world, clamp_level_position, CachedLevelDefinition,
 };
 use crate::audio_settings::AudioSettings;
 use crate::LevelSelection;
@@ -21,6 +20,7 @@ pub(super) fn setup_game_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     audio_settings: Res<AudioSettings>,
+    cached_level_definition: Res<CachedLevelDefinition>,
     level_selection: Res<LevelSelection>,
     windows: Query<&Window, With<PrimaryWindow>>,
 ) {
@@ -29,8 +29,8 @@ pub(super) fn setup_game_view(
     let mut warnings = Vec::new();
     let mut spawned_count = 0usize;
 
-    let (status_title, status_detail) = match load_level_from_asset_path(level_selection.asset_path()) {
-        Ok(level_definition) => {
+    let (status_title, status_detail) = match cached_level_definition.level_definition() {
+        Ok(level_definition) if cached_level_definition.asset_path() == level_selection.asset_path() => {
             let mut quote_clips = Vec::new();
             let level_bounds = match level_definition.bounds_size() {
                 Some(bounds) if bounds.x > 0.0 && bounds.y > 0.0 => Some(bounds),
@@ -59,21 +59,9 @@ pub(super) fn setup_game_view(
             ));
 
             let music_asset_path = level_definition.music_asset_path();
-            let music_filesystem_path = asset_path_to_filesystem_path(&music_asset_path);
             if !music_asset_path.ends_with(".ogg") {
                 warnings.push(format!(
                     "Level music '{}' is invalid: only .ogg is supported",
-                    music_asset_path
-                ));
-            } else if !music_filesystem_path.exists() {
-                warnings.push(format!(
-                    "Level music '{}' was not found at {}",
-                    music_asset_path,
-                    music_filesystem_path.display()
-                ));
-            } else if !is_supported_ogg_audio_file(&music_filesystem_path) {
-                warnings.push(format!(
-                    "Level music '{}' is not a supported OGG audio stream (expected Vorbis/Opus)",
                     music_asset_path
                 ));
             } else {
@@ -89,28 +77,9 @@ pub(super) fn setup_game_view(
             }
 
             for quote_asset_path in level_definition.quote_asset_paths() {
-                let quote_filesystem_path = asset_path_to_filesystem_path(&quote_asset_path);
-
                 if !quote_asset_path.ends_with(".ogg") {
                     warnings.push(format!(
                         "Quote '{}' is invalid: only .ogg is supported",
-                        quote_asset_path
-                    ));
-                    continue;
-                }
-
-                if !quote_filesystem_path.exists() {
-                    warnings.push(format!(
-                        "Quote '{}' was not found at {}",
-                        quote_asset_path,
-                        quote_filesystem_path.display()
-                    ));
-                    continue;
-                }
-
-                if !is_supported_ogg_audio_file(&quote_filesystem_path) {
-                    warnings.push(format!(
-                        "Quote '{}' is not a supported OGG audio stream (expected Vorbis/Opus)",
                         quote_asset_path
                     ));
                     continue;
@@ -196,6 +165,13 @@ pub(super) fn setup_game_view(
                 },
             )
         }
+        Ok(_) => (
+            format!("Could not load {}", level_selection.asset_path()),
+            format!(
+                "Cached level data does not match current selection '{}'. Restart the app to refresh the cache.",
+                level_selection.asset_path()
+            ),
+        ),
         Err(error) => (
             format!("Could not load {}", level_selection.asset_path()),
             error.to_string(),
@@ -203,15 +179,6 @@ pub(super) fn setup_game_view(
     };
 
     spawn_overlay(&mut commands, status_title, status_detail, &warnings);
-}
-
-fn is_supported_ogg_audio_file(path: &std::path::Path) -> bool {
-    let Ok(bytes) = std::fs::read(path) else {
-        return false;
-    };
-
-    // Accept common OGG audio codecs used by Bevy/rodio.
-    bytes.windows(6).any(|window| window == b"vorbis") || bytes.windows(8).any(|window| window == b"OpusHead")
 }
 
 fn resolve_entity_z_index(
@@ -314,6 +281,7 @@ pub(super) fn spawn_terrain_background_tiles(
                     ..default()
                 },
                 Transform::from_xyz(x, y, -100.0),
+                super::parallax::BackgroundParallax,
                 GameViewEntity,
             ));
         }
@@ -424,27 +392,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn accepts_vorbis_ogg_marker() {
-        let path = std::env::temp_dir().join("plasmabob_test_vorbis.ogg");
-        std::fs::write(&path, b"OggS....vorbis....").expect("should write temp ogg file");
-
-        let result = is_supported_ogg_audio_file(&path);
-
-        let _ = std::fs::remove_file(&path);
-        assert!(result);
-    }
-
-    #[test]
-    fn rejects_non_audio_ogg_content() {
-        let path = std::env::temp_dir().join("plasmabob_test_non_audio.ogg");
-        std::fs::write(&path, b"OggS....theora....").expect("should write temp ogg file");
-
-        let result = is_supported_ogg_audio_file(&path);
-
-        let _ = std::fs::remove_file(&path);
-        assert!(!result);
-    }
 
     #[test]
     fn uses_explicit_entity_z_index_when_present() {

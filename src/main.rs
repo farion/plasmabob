@@ -96,6 +96,7 @@ pub(crate) struct MainCamera;
 
 fn main() {
     let level_selection = LevelSelection::from_cli_arg(std::env::args().nth(1));
+    let cached_level_definition = game::level::CachedLevelDefinition::preload(level_selection.asset_path());
     let audio_settings = AudioSettings::load_from_disk();
 
     App::new()
@@ -111,6 +112,7 @@ fn main() {
         })
         .init_resource::<MenuSelection>()
         .insert_resource(level_selection)
+        .insert_resource(cached_level_definition)
         .insert_resource(audio_settings)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

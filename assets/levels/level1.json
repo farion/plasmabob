@@ -29,7 +29,7 @@
       "entity_type": "flora2",
       "x": 220,
       "y": 170,
-      "z_index": 50
+      "z_index": 97
     },
     {
       "id": "doodad_runestone1_01",
@@ -50,7 +50,7 @@
       "entity_type": "flora2",
       "x": 700,
       "y": 170,
-      "z_index": 50
+      "z_index": 97
     },
     {
       "id": "doodad_runestone1_02",
@@ -71,7 +71,7 @@
       "entity_type": "flora2",
       "x": 1180,
       "y": 170,
-      "z_index": 50
+      "z_index": 97
     },
     {
       "id": "doodad_runestone1_03",
@@ -92,7 +92,7 @@
       "entity_type": "flora2",
       "x": 1680,
       "y": 170,
-      "z_index": 50
+      "z_index": 97
     },
     {
       "id": "doodad_runestone1_04",
@@ -113,7 +113,7 @@
       "entity_type": "flora2",
       "x": 2190,
       "y": 170,
-      "z_index": 50
+      "z_index": 97
     },
     {
       "id": "doodad_runestone1_05",
@@ -134,7 +134,7 @@
       "entity_type": "flora2",
       "x": 2720,
       "y": 170,
-      "z_index": 50
+      "z_index": 97
     },
     {
       "id": "doodad_runestone1_06",
@@ -155,7 +155,7 @@
       "entity_type": "flora2",
       "x": 3240,
       "y": 170,
-      "z_index": 50
+      "z_index": 97
     },
     {
       "id": "doodad_runestone1_07",
@@ -176,7 +176,7 @@
       "entity_type": "flora2",
       "x": 3760,
       "y": 170,
-      "z_index": 50
+      "z_index": 97
     },
     {
       "id": "doodad_runestone1_08",
@@ -197,7 +197,7 @@
       "entity_type": "flora2",
       "x": 4280,
       "y": 170,
-      "z_index": 50
+      "z_index": 97
     },
     {
       "id": "doodad_runestone1_09",
@@ -387,6 +387,55 @@
       "x": 10,
       "y": 181,
       "z_index": 101
+    },
+    {
+      "id": "mountain1",
+      "entity_type": "mountain1",
+      "x": -200,
+      "y": 160,
+      "z_index": 50
+    },
+    {
+      "id": "mountain2",
+      "entity_type": "mountain1",
+      "x": 745,
+      "y": 160,
+      "z_index": 50
+    },
+    {
+      "id": "mountain3",
+      "entity_type": "mountain1",
+      "x": 1690,
+      "y": 160,
+      "z_index": 50
+    },
+    {
+      "id": "mountain4",
+      "entity_type": "mountain1",
+      "x": 2635,
+      "y": 160,
+      "z_index": 50
+    },
+    {
+      "id": "mountain5",
+      "entity_type": "mountain1",
+      "x": 3580,
+      "y": 160,
+      "z_index": 50
+    },
+    {
+      "id": "mountain6",
+      "entity_type": "mountain1",
+      "x": 4525,
+      "y": 160,
+      "z_index": 50
+    },
+     {
+      "id": "mountain7",
+      "entity_type": "mountain1",
+      "x": 5470,
+      "y": 160,
+      "z_index": 50
     }
   ]
 }

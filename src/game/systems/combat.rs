@@ -133,8 +133,10 @@ pub(super) fn despawn_dead_entities(
 
 pub(super) fn play_hostile_death_quotes(
     mut commands: Commands,
+    time: Res<Time>,
     audio_settings: Res<AudioSettings>,
     quotes: Option<Res<LevelQuotes>>,
+    mut cooldown: ResMut<super::QuoteCooldown>,
     dead_hostiles: Query<
         (Entity, &Health),
         (
@@ -153,8 +155,18 @@ pub(super) fn play_hostile_death_quotes(
         return;
     }
 
+    cooldown.0.tick(time.delta());
+
     for (entity, health) in &dead_hostiles {
         if !health.is_dead() {
+            continue;
+        }
+
+        // Always mark the entity so it is not processed again, but only
+        // play the audio when the cooldown has elapsed.
+        commands.entity(entity).insert(DeathQuotePlayed);
+
+        if !cooldown.0.finished() {
             continue;
         }
 
@@ -175,7 +187,8 @@ pub(super) fn play_hostile_death_quotes(
             },
             GameViewEntity,
         ));
-        commands.entity(entity).insert(DeathQuotePlayed);
+
+        cooldown.0.reset();
     }
 }
 
