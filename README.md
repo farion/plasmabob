@@ -31,6 +31,7 @@ AI Tools used:
 - Gemini
 - OpenArt Ai
 - Suno
+- ElevenLabs
 
 ## Run
 
