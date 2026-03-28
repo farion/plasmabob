@@ -6,7 +6,35 @@ This was started on a 24h hackathon at exxeta to explore the Bevy game engine an
 
 Have Fun!
 
+## Screenshot
+
+### Startscreen
+[![Screenshot](startscreen.png)](startscreen.png)
+
+### Gameplay
+
+[![Screenshot](gameplay.png)](gameplay.png)
+
+## Tool Usage
+
+### Development
+
+- IntelliJ Rust plugin
+- Gimp
+
+### AI
+
+Of course I used AI to help me with this project. I used it to generate ideas, to write code, to debug, and to write documentation. I also used it to generate the graphical and audio assets including the music. 
+
+AI Tools used:
+- GitHub Copilot
+- Gemini
+- OpenArt Ai
+- Suno
+
 ## Run
+
+Basically take one of the releases here on Github and run the executable. If you want to run it from source, you can use the following commands:
 
 ```bash
 cargo run
