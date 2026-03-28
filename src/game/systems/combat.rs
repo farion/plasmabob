@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
-use avian2d::prelude::SpatialQuery;
-use avian2d::prelude::SpatialQueryFilter;
+use avian2d::prelude::{CollidingEntities, SpatialQuery, SpatialQueryFilter};
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::ecs::query::QueryFilter;
 use bevy::math::Dir2;
@@ -11,6 +10,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::game::components::animation::{AnimationState, EntityState, HIT_STATE_SECONDS, HitStateTimer, can_set_state};
 use crate::game::components::collision::Collision;
+use crate::game::components::exit::Exit;
 use crate::game::components::health::{Damage, Health, InvincibilityTimer};
 use crate::game::components::hostile::Hostile;
 use crate::game::components::npc::Npc;
@@ -602,6 +602,41 @@ pub(super) fn return_to_main_menu(
     }
 }
 
+pub(super) fn detect_player_reached_exit(
+    player_query: Query<(&CollidingEntities, &Health), With<Player>>,
+    exit_query: Query<(), With<Exit>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    for (colliding_entities, health) in &player_query {
+        if health.is_dead() {
+            continue;
+        }
+
+        if colliding_entities
+            .0
+            .iter()
+            .any(|entity| exit_query.contains(*entity))
+        {
+            info!("Player reached exit - level won.");
+            next_state.set(AppState::WinView);
+            return;
+        }
+    }
+}
+
+pub(super) fn detect_player_defeated(
+    player_query: Query<&Health, With<Player>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    for health in &player_query {
+        if health.is_dead() {
+            info!("Player defeated - showing lose view.");
+            next_state.set(AppState::LoseView);
+            return;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -638,6 +673,47 @@ mod tests {
             .get::<AnimationState>(player)
             .expect("player should have AnimationState");
         assert_eq!(state.current, EntityState::Default);
+    }
+
+    #[test]
+    fn sets_win_state_when_player_reaches_exit() {
+        let mut app = App::new();
+        app.init_resource::<NextState<AppState>>();
+        app.add_systems(Update, detect_player_reached_exit);
+
+        let exit = app.world_mut().spawn(Exit).id();
+        let mut colliding = CollidingEntities::default();
+        colliding.0.insert(exit);
+        app.world_mut().spawn((Player, Health::new(10), colliding));
+
+        app.update();
+
+        let next_state = app
+            .world()
+            .resource::<NextState<AppState>>();
+        assert!(matches!(
+            *next_state,
+            NextState::Pending(AppState::WinView)
+        ));
+    }
+
+    #[test]
+    fn sets_lose_state_when_player_health_is_zero() {
+        let mut app = App::new();
+        app.init_resource::<NextState<AppState>>();
+        app.add_systems(Update, detect_player_defeated);
+
+        app.world_mut().spawn((Player, Health::new(0)));
+
+        app.update();
+
+        let next_state = app
+            .world()
+            .resource::<NextState<AppState>>();
+        assert!(matches!(
+            *next_state,
+            NextState::Pending(AppState::LoseView)
+        ));
     }
 }
 

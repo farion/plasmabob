@@ -12,7 +12,7 @@
   ],
   "music": "assets/music/level1.ogg",
   "bounds": {
-    "width": 4584,
+    "width": 4800,
     "height": 1024
   },
   "entity_types_path": "entity_types.json",
@@ -23,6 +23,34 @@
       "x": 0,
       "y": 0,
       "z_index": 1
+    },
+    {
+      "id": "street2",
+      "entity_type": "street",
+      "x": 1629,
+      "y": 0,
+      "z_index": 1
+    },
+    {
+      "id": "street3",
+      "entity_type": "street",
+      "x": 3258,
+      "y": 0,
+      "z_index": 1
+    },
+    {
+      "id": "street4",
+      "entity_type": "street",
+      "x": 4887,
+      "y": 0,
+      "z_index": 1
+    },
+    {
+      "id": "exit",
+      "entity_type": "exit",
+      "x": 4500,
+      "y": 181,
+      "z_index": 5
     },
     {
       "id": "cockroach1",

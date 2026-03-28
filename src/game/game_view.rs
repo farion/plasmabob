@@ -122,7 +122,11 @@ impl Plugin for GameViewPlugin {
                 debug::update_debug_stats_labels,
                 debug::toggle_debug_overlay,
                 debug::draw_hitbox_debug_lines,
-                combat::return_to_main_menu,
+                (
+                    combat::detect_player_defeated,
+                    combat::detect_player_reached_exit,
+                    combat::return_to_main_menu,
+                ),
             )
                 .run_if(in_state(crate::AppState::GameView)),
         )

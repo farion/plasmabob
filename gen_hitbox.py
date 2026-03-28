@@ -38,11 +38,24 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_ALPHA_THRESHOLD,
         help="Only pixels with alpha > threshold are used (default: 10)",
     )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=None,
+        help="Scale the image to this height before computing the hitbox (aspect ratio is preserved)",
+    )
     return parser.parse_args()
 
 
-def load_opaque_pixels_bottom_left(png_path: Path, alpha_threshold: int) -> list[tuple[int, int]]:
+def load_opaque_pixels_bottom_left(png_path: Path, alpha_threshold: int, target_height: int | None = None) -> list[tuple[int, int]]:
     image = Image.open(png_path).convert("RGBA")
+
+    if target_height is not None and target_height > 0:
+        orig_width, orig_height = image.size
+        scale = target_height / orig_height
+        new_size = (max(1, round(orig_width * scale)), target_height)
+        image = image.resize(new_size, Image.LANCZOS)
+
     width, height = image.size
     pixels = image.load()
 
@@ -86,7 +99,7 @@ def main() -> int:
         print(f"File not found: {args.png_path}", file=sys.stderr)
         return 1
 
-    points = load_opaque_pixels_bottom_left(args.png_path, args.alpha_threshold)
+    points = load_opaque_pixels_bottom_left(args.png_path, args.alpha_threshold, args.height)
     if not points:
         print("[]")
         return 0

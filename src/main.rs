@@ -10,9 +10,8 @@ mod views;
 
 const SHOW_HITBOX_DEBUG_LINES: bool = false;
 
-const MENU_ITEMS: [(&str, MenuAction); 5] = [
+const MENU_ITEMS: [(&str, MenuAction); 4] = [
     ("Start", MenuAction::Start),
-    ("Load", MenuAction::Load),
     ("Settings", MenuAction::Settings),
     ("About", MenuAction::About),
     ("Exit", MenuAction::Exit),
@@ -24,6 +23,8 @@ pub(crate) enum AppState {
     MainMenu,
     StartView,
     GameView,
+    LoseView,
+    WinView,
     LoadView,
     SettingsView,
     AboutView,
@@ -32,7 +33,6 @@ pub(crate) enum AppState {
 #[derive(Clone, Copy)]
 enum MenuAction {
     Start,
-    Load,
     Settings,
     About,
     Exit,
@@ -267,7 +267,6 @@ fn activate_action(
 ) {
     match action {
         MenuAction::Start => next_state.set(AppState::StartView),
-        MenuAction::Load => next_state.set(AppState::LoadView),
         MenuAction::Settings => next_state.set(AppState::SettingsView),
         MenuAction::About => next_state.set(AppState::AboutView),
         MenuAction::Exit => {
