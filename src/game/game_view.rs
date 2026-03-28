@@ -7,6 +7,8 @@ mod camera;
 mod cleanup;
 #[path = "systems/combat.rs"]
 mod combat;
+#[path = "systems/hud.rs"]
+mod hud;
 #[path = "systems/debug.rs"]
 mod debug;
 #[path = "systems/animation.rs"]
@@ -89,6 +91,7 @@ impl Plugin for GameViewPlugin {
                 setup::setup_game_view,
                 camera::snap_camera_to_player,
                 player::configure_player_controller,
+                hud::spawn_player_health_hud,
             )
                 .chain(),
         )
@@ -113,15 +116,19 @@ impl Plugin for GameViewPlugin {
                     .chain()
                     .before(animation::tick_hit_state_timers)
                     .before(animation::apply_state_animation),
-                animation::sync_death_state_from_health,
-                combat::play_hostile_death_quotes,
-                animation::tick_hit_state_timers,
-                animation::apply_state_animation,
-                combat::despawn_dead_entities,
+                (
+                    animation::sync_death_state_from_health,
+                    combat::disable_dead_npc_collisions,
+                    combat::play_hostile_death_quotes,
+                    animation::tick_hit_state_timers,
+                    animation::apply_state_animation,
+                    combat::despawn_dead_entities,
+                ),
                 debug::toggle_hitbox_debug_lines,
                 debug::update_debug_stats_labels,
                 debug::toggle_debug_overlay,
                 debug::draw_hitbox_debug_lines,
+                hud::update_player_health_hud,
                 (
                     combat::detect_player_defeated,
                     combat::detect_player_reached_exit,

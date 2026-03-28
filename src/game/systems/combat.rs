@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use avian2d::prelude::{CollidingEntities, SpatialQuery, SpatialQueryFilter};
+use avian2d::prelude::{Collider, CollidingEntities, CollisionLayers, LinearVelocity, LockedAxes, RigidBody, SpatialQuery, SpatialQueryFilter};
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::ecs::query::QueryFilter;
 use bevy::math::Dir2;
@@ -44,6 +44,9 @@ pub(super) struct PlasmaImpactParticle {
     lifetime: Timer,
     start_size: f32,
 }
+
+#[derive(Component)]
+pub(super) struct DeadNpcCollisionDisabled;
 
 pub(super) fn tick_invincibility_timers(
     mut commands: Commands,
@@ -637,6 +640,28 @@ pub(super) fn detect_player_defeated(
     }
 }
 
+pub(super) fn disable_dead_npc_collisions(
+    mut commands: Commands,
+    dead_npcs: Query<(Entity, &Health), (With<Npc>, With<Collision>, Without<DeadNpcCollisionDisabled>)>,
+) {
+    for (entity, health) in &dead_npcs {
+        if !health.is_dead() {
+            continue;
+        }
+
+        commands.entity(entity).remove::<(
+            Collision,
+            Collider,
+            CollidingEntities,
+            CollisionLayers,
+            RigidBody,
+            LinearVelocity,
+            LockedAxes,
+        )>();
+        commands.entity(entity).insert(DeadNpcCollisionDisabled);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -714,6 +739,56 @@ mod tests {
             *next_state,
             NextState::Pending(AppState::LoseView)
         ));
+    }
+
+    #[test]
+    fn removes_collision_components_for_dead_npc() {
+        let mut app = App::new();
+        app.add_systems(Update, disable_dead_npc_collisions);
+
+        let npc = app.world_mut().spawn((
+            Npc,
+            Collision,
+            Health::new(0),
+            Collider::circle(8.0),
+            CollidingEntities::default(),
+            CollisionLayers::default(),
+            RigidBody::Dynamic,
+            LinearVelocity::ZERO,
+            LockedAxes::ROTATION_LOCKED,
+        )).id();
+
+        app.update();
+
+        let entity = app.world().entity(npc);
+        assert!(entity.get::<Collision>().is_none());
+        assert!(entity.get::<Collider>().is_none());
+        assert!(entity.get::<DeadNpcCollisionDisabled>().is_some());
+    }
+
+    #[test]
+    fn keeps_collision_components_for_alive_npc() {
+        let mut app = App::new();
+        app.add_systems(Update, disable_dead_npc_collisions);
+
+        let npc = app.world_mut().spawn((
+            Npc,
+            Collision,
+            Health::new(10),
+            Collider::circle(8.0),
+            CollidingEntities::default(),
+            CollisionLayers::default(),
+            RigidBody::Dynamic,
+            LinearVelocity::ZERO,
+            LockedAxes::ROTATION_LOCKED,
+        )).id();
+
+        app.update();
+
+        let entity = app.world().entity(npc);
+        assert!(entity.get::<Collision>().is_some());
+        assert!(entity.get::<Collider>().is_some());
+        assert!(entity.get::<DeadNpcCollisionDisabled>().is_none());
     }
 }
 
