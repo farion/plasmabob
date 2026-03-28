@@ -17,6 +17,7 @@ pub(crate) mod moving;
 pub(crate) mod npc;
 pub(crate) mod plasma;
 pub(crate) mod player;
+pub(crate) mod ragdoll;
 
 #[derive(Component)]
 pub(crate) struct SpawnedLevelEntity;
