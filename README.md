@@ -1,6 +1,10 @@
 # PlasmaBob
 
-Minimal Bevy prototype for a 2D platformer.
+PlasmaBob is a 2D platformer game where players control a hero named Bob to rescue the world.
+
+This was started on a 24h hackathon at exxeta to explore the Bevy game engine and to have fun. The game is still in early development, but the basic level loading and entity system is in place.
+
+Have Fun!
 
 ## Run
 

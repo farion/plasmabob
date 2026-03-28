@@ -44,6 +44,15 @@ fn setup_start_view(mut commands: Commands) {
                 StartViewEntity,
             ));
             parent.spawn((
+                Text::new("Control movement with Arrow left and right. Jump with Arrow Up. Shot your plasma gun with space."),
+                TextFont {
+                    font_size: 28.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                StartViewEntity,
+            ));
+            parent.spawn((
                 Text::new("Press Enter to start"),
                 TextFont {
                     font_size: 28.0,
