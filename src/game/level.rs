@@ -7,17 +7,33 @@ use bevy::prelude::*;
 use serde::Deserialize;
 
 const DEFAULT_ANIMATION_FRAME_MS: u64 = 500;
+const DEFAULT_ENTITY_TYPES_PATH: &str = "entity_types.json";
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone)]
 pub(crate) struct LevelDefinition {
     pub(crate) terrain: TerrainDefinition,
     pub(crate) music: String,
-    #[serde(default)]
     pub(crate) quotes: Vec<String>,
-    #[serde(default)]
     pub(crate) bounds: Option<LevelBoundsDefinition>,
     pub(crate) entity_types: HashMap<String, EntityTypeDefinition>,
     pub(crate) entities: Vec<EntityDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawLevelDefinition {
+    terrain: TerrainDefinition,
+    music: String,
+    #[serde(default)]
+    quotes: Vec<String>,
+    #[serde(default)]
+    bounds: Option<LevelBoundsDefinition>,
+    #[serde(default = "default_entity_types_path")]
+    entity_types_path: String,
+    entities: Vec<EntityDefinition>,
+}
+
+fn default_entity_types_path() -> String {
+    DEFAULT_ENTITY_TYPES_PATH.to_string()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -75,9 +91,6 @@ pub(crate) struct EntityTypeDefinition {
     pub(crate) health: Option<i32>,
     #[serde(default)]
     pub(crate) damage: Option<i32>,
-    /// Default z-index for all instances of this type. Can be overridden per entity.
-    #[serde(default)]
-    pub(crate) z_index: Option<f32>,
     /// Maximum range of the plasma beam (player only). Enables the PlasmaAttack component.
     #[serde(default)]
     pub(crate) attack_range: Option<f32>,
@@ -150,7 +163,7 @@ pub(crate) struct EntityDefinition {
     pub(crate) entity_type: String,
     pub(crate) x: f32,
     pub(crate) y: f32,
-    /// Per-instance z-index override. Takes precedence over the entity type's z_index.
+    /// Per-instance z-index for draw order. When omitted, setup code falls back to component heuristics.
     #[serde(default)]
     pub(crate) z_index: Option<f32>,
 }
@@ -186,7 +199,36 @@ impl From<serde_json::Error> for LoadLevelError {
 
 pub(crate) fn load_level_from_asset_path(asset_path: &str) -> Result<LevelDefinition, LoadLevelError> {
     let content = std::fs::read_to_string(asset_path_to_filesystem_path(asset_path))?;
-    Ok(serde_json::from_str(&content)?)
+    let raw_level: RawLevelDefinition = serde_json::from_str(&content)?;
+
+    let entity_types_asset_path = resolve_entity_types_asset_path(asset_path, &raw_level.entity_types_path);
+    let entity_types_content = std::fs::read_to_string(asset_path_to_filesystem_path(&entity_types_asset_path))?;
+    let entity_types: HashMap<String, EntityTypeDefinition> = serde_json::from_str(&entity_types_content)?;
+
+    Ok(LevelDefinition {
+        terrain: raw_level.terrain,
+        music: raw_level.music,
+        quotes: raw_level.quotes,
+        bounds: raw_level.bounds,
+        entity_types,
+        entities: raw_level.entities,
+    })
+}
+
+fn resolve_entity_types_asset_path(level_asset_path: &str, configured_path: &str) -> String {
+    let normalized_level_path = normalize_asset_reference(level_asset_path);
+    let normalized_configured_path = normalize_asset_reference(configured_path);
+
+    if normalized_configured_path.contains('/') {
+        return normalized_configured_path;
+    }
+
+    let level_directory = Path::new(&normalized_level_path)
+        .parent()
+        .unwrap_or_else(|| Path::new(""));
+
+    let resolved = level_directory.join(normalized_configured_path);
+    resolved.to_string_lossy().to_string()
 }
 
 pub(crate) fn asset_path_to_filesystem_path(asset_path: &str) -> PathBuf {
@@ -221,110 +263,196 @@ pub(crate) fn clamp_level_position(x: f32, y: f32, entity_size: Vec2, level_size
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    #[test]
-    fn parses_the_documented_level_schema() {
-        let json = r#"
-        {
-            "terrain": {
-                "background": "assets/backgrounds/level1.png"
-            },
-            "music": "assets/music/level1.ogg",
-            "bounds": {
-                "width": 1584,
-                "height": 1024
-            },
-            "entity_types": {
-                "dirt": {
-                    "component": ["floor"],
-                    "animations": {
-                        "default": ["assets/dirt/default1.png", "assets/dirt/default2.png"]
-                    },
-                    "width": 100,
-                    "height": 20
-                },
-                "cockroach": {
-                    "component": ["npc", "hostile"],
-                    "disposition": "hostile",
-                    "animations": {
-                        "default": ["assets/cockroach/default1.png", "assets/cockroach/default2.png"],
-                        "walk": [],
-                        "jump": [],
-                        "die": [],
-                        "hit": [],
-                        "fight": []
-                    },
-                    "width": 100,
-                    "height": 20
-                },
-                "bob": {
-                    "component": ["player"],
-                    "animation_frame_ms": 250,
-                    "animations": {
-                        "default": ["assets/bob/default1.png", "assets/bob/default2.png"],
-                        "walk": [],
-                        "jump": [],
-                        "die": [],
-                        "hit": [],
-                        "fight": []
-                    },
-                    "width": 100,
-                    "height": 20
-                }
-            },
-            "entities": [
-                {
-                    "id": "dirt1",
-                    "entity_type": "dirt",
-                    "x": 10,
-                    "y": 20
-                },
-                {
-                    "id": "player",
-                    "entity_type": "bob",
-                    "x": 10,
-                    "y": 20
-                }
-            ]
+    fn unique_temp_root() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be valid")
+            .as_nanos();
+        std::env::temp_dir().join(format!("plasmabob-tests-{unique}"))
+    }
+
+    fn write_temp_file(root: &Path, relative_path: &str, content: &str) -> String {
+        let full_path = root.join(relative_path);
+
+        std::fs::create_dir_all(
+            full_path
+                .parent()
+                .expect("temporary file path should have a parent directory"),
+        )
+        .expect("temporary directory should be created");
+
+        std::fs::write(&full_path, content).expect("temporary file should be written");
+        full_path.to_string_lossy().to_string()
+    }
+
+    fn in_temp_working_directory<F: FnOnce()>(test: F) {
+        struct WorkingDirGuard {
+            previous: PathBuf,
         }
-        "#;
 
-        let parsed: LevelDefinition = serde_json::from_str(json).expect("schema should parse");
+        impl Drop for WorkingDirGuard {
+            fn drop(&mut self) {
+                std::env::set_current_dir(&self.previous)
+                    .expect("should restore previous working directory");
+            }
+        }
 
-        assert_eq!(parsed.entity_types.len(), 3);
-        assert_eq!(parsed.entities.len(), 2);
-        assert_eq!(parsed.bounds_size(), Some(Vec2::new(1584.0, 1024.0)));
-        assert_eq!(parsed.terrain_background_asset_path(), "backgrounds/level1.png");
-        assert_eq!(parsed.music_asset_path(), "music/level1.ogg");
-        assert!(parsed.quote_asset_paths().is_empty());
-        assert_eq!(parsed.entity_types["dirt"].components, vec!["floor"]);
-        assert_eq!(parsed.entity_types["cockroach"].disposition.as_deref(), Some("hostile"));
-        assert_eq!(parsed.entity_types["bob"].width, 100.0);
-        assert_eq!(parsed.entity_types["bob"].animation_frame_ms, Some(250));
+        let previous = std::env::current_dir().expect("current directory should be readable");
+        let _guard = WorkingDirGuard { previous };
+        let root = unique_temp_root();
+        std::fs::create_dir_all(root.join("assets")).expect("temporary assets directory should exist");
+        std::env::set_current_dir(&root).expect("should switch to temporary working directory");
+        test();
     }
 
     #[test]
-    fn uses_default_animation_frame_interval_when_missing() {
-        let json = r#"
-        {
-            "terrain": { "background": "assets/backgrounds/level1.png" },
-            "music": "assets/music/level1.ogg",
-            "entity_types": {
-                "dummy": {
-                    "component": ["npc"],
-                    "animations": { "default": ["assets/dirt/default1.png"] },
-                    "width": 16,
-                    "height": 16
+    fn parses_the_split_level_schema() {
+        in_temp_working_directory(|| {
+            let root = std::env::current_dir().expect("current directory should be readable");
+            let level_path = write_temp_file(
+                &root,
+                "assets/levels/level.json",
+                r#"
+                {
+                    "terrain": {
+                        "background": "assets/backgrounds/level1.png"
+                    },
+                    "music": "assets/music/level1.ogg",
+                    "bounds": {
+                        "width": 1584,
+                        "height": 1024
+                    },
+                    "entity_types_path": "entity_types.json",
+                    "entities": [
+                        {
+                            "id": "dirt1",
+                            "entity_type": "dirt",
+                            "x": 10,
+                            "y": 20
+                        },
+                        {
+                            "id": "player",
+                            "entity_type": "bob",
+                            "x": 10,
+                            "y": 20,
+                            "z_index": 20
+                        }
+                    ]
                 }
-            },
-            "entities": [
-                { "id": "dummy1", "entity_type": "dummy", "x": 0, "y": 0 }
-            ]
-        }
-        "#;
+                "#,
+            );
 
-        let parsed: LevelDefinition = serde_json::from_str(json).expect("schema should parse");
-        assert_eq!(parsed.entity_types["dummy"].animation_frame_seconds(), 0.5);
+            write_temp_file(
+                &root,
+                "assets/levels/entity_types.json",
+                r#"
+                {
+                    "dirt": {
+                        "component": ["floor"],
+                        "animations": {
+                            "default": ["assets/dirt/default1.png", "assets/dirt/default2.png"]
+                        },
+                        "width": 100,
+                        "height": 20
+                    },
+                    "cockroach": {
+                        "component": ["npc", "hostile"],
+                        "disposition": "hostile",
+                        "animations": {
+                            "default": ["assets/cockroach/default1.png", "assets/cockroach/default2.png"],
+                            "walk": [],
+                            "jump": [],
+                            "die": [],
+                            "hit": [],
+                            "fight": []
+                        },
+                        "width": 100,
+                        "height": 20
+                    },
+                    "bob": {
+                        "component": ["player"],
+                        "animation_frame_ms": 250,
+                        "animations": {
+                            "default": ["assets/bob/default1.png", "assets/bob/default2.png"],
+                            "walk": [],
+                            "jump": [],
+                            "die": [],
+                            "hit": [],
+                            "fight": []
+                        },
+                        "width": 100,
+                        "height": 20
+                    }
+                }
+                "#,
+            );
+
+            let parsed = load_level_from_asset_path(&level_path).expect("schema should parse");
+
+            assert_eq!(parsed.entity_types.len(), 3);
+            assert_eq!(parsed.entities.len(), 2);
+            assert_eq!(parsed.bounds_size(), Some(Vec2::new(1584.0, 1024.0)));
+            assert_eq!(parsed.terrain_background_asset_path(), "backgrounds/level1.png");
+            assert_eq!(parsed.music_asset_path(), "music/level1.ogg");
+            assert!(parsed.quote_asset_paths().is_empty());
+            assert_eq!(parsed.entity_types["dirt"].components, vec!["floor"]);
+            assert_eq!(parsed.entity_types["cockroach"].disposition.as_deref(), Some("hostile"));
+            assert_eq!(parsed.entity_types["bob"].width, 100.0);
+            assert_eq!(parsed.entity_types["bob"].animation_frame_ms, Some(250));
+            assert_eq!(parsed.entities[1].z_index, Some(20.0));
+        });
+    }
+
+    #[test]
+    fn uses_default_entity_types_file_when_field_is_missing() {
+        in_temp_working_directory(|| {
+            let root = std::env::current_dir().expect("current directory should be readable");
+            let level_path = write_temp_file(
+                &root,
+                "assets/levels/level.json",
+                r#"
+                {
+                    "terrain": { "background": "assets/backgrounds/level1.png" },
+                    "music": "assets/music/level1.ogg",
+                    "entities": [
+                        { "id": "dummy1", "entity_type": "dummy", "x": 0, "y": 0 }
+                    ]
+                }
+                "#,
+            );
+
+            write_temp_file(
+                &root,
+                "assets/levels/entity_types.json",
+                r#"
+                {
+                    "dummy": {
+                        "component": ["npc"],
+                        "animations": { "default": ["assets/dirt/default1.png"] },
+                        "width": 16,
+                        "height": 16
+                    }
+                }
+                "#,
+            );
+
+            let parsed = load_level_from_asset_path(&level_path).expect("schema should parse");
+            assert_eq!(parsed.entity_types["dummy"].animation_frame_seconds(), 0.5);
+        });
+    }
+
+    #[test]
+    fn resolves_relative_entity_types_path_against_level_directory() {
+        assert_eq!(
+            resolve_entity_types_asset_path("levels/planet1/level.json", "entity_types.json"),
+            "levels/planet1/entity_types.json"
+        );
+        assert_eq!(
+            resolve_entity_types_asset_path("assets/levels/planet1/level.json", "assets/levels/entity_types.json"),
+            "levels/entity_types.json"
+        );
     }
 
     #[test]

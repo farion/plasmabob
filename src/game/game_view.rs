@@ -97,6 +97,7 @@ impl Plugin for GameViewPlugin {
             (
                 setup::spawn_terrain_background_tiles,
                 player::update_grounded,
+                player::update_dust_particles,
                 (player::control_player, player::sync_player_hitbox_orientation)
                     .chain()
                     .before(combat::shoot_plasma),

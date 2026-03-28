@@ -137,19 +137,8 @@ pub(super) fn setup_game_view(
 
                 let is_player = entity_type.components.iter().any(|component| component == "player");
 
-                // Resolve z-index: instance override -> type default -> component heuristic.
-                let z = entity_definition
-                    .z_index
-                    .or(entity_type.z_index)
-                    .unwrap_or_else(|| {
-                        if is_player {
-                            20.0
-                        } else if entity_type.components.iter().any(|c| c == "npc") {
-                            10.0
-                        } else {
-                            0.0
-                        }
-                    });
+                // Resolve z-index: per-entity value or a component-based fallback.
+                let z = resolve_entity_z_index(entity_definition, entity_type, is_player);
 
                 let level_position = if is_player {
                     level_bounds
@@ -223,6 +212,22 @@ fn is_supported_ogg_audio_file(path: &std::path::Path) -> bool {
 
     // Accept common OGG audio codecs used by Bevy/rodio.
     bytes.windows(6).any(|window| window == b"vorbis") || bytes.windows(8).any(|window| window == b"OpusHead")
+}
+
+fn resolve_entity_z_index(
+    entity_definition: &crate::game::level::EntityDefinition,
+    entity_type: &crate::game::level::EntityTypeDefinition,
+    is_player: bool,
+) -> f32 {
+    entity_definition.z_index.unwrap_or_else(|| {
+        if is_player {
+            20.0
+        } else if entity_type.components.iter().any(|c| c == "npc") {
+            10.0
+        } else {
+            0.0
+        }
+    })
 }
 
 fn spawn_level_boundaries(commands: &mut Commands, level_bounds: ActiveLevelBounds) {
@@ -400,6 +405,24 @@ fn spawn_overlay(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+
+    use crate::game::level::{EntityDefinition, EntityTypeDefinition};
+
+    fn entity_type_with_components(components: &[&str]) -> EntityTypeDefinition {
+        EntityTypeDefinition {
+            components: components.iter().map(|component| component.to_string()).collect(),
+            disposition: None,
+            animations: HashMap::new(),
+            hitbox: Vec::new(),
+            width: 16.0,
+            height: 16.0,
+            health: None,
+            damage: None,
+            attack_range: None,
+            animation_frame_ms: None,
+        }
+    }
 
     #[test]
     fn accepts_vorbis_ogg_marker() {
@@ -421,6 +444,55 @@ mod tests {
 
         let _ = std::fs::remove_file(&path);
         assert!(!result);
+    }
+
+    #[test]
+    fn uses_explicit_entity_z_index_when_present() {
+        let entity_definition = EntityDefinition {
+            id: "crate1".to_string(),
+            entity_type: "crate".to_string(),
+            x: 0.0,
+            y: 0.0,
+            z_index: Some(7.0),
+        };
+        let entity_type = entity_type_with_components(&["doodad"]);
+
+        let z = resolve_entity_z_index(&entity_definition, &entity_type, false);
+
+        assert_eq!(z, 7.0);
+    }
+
+    #[test]
+    fn falls_back_to_component_based_z_index_when_entity_value_is_missing() {
+        let player_definition = EntityDefinition {
+            id: "player".to_string(),
+            entity_type: "bob".to_string(),
+            x: 0.0,
+            y: 0.0,
+            z_index: None,
+        };
+        let npc_definition = EntityDefinition {
+            id: "roach".to_string(),
+            entity_type: "cockroach".to_string(),
+            x: 0.0,
+            y: 0.0,
+            z_index: None,
+        };
+        let doodad_definition = EntityDefinition {
+            id: "crate1".to_string(),
+            entity_type: "crate".to_string(),
+            x: 0.0,
+            y: 0.0,
+            z_index: None,
+        };
+
+        let player_z = resolve_entity_z_index(&player_definition, &entity_type_with_components(&["player"]), true);
+        let npc_z = resolve_entity_z_index(&npc_definition, &entity_type_with_components(&["npc"]), false);
+        let doodad_z = resolve_entity_z_index(&doodad_definition, &entity_type_with_components(&["doodad"]), false);
+
+        assert_eq!(player_z, 20.0);
+        assert_eq!(npc_z, 10.0);
+        assert_eq!(doodad_z, 0.0);
     }
 }
 

@@ -6,6 +6,7 @@ use bevy::prelude::*;
 use crate::game::level::{EntityDefinition, EntityTypeDefinition, asset_path_to_filesystem_path};
 
 pub(crate) mod collision;
+pub(crate) mod doodad;
 pub(crate) mod floor;
 pub(crate) mod health;
 pub(crate) mod hostile;
@@ -68,6 +69,7 @@ pub(crate) fn spawn_entity(
                 has_collision = true;
                 collision::insert(&mut entity)
             }
+            "doodad" => doodad::insert(&mut entity),
             "floor" => floor::insert(&mut entity),
             "npc" => npc::insert(&mut entity),
             "hostile" => hostile::insert(&mut entity),
@@ -176,6 +178,10 @@ fn color_for_components(component_names: &[String]) -> Color {
         return Color::srgb(0.52, 0.35, 0.2);
     }
 
+    if component_names.iter().any(|name| name == "doodad") {
+        return Color::srgb(0.8, 0.7, 0.45);
+    }
+
     Color::srgb(0.7, 0.7, 0.7)
 }
 
@@ -184,6 +190,23 @@ fn placeholder_sprite(color: Color, size: Vec2) -> Sprite {
         color,
         custom_size: Some(size),
         ..default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn colors_doodads_differently_from_unknown_entities() {
+        assert_eq!(
+            color_for_components(&["doodad".to_string()]),
+            Color::srgb(0.8, 0.7, 0.45)
+        );
+        assert_eq!(
+            color_for_components(&["something-else".to_string()]),
+            Color::srgb(0.7, 0.7, 0.7)
+        );
     }
 }
 
