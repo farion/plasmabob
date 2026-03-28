@@ -26,6 +26,30 @@
     "width": 1629,
     "height": 181
   },
+  "flora1": {
+    "component": ["doodad"],
+    "animations": {
+      "default": ["assets/doodads/flora1.png"]
+    },
+    "width": 217,
+    "height": 100
+  },
+  "flora2": {
+    "component": ["doodad"],
+    "animations": {
+      "default": ["assets/doodads/flora2.png"]
+    },
+    "width": 130,
+    "height": 80
+  },
+  "runestone1": {
+    "component": ["doodad"],
+    "animations": {
+      "default": ["assets/doodads/runestone1.png"]
+    },
+    "width": 51,
+    "height": 128
+  },
   "exit": {
     "component": ["collision", "exit"],
     "animations": {

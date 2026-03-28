@@ -18,67 +18,88 @@
   "entity_types_path": "entity_types.json",
   "entities": [
     {
+      "id": "flora1",
+      "entity_type": "flora1",
+      "x": 100,
+      "y": 0,
+      "z_index": 200
+    },
+    {
+      "id": "flora2",
+      "entity_type": "flora2",
+      "x": 400,
+      "y": 150,
+      "z_index": 50
+    },
+    {
+      "id": "runestone1",
+      "entity_type": "runestone1",
+      "x": 600,
+      "y": 160,
+      "z_index": 50
+    },
+    {
       "id": "street1",
       "entity_type": "street",
       "x": 0,
       "y": 0,
-      "z_index": 1
+      "z_index": 98
     },
     {
       "id": "street2",
       "entity_type": "street",
       "x": 1629,
       "y": 0,
-      "z_index": 1
+      "z_index": 98
     },
     {
       "id": "street3",
       "entity_type": "street",
       "x": 3258,
       "y": 0,
-      "z_index": 1
+      "z_index": 98
     },
     {
       "id": "street4",
       "entity_type": "street",
       "x": 4887,
       "y": 0,
-      "z_index": 1
+      "z_index": 98
     },
     {
       "id": "exit",
       "entity_type": "exit",
       "x": 4500,
       "y": 181,
-      "z_index": 5
+      "z_index": 99
     },
     {
       "id": "cockroach1",
       "entity_type": "cockroach",
       "x": 500,
       "y": 181,
-      "z_index": 10
+      "z_index": 100
     },
     {
       "id": "cockroach2",
       "entity_type": "cockroach",
       "x": 550,
       "y": 181,
-      "z_index": 10
+      "z_index": 100
     },
     {
       "id": "cockroach3",
       "entity_type": "cockroach",
       "x": 600,
       "y": 181,
-      "z_index": 10
+      "z_index": 100
     },
     {
       "id": "player",
       "entity_type": "bob",
       "x": 10,
       "y": 181,
-      "z_index": 20
+      "z_index": 101
     }
   ]
 }
