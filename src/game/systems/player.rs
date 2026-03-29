@@ -10,6 +10,7 @@ use crate::game::components::health::Health;
 use crate::game::components::hitbox::PrecomputedPlayerHitbox;
 use crate::game::components::moving::Moving;
 use crate::game::components::player::Player;
+use crate::key_bindings::KeyBindings;
 
 use super::{GameViewEntity, Grounded, PLAYER_JUMP_SPEED, PLAYER_MOVE_SPEED};
 
@@ -77,6 +78,7 @@ pub(super) fn control_player(
     mut images: ResMut<Assets<Image>>,
     mut dust_particle_image: Local<Option<Handle<Image>>>,
     keys: Res<ButtonInput<KeyCode>>,
+    key_bindings: Res<KeyBindings>,
     mut players: Query<
         (
             Entity,
@@ -100,17 +102,17 @@ pub(super) fn control_player(
         }
 
         let mut move_axis = 0.0;
-        if keys.pressed(KeyCode::ArrowLeft) {
+        if keys.pressed(key_bindings.move_left) {
             move_axis -= 1.0;
         }
-        if keys.pressed(KeyCode::ArrowRight) {
+        if keys.pressed(key_bindings.move_right) {
             move_axis += 1.0;
         }
 
         velocity.x = move_axis * PLAYER_MOVE_SPEED;
         update_sprite_flip_for_move_axis(&mut sprite, move_axis);
 
-        if keys.just_pressed(KeyCode::ArrowUp) && is_grounded {
+        if keys.just_pressed(key_bindings.jump) && is_grounded {
             velocity.y = PLAYER_JUMP_SPEED;
             spawn_dust_burst(
                 &mut commands,
@@ -130,7 +132,7 @@ pub(super) fn control_player(
             EntityState::Default
         };
 
-        if can_set_state(&state, hit_timer, next_state) {
+        if can_set_state(&state, hit_timer, None, next_state) {
             state.set(next_state);
         }
     }

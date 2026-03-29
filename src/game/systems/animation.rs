@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::components::animation::{
-    AnimationPlayback, AnimationState, EntityState, HitStateTimer, PreloadedAnimations,
+    AnimationPlayback, AnimationState, EntityState, FightStateTimer, HitStateTimer, PreloadedAnimations,
 };
 use crate::game::components::health::Health;
 use crate::game::components::{AnimationCatalog, SpawnedLevelEntity};
@@ -30,6 +30,22 @@ pub(super) fn tick_hit_state_timers(
         }
 
         commands.entity(entity).remove::<HitStateTimer>();
+    }
+}
+
+pub(super) fn tick_fight_state_timers(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut entities: Query<(Entity, &mut AnimationState, &mut FightStateTimer)>,
+) {
+    for (entity, mut state, mut fight_timer) in &mut entities {
+        fight_timer.timer.tick(time.delta());
+        if fight_timer.timer.finished() {
+            if state.current == EntityState::Fight {
+                state.set(EntityState::Default);
+            }
+            commands.entity(entity).remove::<FightStateTimer>();
+        }
     }
 }
 

@@ -1,12 +1,13 @@
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
+use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
 use avian2d::{math::Vector, prelude::{Gravity, PhysicsPlugins}};
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 use crate::audio_settings::AudioSettings;
 
 mod audio_settings;
 mod game;
+mod key_bindings;
 mod views;
 
 const SHOW_HITBOX_DEBUG_LINES: bool = false;
@@ -102,6 +103,7 @@ fn main() {
     let level_selection = LevelSelection::from_cli_arg(std::env::args().nth(1));
     let cached_level_definition = game::level::CachedLevelDefinition::preload(level_selection.asset_path());
     let audio_settings = AudioSettings::load_from_disk();
+    let key_bindings = key_bindings::KeyBindings::load_from_disk();
 
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
@@ -118,6 +120,7 @@ fn main() {
         .insert_resource(level_selection)
         .insert_resource(cached_level_definition)
         .insert_resource(audio_settings)
+        .insert_resource(key_bindings)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "PlasmaBob".into(),
@@ -129,6 +132,7 @@ fn main() {
         .add_plugins(PhysicsPlugins::default().with_length_unit(100.0))
         .init_state::<AppState>()
         .add_systems(Startup, setup_camera)
+        .add_systems(Update, toggle_fullscreen)
         .add_plugins(views::ViewsPlugin)
         .add_systems(OnEnter(AppState::MainMenu), setup_main_menu)
         .add_systems(OnEnter(AppState::StartView), stop_menu_music)
@@ -149,6 +153,19 @@ fn main() {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn((Camera2d, MainCamera));
+}
+
+fn toggle_fullscreen(
+    keys: Res<ButtonInput<KeyCode>>,
+    key_bindings: Res<key_bindings::KeyBindings>,
+    mut window: Single<&mut Window, With<PrimaryWindow>>,
+) {
+    if keys.just_pressed(key_bindings.fullscreen) {
+        window.mode = match window.mode {
+            WindowMode::Windowed => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+            _ => WindowMode::Windowed,
+        };
+    }
 }
 
 fn setup_main_menu(

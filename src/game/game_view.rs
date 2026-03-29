@@ -144,6 +144,7 @@ impl Plugin for GameViewPlugin {
                     combat::disable_dead_npc_collisions,
                     combat::play_hostile_death_quotes,
                     animation::tick_hit_state_timers,
+                    animation::tick_fight_state_timers,
                     animation::apply_state_animation,
                     combat::despawn_dead_entities,
                 ),

@@ -11,11 +11,12 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 [profile.dev]
-opt-level = 1
-lto = "thin"
+opt-level = 1        # leichte Optimierung – Bevy läuft sonst bei opt-level=0 sehr langsam
+debug = 1            # nur Line-Tables statt voller Debug-Info → schnelleres Linking
+# kein lto – LTO verlangsamt jeden Incremental-Build massiv
 
 [profile.dev.package."*"]
-opt-level = 1
+opt-level = 3        # Dependencies werden einmal voll optimiert und dann gecacht
 
 [profile.release]
 opt-level = 3

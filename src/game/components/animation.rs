@@ -119,10 +119,26 @@ impl HitStateTimer {
 
 pub(crate) const HIT_STATE_SECONDS: f32 = 1.0;
 
-/// Prevents low-priority state updates from cancelling the temporary `hit` state.
+#[derive(Component, Debug, Clone)]
+pub(crate) struct FightStateTimer {
+    pub(crate) timer: Timer,
+}
+
+impl FightStateTimer {
+    pub(crate) fn new(seconds: f32) -> Self {
+        Self {
+            timer: Timer::from_seconds(seconds, TimerMode::Once),
+        }
+    }
+}
+
+pub(crate) const FIGHT_STATE_SECONDS: f32 = 0.6;
+
+/// Prevents low-priority state updates from cancelling the temporary `hit` or `fight` state.
 pub(crate) fn can_set_state(
     state: &AnimationState,
     hit_timer: Option<&HitStateTimer>,
+    fight_timer: Option<&FightStateTimer>,
     next: EntityState,
 ) -> bool {
     if state.current == EntityState::Die {
@@ -131,6 +147,10 @@ pub(crate) fn can_set_state(
 
     if state.current == EntityState::Hit && hit_timer.is_some() {
         return matches!(next, EntityState::Hit | EntityState::Die);
+    }
+
+    if state.current == EntityState::Fight && fight_timer.is_some() {
+        return matches!(next, EntityState::Fight | EntityState::Hit | EntityState::Die);
     }
 
     true

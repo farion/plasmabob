@@ -1,7 +1,7 @@
 use avian2d::prelude::LinearVelocity;
 use bevy::prelude::*;
 
-use crate::game::components::animation::{AnimationState, EntityState, HitStateTimer, can_set_state};
+use crate::game::components::animation::{AnimationState, EntityState, FightStateTimer, HitStateTimer, can_set_state};
 use crate::game::components::health::Health;
 use crate::game::components::moving::Moving;
 use crate::game::components::npc::Npc;
@@ -18,12 +18,13 @@ pub(super) fn control_moving_entities(
 			&mut Moving,
 			&mut AnimationState,
 			Option<&HitStateTimer>,
+			Option<&FightStateTimer>,
 			Option<&Health>,
 		),
 		With<Npc>,
 	>,
 ) {
-	for (transform, mut velocity, mut sprite, mut moving, mut state, hit_timer, health) in &mut entities {
+	for (transform, mut velocity, mut sprite, mut moving, mut state, hit_timer, fight_timer, health) in &mut entities {
 		if health.is_some_and(|value| value.is_dead()) {
 			velocity.x = 0.0;
 			continue;
@@ -53,7 +54,7 @@ pub(super) fn control_moving_entities(
 			EntityState::Default
 		};
 
-		if can_set_state(&state, hit_timer, next_state) {
+		if can_set_state(&state, hit_timer, fight_timer, next_state) {
 			state.set(next_state);
 		}
 	}

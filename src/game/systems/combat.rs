@@ -8,7 +8,8 @@ use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-use crate::game::components::animation::{AnimationState, EntityState, HIT_STATE_SECONDS, HitStateTimer, can_set_state};
+use crate::game::components::animation::{AnimationState, EntityState, FIGHT_STATE_SECONDS, FightStateTimer, HIT_STATE_SECONDS, HitStateTimer, can_set_state};
+use crate::key_bindings::KeyBindings;
 use crate::game::components::collision::Collision;
 use crate::game::components::exit::Exit;
 use crate::game::components::health::{Damage, Health, InvincibilityTimer};
@@ -65,7 +66,7 @@ pub(super) fn apply_hostile_contact_damage(
     mut commands: Commands,
     hostile_query: Query<(&Damage, Option<&Health>), (With<Hostile>, Without<Player>)>,
     mut hostile_states: Query<
-        (&mut AnimationState, Option<&HitStateTimer>),
+        (&mut AnimationState, Option<&HitStateTimer>, Option<&FightStateTimer>),
         (With<Hostile>, Without<Player>),
     >,
     mut player_query: Query<
@@ -101,10 +102,13 @@ pub(super) fn apply_hostile_contact_damage(
                         .insert(HitStateTimer::new(HIT_STATE_SECONDS, player_state.version));
                 }
 
-                if let Ok((mut hostile_state, hostile_hit_timer)) = hostile_states.get_mut(colliding_entity)
+                if let Ok((mut hostile_state, hostile_hit_timer, hostile_fight_timer)) = hostile_states.get_mut(colliding_entity)
                 {
-                    if can_set_state(&hostile_state, hostile_hit_timer, EntityState::Fight) {
+                    if can_set_state(&hostile_state, hostile_hit_timer, hostile_fight_timer, EntityState::Fight) {
                         hostile_state.set(EntityState::Fight);
+                        commands
+                            .entity(colliding_entity)
+                            .insert(FightStateTimer::new(FIGHT_STATE_SECONDS));
                     }
                 }
 
@@ -187,7 +191,7 @@ pub(super) fn play_hostile_death_quotes(
             AudioPlayer::new(quote_handle),
             PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Despawn,
-                volume: bevy::audio::Volume::new(audio_settings.effects_volume),
+                volume: bevy::audio::Volume::new(audio_settings.quotes_volume),
                 ..default()
             },
             GameViewEntity,
@@ -201,6 +205,7 @@ pub(super) fn play_hostile_death_quotes(
 pub(super) fn shoot_plasma(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
+    key_bindings: Res<KeyBindings>,
     time: Res<Time>,
     audio_settings: Res<AudioSettings>,
     combat_sfx: Option<Res<CombatSoundEffects>>,
@@ -223,13 +228,13 @@ pub(super) fn shoot_plasma(
 
         plasma_attack.cooldown.tick(time.delta());
 
-        if !keys.just_pressed(KeyCode::Space) || !plasma_attack.cooldown.finished() {
+        if !keys.just_pressed(key_bindings.shoot) || !plasma_attack.cooldown.finished() {
             continue;
         }
 
         plasma_attack.cooldown.reset();
 
-        if can_set_state(&state, hit_timer, EntityState::Fight) {
+        if can_set_state(&state, hit_timer, None, EntityState::Fight) {
             state.set(EntityState::Fight);
         }
 
@@ -647,7 +652,7 @@ pub(super) fn maintain_player_fight_state(
             continue;
         }
 
-        if can_set_state(&state, hit_timer, EntityState::Fight) {
+        if can_set_state(&state, hit_timer, None, EntityState::Fight) {
             state.set(EntityState::Fight);
         }
     }

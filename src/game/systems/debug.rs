@@ -25,7 +25,9 @@ pub(super) fn toggle_hitbox_debug_lines(
         With<SpawnedLevelEntity>,
     >,
 ) {
-    if !keys.just_pressed(KeyCode::KeyL) {
+    let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    if !keys.just_pressed(KeyCode::KeyL) || !ctrl || !shift {
         return;
     }
 
@@ -127,7 +129,9 @@ pub(super) fn toggle_debug_overlay(
     mut debug_settings: ResMut<DebugRenderSettings>,
     mut overlay: Query<&mut Visibility, With<DebugOverlayRoot>>,
 ) {
-    if keys.just_pressed(KeyCode::KeyO) {
+    let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    if ctrl && shift && keys.just_pressed(KeyCode::KeyO) {
         debug_settings.show_overlay = !debug_settings.show_overlay;
         let visibility = if debug_settings.show_overlay {
             Visibility::Visible
