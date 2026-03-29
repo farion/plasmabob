@@ -13,7 +13,7 @@ Have Fun!
 
 ### Gameplay
 
-[![Screenshot](gameplay.jpg)](gameplay.jpg)
+[![Screenshot](gameplay2.jpg)](gameplay2.jpg)
 
 ## Tool Usage
 
