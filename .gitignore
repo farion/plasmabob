@@ -1,3 +1,4 @@
 .idea/
 target
 *.iml
+/build_output.txt
