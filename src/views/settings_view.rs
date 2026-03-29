@@ -476,7 +476,7 @@ fn update_error_messages(
     }
 }
 
-fn cleanup_settings_view(mut commands: Commands, entities: Query<Entity, With<SettingsViewEntity>>) {
+fn cleanup_settings_view(mut commands: Commands, entities: Query<Entity, (With<SettingsViewEntity>, Without<Parent>)>) {
     commands.remove_resource::<SettingsSelection>();
     commands.remove_resource::<BindingCapture>();
     for entity in &entities {

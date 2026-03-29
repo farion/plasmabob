@@ -70,7 +70,7 @@ fn return_to_main_menu(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<N
     }
 }
 
-fn cleanup_about_view(mut commands: Commands, entities: Query<Entity, With<AboutViewEntity>>) {
+fn cleanup_about_view(mut commands: Commands, entities: Query<Entity, (With<AboutViewEntity>, Without<Parent>)>) {
     for entity in &entities {
         commands.entity(entity).despawn_recursive();
     }

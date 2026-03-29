@@ -122,6 +122,46 @@ pub(super) fn apply_hostile_contact_damage(
     }
 }
 
+pub(super) fn set_hostile_fight_state_on_player_contact(
+    mut commands: Commands,
+    player_entities: Query<Entity, With<Player>>,
+    mut hostiles: Query<
+        (
+            Entity,
+            &CollidingEntities,
+            &mut AnimationState,
+            Option<&HitStateTimer>,
+            Option<&FightStateTimer>,
+            Option<&Health>,
+        ),
+        (With<Hostile>, Without<Player>),
+    >,
+) {
+    let player_set: HashSet<Entity> = player_entities.iter().collect();
+
+    for (hostile_entity, colliding_entities, mut hostile_state, hit_timer, fight_timer, health) in &mut hostiles {
+        if health.is_some_and(|value| value.is_dead()) {
+            continue;
+        }
+
+        let touches_player = colliding_entities
+            .0
+            .iter()
+            .any(|entity| player_set.contains(entity));
+
+        if !touches_player {
+            continue;
+        }
+
+        if can_set_state(&hostile_state, hit_timer, fight_timer, EntityState::Fight) {
+            hostile_state.set(EntityState::Fight);
+            commands
+                .entity(hostile_entity)
+                .insert(FightStateTimer::new(FIGHT_STATE_SECONDS));
+        }
+    }
+}
+
 /// Despawns any non-player, non-NPC entity whose HP has reached zero.
 pub(super) fn despawn_dead_entities(
     mut commands: Commands,
@@ -267,6 +307,7 @@ pub(super) fn shoot_plasma(
         let mut beam_entity = commands.spawn((
             Name::new(format!("PlasmaBeam:{}", player_entity.index())),
             Transform::from_xyz(origin.x, origin.y, PLASMA_Z),
+            Visibility::default(),
             PlasmaBeam::new(
                 player_entity,
                 direction,

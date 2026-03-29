@@ -1,0 +1,13 @@
+{
+  "component": ["doodad"],
+  "states": {
+    "default": {
+      "animation": ["assets/sprites/doodads/runestone1.png"],
+      "hitbox": [[0, 0], [51, 0], [51, 128], [0, 128]],
+      "animation_frame_ms": 500
+    }
+  },
+  "width": 51,
+  "height": 128
+}
+

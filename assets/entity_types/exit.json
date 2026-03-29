@@ -1,0 +1,13 @@
+{
+  "component": ["collision", "exit"],
+  "states": {
+    "default": {
+      "animation": ["assets/sprites/portal/exit.png"],
+      "hitbox": [[0, 0], [130, 0], [130, 128], [0, 128]],
+      "animation_frame_ms": 500
+    }
+  },
+  "width": 130,
+  "height": 128
+}
+

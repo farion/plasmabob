@@ -76,7 +76,7 @@ fn restart_level(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextSta
     }
 }
 
-fn cleanup_win_view(mut commands: Commands, entities: Query<Entity, With<WinViewEntity>>) {
+fn cleanup_win_view(mut commands: Commands, entities: Query<Entity, (With<WinViewEntity>, Without<Parent>)>) {
     for entity in &entities {
         commands.entity(entity).despawn_recursive();
     }

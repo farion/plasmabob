@@ -33,6 +33,10 @@ pub(crate) struct LevelEntityType(pub(crate) String);
 #[allow(dead_code)]
 pub(crate) struct AnimationCatalog(pub(crate) HashMap<String, Vec<String>>);
 
+#[derive(Component, Debug, Clone)]
+#[allow(dead_code)]
+pub(crate) struct AnimationFrameDurations(pub(crate) HashMap<String, f32>);
+
 #[derive(Component)]
 pub(crate) struct NpcMoving;
 
@@ -63,8 +67,10 @@ pub(crate) fn spawn_entity(
 
     // Pre-compute animations once - insert separately to avoid early drop
     let normalized_animations = entity_type.normalized_animations();
+    let frame_durations = entity_type.animation_frame_seconds_by_state();
     entity_commands.insert((
         AnimationCatalog(normalized_animations.clone()),
+        AnimationFrameDurations(frame_durations),
         animation::PreloadedAnimations::from_paths(asset_server, &normalized_animations),
     ));
 
@@ -110,8 +116,17 @@ pub(crate) fn spawn_entity(
         }
     }
 
+    let state_hitbox_catalog = match hitbox::from_entity_type_by_state(entity_type) {
+        Ok(catalog) => catalog,
+        Err(error) => {
+            warnings.push(format!("{} has invalid hitbox: {error}", entity_definition.id));
+            return warnings;
+        }
+    };
+
     match hitbox::from_entity_type(entity_type) {
         Ok(polygon_hitbox) => {
+            entity_commands.insert(state_hitbox_catalog);
             if has_player || has_moving {
                 let precomputed_hitbox = hitbox::PrecomputedPlayerHitbox::from_polygon_hitbox(&polygon_hitbox);
                 let collider = precomputed_hitbox.collider(false);

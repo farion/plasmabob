@@ -2,3 +2,5 @@
 target
 *.iml
 /build_output.txt
+editor/target
+editor/build_output.txt

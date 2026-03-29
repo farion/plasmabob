@@ -389,14 +389,12 @@ mod tests {
         EntityTypeDefinition {
             components: components.iter().map(|component| component.to_string()).collect(),
             disposition: None,
-            animations: HashMap::new(),
-            hitbox: Vec::new(),
+            states: HashMap::new(),
             width: 16.0,
             height: 16.0,
             health: None,
             damage: None,
             attack_range: None,
-            animation_frame_ms: None,
         }
     }
 

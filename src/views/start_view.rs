@@ -85,7 +85,7 @@ fn return_to_main_menu(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<N
     }
 }
 
-fn cleanup_start_view(mut commands: Commands, entities: Query<Entity, With<StartViewEntity>>) {
+fn cleanup_start_view(mut commands: Commands, entities: Query<Entity, (With<StartViewEntity>, Without<Parent>)>) {
     for entity in &entities {
         commands.entity(entity).despawn_recursive();
     }

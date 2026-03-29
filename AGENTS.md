@@ -35,13 +35,13 @@ private submodules — **do not add `pub mod` entries for them in `mod.rs`**.
 Each state has `OnEnter`, `Update` (`.run_if(in_state(…))`), and `OnExit` schedules.
 
 ## Level Format (`assets/levels/`)
-- `entity_types.json` — shared type definitions (components, animations, hitbox, size, health, damage)
+- `assets/entity_types/*.json` — eine Datei pro Entity-Type (components, animations, hitbox, size, health, damage)
 - `levelN.json` — terrain, music, quotes, bounds, and entity instances
 - **Coordinates**: bottom-left origin `(0, 0)`; `x/y` in `EntityDefinition` are bottom-left of the entity
 - `z_index` on instances controls draw order (higher = in front)
-- `entity_types_path` defaults to `"entity_types.json"` (sibling file)
+- `entity_types_path` defaults to `"entity_types"` (Ordner unter `assets/`)
 
-Adding a new entity type: add an entry to `entity_types.json` with the `component` array and
+Adding a new entity type: create `assets/entity_types/<name>.json` with the `component` array and
 `animations` map, then place instances in the level JSON.
 
 ## Component System

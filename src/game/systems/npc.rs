@@ -1,5 +1,6 @@
-use avian2d::prelude::LinearVelocity;
+use avian2d::prelude::{LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
+use bevy::math::Dir2;
 
 use crate::game::components::animation::{AnimationState, EntityState, FightStateTimer, HitStateTimer, can_set_state};
 use crate::game::components::health::Health;
@@ -10,8 +11,10 @@ use super::MOVING_NPC_MAX_DISTANCE_FROM_ORIGIN;
 
 pub(super) fn control_moving_entities(
 	time: Res<Time>,
+	spatial_query: SpatialQuery,
 	mut entities: Query<
 		(
+			Entity,
 			&Transform,
 			&mut LinearVelocity,
 			&mut Sprite,
@@ -24,7 +27,7 @@ pub(super) fn control_moving_entities(
 		With<Npc>,
 	>,
 ) {
-	for (transform, mut velocity, mut sprite, mut moving, mut state, hit_timer, fight_timer, health) in &mut entities {
+	for (entity, transform, mut velocity, mut sprite, mut moving, mut state, hit_timer, fight_timer, health) in &mut entities {
 		if health.is_some_and(|value| value.is_dead()) {
 			velocity.x = 0.0;
 			continue;
@@ -45,6 +48,9 @@ pub(super) fn control_moving_entities(
 		let delta_from_origin = transform.translation.x - moving.origin_x;
 		moving.direction = direction_within_moving_bounds(moving.direction, delta_from_origin);
 
+		// Check 60px ahead for platform edge - reverse direction BEFORE falling
+		check_and_avoid_platform_edge(&spatial_query, entity, transform, &mut moving);
+
 		velocity.x = moving.direction * moving.speed;
 		update_sprite_flip_for_move_axis(&mut sprite, velocity.x);
 
@@ -57,6 +63,38 @@ pub(super) fn control_moving_entities(
 		if can_set_state(&state, hit_timer, fight_timer, next_state) {
 			state.set(next_state);
 		}
+	}
+}
+
+/// Checks 60px ahead for a platform edge. If no ground is found,
+/// reverses direction immediately and resets the direction timer.
+fn check_and_avoid_platform_edge(
+	spatial_query: &SpatialQuery,
+	npc_entity: Entity,
+	transform: &Transform,
+	moving: &mut Moving,
+) {
+	let npc_pos = transform.translation.xy();
+
+	// Check position 60px ahead in current direction
+	let check_ahead_x = npc_pos.x + (moving.direction * 60.0);
+	let check_ahead_y = npc_pos.y - 10.0; // Start slightly below the NPC
+
+	// Cast downward from that position to see if ground exists
+	let raycast_origin = Vec2::new(check_ahead_x, check_ahead_y);
+	let raycast_direction = Dir2::NEG_Y;
+
+	// Create a filter that excludes the NPC itself
+	let mut filter = SpatialQueryFilter::default();
+	filter.excluded_entities.insert(npc_entity);
+
+	// Cast downward up to 50px with solid_only=true to only hit solid objects
+	let hits = spatial_query.ray_hits(raycast_origin, raycast_direction, 50.0, 10, true, &filter);
+
+	// If no ground ahead, reverse direction immediately
+	if hits.is_empty() {
+		moving.direction = -moving.direction;
+		moving.reset_direction_timer();
 	}
 }
 

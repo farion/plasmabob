@@ -1,0 +1,13 @@
+{
+  "component": ["collision", "floor"],
+  "states": {
+    "default": {
+      "animation": ["assets/sprites/ground/stone-platform-3.png"],
+      "hitbox": [[0, 0], [768, 0], [768, 60], [0, 60]],
+      "animation_frame_ms": 500
+    }
+  },
+  "width": 768,
+  "height": 80
+}
+

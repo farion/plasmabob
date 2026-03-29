@@ -240,7 +240,7 @@ fn setup_main_menu(
         });
 }
 
-fn cleanup_main_menu(mut commands: Commands, entities: Query<Entity, With<MainMenuEntity>>) {
+fn cleanup_main_menu(mut commands: Commands, entities: Query<Entity, (With<MainMenuEntity>, Without<Parent>)>) {
     for entity in &entities {
         commands.entity(entity).despawn_recursive();
     }

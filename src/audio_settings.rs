@@ -5,8 +5,8 @@ use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 
 const SETTINGS_FILE_NAME: &str = "settings.json";
-const DEFAULT_MUSIC_VOLUME: f32 = 0.5;
-const DEFAULT_EFFECTS_VOLUME: f32 = 1.0;
+const DEFAULT_MUSIC_VOLUME: f32 = 0.2;
+const DEFAULT_EFFECTS_VOLUME: f32 = 0.5;
 const DEFAULT_QUOTES_VOLUME: f32 = 1.0;
 
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]

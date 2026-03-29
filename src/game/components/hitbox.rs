@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use avian2d::prelude::Collider;
+use std::collections::HashMap;
 
 use crate::game::level::EntityTypeDefinition;
 
@@ -8,6 +9,9 @@ use crate::game::level::EntityTypeDefinition;
 pub(crate) struct PolygonHitbox {
     pub(crate) points: Vec<Vec2>,
 }
+
+#[derive(Component, Debug, Clone, Default)]
+pub(crate) struct StateHitboxCatalog(pub(crate) HashMap<String, PolygonHitbox>);
 
 #[derive(Component, Debug, Clone)]
 pub(crate) struct PrecomputedPlayerHitbox {
@@ -77,6 +81,16 @@ pub(crate) fn from_entity_type(entity_type: &EntityTypeDefinition) -> Result<Pol
     Ok(PolygonHitbox {
         points: entity_type.centered_hitbox_polygon()?,
     })
+}
+
+pub(crate) fn from_entity_type_by_state(entity_type: &EntityTypeDefinition) -> Result<StateHitboxCatalog, String> {
+    let polygons = entity_type.centered_hitbox_polygons_by_state()?;
+    let catalog = polygons
+        .into_iter()
+        .map(|(state_name, points)| (state_name, PolygonHitbox { points }))
+        .collect();
+
+    Ok(StateHitboxCatalog(catalog))
 }
 
 pub(crate) fn collider_from_points(points: Vec<Vec2>) -> Collider {

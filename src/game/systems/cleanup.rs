@@ -8,8 +8,8 @@ use super::{ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LevelQuotes, 
 pub(super) fn cleanup_game_view(
     mut commands: Commands,
     mut cameras: Query<&mut Transform, (With<Camera>, With<MainCamera>)>,
-    ui_entities: Query<Entity, With<GameViewEntity>>,
-    level_entities: Query<Entity, With<SpawnedLevelEntity>>,
+    ui_entities: Query<Entity, (With<GameViewEntity>, Without<Parent>)>,
+    level_entities: Query<Entity, (With<SpawnedLevelEntity>, Without<Parent>)>,
 ) {
     commands.remove_resource::<ActiveLevelBounds>();
     commands.remove_resource::<LevelQuotes>();

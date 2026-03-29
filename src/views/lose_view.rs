@@ -76,7 +76,7 @@ fn restart_level(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextSta
     }
 }
 
-fn cleanup_lose_view(mut commands: Commands, entities: Query<Entity, With<LoseViewEntity>>) {
+fn cleanup_lose_view(mut commands: Commands, entities: Query<Entity, (With<LoseViewEntity>, Without<Parent>)>) {
     for entity in &entities {
         commands.entity(entity).despawn_recursive();
     }

@@ -25,7 +25,7 @@ mod setup;
 pub struct GameViewPlugin;
 
 const PLAYER_MOVE_SPEED: f32 = 320.0;
-const PLAYER_JUMP_SPEED: f32 = 700.0;
+const PLAYER_JUMP_SPEED: f32 = 900.0;
 const MOVING_NPC_MAX_DISTANCE_FROM_ORIGIN: f32 = 500.0;
 const LEVEL_BOUNDARY_THICKNESS: f32 = 64.0;
 const PLAYER_SCREEN_X_ANCHOR: f32 = 0.4;
@@ -130,6 +130,7 @@ impl Plugin for GameViewPlugin {
                 npc::control_moving_entities,
                 combat::tick_invincibility_timers,
                 combat::apply_hostile_contact_damage,
+                combat::set_hostile_fight_state_on_player_contact,
                 combat::shoot_plasma.before(combat::update_plasma_beams),
                 (
                     combat::update_plasma_beams,
@@ -145,6 +146,7 @@ impl Plugin for GameViewPlugin {
                     combat::play_hostile_death_quotes,
                     animation::tick_hit_state_timers,
                     animation::tick_fight_state_timers,
+                    animation::sync_state_hitboxes,
                     animation::apply_state_animation,
                     combat::despawn_dead_entities,
                 ),
