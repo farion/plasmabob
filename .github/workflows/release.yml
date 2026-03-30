@@ -9,11 +9,32 @@ permissions:
   contents: write
 
 jobs:
+  prepare_release:
+    name: Prepare GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create release (idempotent) via gh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # authenticate gh using the provided token
+          echo "$GH_TOKEN" | gh auth login --with-token
+
+          TAG="${{ github.ref_name }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"
+          else
+            echo "Creating release $TAG"
+            gh release create "$TAG" -t "$TAG" -n "Automated build for tag $TAG"
+          fi
+
   build-linux:
     name: Build (linux)
     runs-on: ubuntu-latest
+    needs: prepare_release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install system dependencies
         run: |
@@ -26,10 +47,15 @@ jobs:
             pkg-config
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        run: |
+          set -euo pipefail
+          if command -v rustup >/dev/null 2>&1; then
+            echo "rustup already installed"
+          else
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          fi
+          source $HOME/.cargo/env
+          rustup default stable
 
       - name: Set version from tag
         run: |
@@ -38,8 +64,7 @@ jobs:
           sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
 
       - name: Build release (linux)
-        run: |
-          cargo build --release
+        run: cargo build --release
 
       - name: Package (tar.gz)
         run: |
@@ -48,23 +73,29 @@ jobs:
           cp -r assets dist/assets
           tar -C dist -czf PlasmaBob-${{ github.ref_name }}-linux.tar.gz PlasmaBob assets
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PlasmaBob-linux
-          path: PlasmaBob-${{ github.ref_name }}-linux.tar.gz
+      - name: Upload linux asset to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | gh auth login --with-token
+          gh release upload "${{ github.ref_name }}" "PlasmaBob-${{ github.ref_name }}-linux.tar.gz" --clobber
 
   build-windows:
     name: Build (windows)
     runs-on: windows-latest
+    needs: prepare_release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        run: |
+          Write-Host "Installing rustup and stable toolchain"
+          $env:RUSTUP_INIT_SKIP_PATH_CHECK = "1"
+          Invoke-WebRequest -Uri https://win.rustup.rs -OutFile rustup-init.exe
+          Start-Process -FilePath rustup-init.exe -ArgumentList "-y" -Wait
+          $env:Path += ";$env:USERPROFILE\.cargo\bin"
+          rustup default stable
 
       - name: Set version from tag
         shell: powershell
@@ -73,8 +104,7 @@ jobs:
           (Get-Content Cargo.toml) -replace '^version = ".*"', "version = `"$version`"" | Set-Content Cargo.toml
 
       - name: Build release (windows)
-        run: |
-          cargo build --release
+        run: cargo build --release
 
       - name: Package (zip)
         shell: powershell
@@ -84,23 +114,31 @@ jobs:
           Copy-Item -Path assets -Destination dist\assets -Recurse -Force
           Compress-Archive -Path dist\PlasmaBob.exe, dist\assets -DestinationPath PlasmaBob-${{ github.ref_name }}-windows.zip
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PlasmaBob-windows
-          path: PlasmaBob-${{ github.ref_name }}-windows.zip
+      - name: Upload windows asset to GitHub release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo $env:GH_TOKEN | gh auth login --with-token
+          gh release upload "${{ github.ref_name }}" "PlasmaBob-${{ github.ref_name }}-windows.zip" --clobber
 
   build-macos:
     name: Build (macos-arm)
     runs-on: macos-14
+    needs: prepare_release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        run: |
+          set -euo pipefail
+          if command -v rustup >/dev/null 2>&1; then
+            echo "rustup already installed"
+          else
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          fi
+          source $HOME/.cargo/env
+          rustup default stable
 
       - name: Set version from tag
         run: |
@@ -118,45 +156,10 @@ jobs:
           cp -r assets dist/assets
           tar -C dist -czf PlasmaBob-${{ github.ref_name }}-macos-aarch64.tar.gz PlasmaBob assets
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PlasmaBob-macos
-          path: PlasmaBob-${{ github.ref_name }}-macos-aarch64.tar.gz
-
-  create_release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: [build-linux, build-windows, build-macos]
-    steps:
-      - name: Download linux artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: PlasmaBob-linux
-          path: release-assets/linux
-
-      - name: Download windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: PlasmaBob-windows
-          path: release-assets/windows
-
-      - name: Download macos artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: PlasmaBob-macos
-          path: release-assets/macos
-
-      - name: Create release and upload assets
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          body: "Automated build for tag ${{ github.ref_name }}"
-          draft: false
-          prerelease: false
-          files: |
-            release-assets/linux/PlasmaBob-${{ github.ref_name }}-linux.tar.gz
-            release-assets/windows/PlasmaBob-${{ github.ref_name }}-windows.zip
-            release-assets/macos/PlasmaBob-${{ github.ref_name }}-macos-aarch64.tar.gz
-
+      - name: Upload macOS asset to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | gh auth login --with-token
+          gh release upload "${{ github.ref_name }}" "PlasmaBob-${{ github.ref_name }}-macos-aarch64.tar.gz" --clobber
