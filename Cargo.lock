@@ -9,6 +9,7 @@ dependencies = [
  "avian2d",
  "bevy",
  "bevy_framepace",
+ "futures-lite",
  "pollster",
  "serde",
  "serde_json",

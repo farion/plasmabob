@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
-#[cfg(test)]
-use std::path::PathBuf;
 
 use bevy::asset::io::AssetSourceId;
 use bevy::prelude::*;
+use futures_lite::stream::StreamExt as _;
 use serde::Deserialize;
 
 const DEFAULT_ANIMATION_FRAME_MS: u64 = 500;
@@ -37,10 +35,10 @@ impl CachedLevelDefinition {
     }
 
     pub(crate) fn refresh(&mut self, asset_server: &AssetServer, asset_path: &str) {
-        let normalized_asset_path = normalize_asset_reference(asset_path);
-        self.loaded_level = load_level_from_asset_server(asset_server, &normalized_asset_path)
+        let asset_path = asset_path.trim().trim_start_matches("assets/");
+        self.loaded_level = load_level_from_asset_server(asset_server, asset_path)
             .map_err(|error| error.to_string());
-        self.asset_path = normalized_asset_path;
+        self.asset_path = asset_path.to_string();
     }
 
     pub(crate) fn level_definition(&self) -> Result<&LevelDefinition, &str> {
@@ -79,19 +77,16 @@ pub(crate) struct TerrainDefinition {
 }
 
 impl LevelDefinition {
-    pub(crate) fn terrain_background_asset_path(&self) -> String {
-        normalize_asset_reference(&self.terrain.background)
+    pub(crate) fn terrain_background_asset_path(&self) -> &str {
+        &self.terrain.background
     }
 
-    pub(crate) fn music_asset_path(&self) -> String {
-        normalize_asset_reference(&self.music)
+    pub(crate) fn music_asset_path(&self) -> &str {
+        &self.music
     }
 
-    pub(crate) fn quote_asset_paths(&self) -> Vec<String> {
-        self.quotes
-            .iter()
-            .map(|quote| normalize_asset_reference(quote))
-            .collect()
+    pub(crate) fn quote_asset_paths(&self) -> &[String] {
+        &self.quotes
     }
 
     pub(crate) fn bounds_size(&self) -> Option<Vec2> {
@@ -184,10 +179,7 @@ impl EntityTypeDefinition {
                 .states
                 .get(&state_name)
                 .map(|state| state.animation.clone())
-                .unwrap_or_default()
-                .into_iter()
-                .map(|frame| normalize_asset_reference(&frame))
-                .collect::<Vec<_>>();
+                .unwrap_or_default();
 
             animations.insert(state_name, frames);
         }
@@ -315,24 +307,6 @@ impl From<serde_json::Error> for LoadLevelError {
     }
 }
 
-#[cfg(test)]
-pub(crate) fn load_level_from_asset_path(asset_path: &str) -> Result<LevelDefinition, LoadLevelError> {
-    let content = std::fs::read_to_string(asset_path_to_filesystem_path(asset_path))?;
-    let raw_level: RawLevelDefinition = serde_json::from_str(&content)?;
-
-    let entity_types_dir = find_entity_types_dir(asset_path, &raw_level.entity_types_path)?;
-    let entity_types = load_entity_types_from_dir(&entity_types_dir)?;
-
-    Ok(LevelDefinition {
-        terrain: raw_level.terrain,
-        music: raw_level.music,
-        quotes: raw_level.quotes,
-        bounds: raw_level.bounds,
-        entity_types,
-        entities: raw_level.entities,
-    })
-}
-
 pub(crate) fn load_level_from_asset_server(
     asset_server: &AssetServer,
     asset_path: &str,
@@ -340,8 +314,8 @@ pub(crate) fn load_level_from_asset_server(
     let content = read_asset_text_from_server(asset_server, asset_path)?;
     let raw_level: RawLevelDefinition = serde_json::from_str(&content)?;
 
-    let entity_types_dir = find_entity_types_dir(asset_path, &raw_level.entity_types_path)?;
-    let entity_types = load_entity_types_from_dir(&entity_types_dir)?;
+    let entity_types_dir = raw_level.entity_types_path.clone();
+    let entity_types = load_entity_types_from_dir(asset_server, &entity_types_dir)?;
 
     Ok(LevelDefinition {
         terrain: raw_level.terrain,
@@ -357,7 +331,6 @@ fn read_asset_text_from_server(
     asset_server: &AssetServer,
     asset_path: &str,
 ) -> Result<String, LoadLevelError> {
-    let normalized = normalize_asset_reference(asset_path);
     let source = asset_server.get_source(AssetSourceId::Default).map_err(|error| {
         LoadLevelError::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
@@ -369,19 +342,19 @@ fn read_asset_text_from_server(
     pollster::block_on(async {
         let mut reader = source
             .reader()
-            .read(Path::new(&normalized))
+            .read(asset_path.as_ref())
             .await
             .map_err(|error| {
                 std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    format!("Could not read asset '{normalized}': {error}"),
+                    format!("Could not read asset '{asset_path}': {error}"),
                 )
             })?;
 
         reader.read_to_end(&mut bytes).await.map_err(|error| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Could not read asset bytes for '{normalized}': {error}"),
+                format!("Could not read asset bytes for '{asset_path}': {error}"),
             )
         })?;
 
@@ -391,20 +364,44 @@ fn read_asset_text_from_server(
     String::from_utf8(bytes).map_err(|error| {
         LoadLevelError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
-            format!("Asset '{normalized}' is not valid UTF-8: {error}"),
+            format!("Asset '{asset_path}' is not valid UTF-8: {error}"),
         ))
     })
 }
 
-/// Loads all `*.json` files from a directory. The filename stem becomes the entity-type key.
-fn load_entity_types_from_dir(dir_asset_path: &str) -> Result<HashMap<String, EntityTypeDefinition>, LoadLevelError> {
-    let dir_fs_path = Path::new("assets").join(dir_asset_path);
+/// Loads all `*.json` files from a directory via the AssetServer. The filename stem becomes the entity-type key.
+fn load_entity_types_from_dir(
+    asset_server: &AssetServer,
+    dir_asset_path: &str,
+) -> Result<HashMap<String, EntityTypeDefinition>, LoadLevelError> {
+    let source = asset_server.get_source(AssetSourceId::Default).map_err(|error| {
+        LoadLevelError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Asset source error: {error}"),
+        ))
+    })?;
+
+    let paths: Vec<_> = pollster::block_on(async {
+        let mut stream = source
+            .reader()
+            .read_directory(dir_asset_path.as_ref())
+            .await
+            .map_err(|error| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("Could not list asset directory '{dir_asset_path}': {error}"),
+                )
+            })?;
+
+        let mut paths = Vec::new();
+        while let Some(path) = stream.next().await {
+            paths.push(path);
+        }
+        Ok::<_, std::io::Error>(paths)
+    })?;
+
     let mut entity_types = HashMap::new();
-
-    for entry in std::fs::read_dir(&dir_fs_path)? {
-        let entry = entry?;
-        let path = entry.path();
-
+    for path in paths {
         if path.extension().and_then(|e| e.to_str()) != Some("json") {
             continue;
         }
@@ -415,7 +412,7 @@ fn load_entity_types_from_dir(dir_asset_path: &str) -> Result<HashMap<String, En
             .unwrap_or_default()
             .to_string();
 
-        let content = std::fs::read_to_string(&path)?;
+        let content = read_asset_text_from_server(asset_server, &path.to_string_lossy())?;
         let definition: EntityTypeDefinition = serde_json::from_str(&content)?;
         validate_entity_type_definition(&definition, &key)?;
         entity_types.insert(key, definition);
@@ -445,80 +442,6 @@ fn validate_entity_type_definition(
     Ok(())
 }
 
-fn find_entity_types_dir(level_asset_path: &str, configured_path: &str) -> Result<String, LoadLevelError> {
-    let candidates = resolve_entity_types_dir_candidates(level_asset_path, configured_path);
-
-    for candidate in &candidates {
-        if Path::new("assets").join(candidate).is_dir() {
-            return Ok(candidate.clone());
-        }
-    }
-
-    Err(LoadLevelError::Io(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        format!(
-            "entity type directory not found; checked: {}",
-            candidates.join(", ")
-        ),
-    )))
-}
-
-/// Resolves candidate entity-type directories relative to the level file and assets root.
-fn resolve_entity_types_dir_candidates(level_asset_path: &str, configured_path: &str) -> Vec<String> {
-    let normalized_level_path = normalize_asset_reference(level_asset_path);
-    let normalized_configured_path = normalize_asset_reference(configured_path);
-    let sanitized_configured_path = normalized_configured_path.trim_end_matches('/');
-    let mut candidates = Vec::new();
-
-    add_unique_candidate(&mut candidates, sanitized_configured_path.to_string());
-
-    if sanitized_configured_path.ends_with(".json") {
-        if let Some(stem) = Path::new(sanitized_configured_path).file_stem().and_then(|s| s.to_str()) {
-            add_unique_candidate(&mut candidates, stem.to_string());
-            if stem == "entity_types" {
-                add_unique_candidate(&mut candidates, "entitytypes".to_string());
-            }
-        }
-    }
-
-    let level_directory = Path::new(&normalized_level_path)
-        .parent()
-        .unwrap_or_else(|| Path::new(""));
-
-    if !sanitized_configured_path.contains('/') {
-        add_unique_candidate(
-            &mut candidates,
-            level_directory
-                .join(sanitized_configured_path)
-                .to_string_lossy()
-                .replace('\\', "/"),
-        );
-    }
-
-    add_unique_candidate(&mut candidates, DEFAULT_ENTITY_TYPES_PATH.to_string());
-    add_unique_candidate(&mut candidates, "entity_types".to_string());
-
-    candidates
-}
-
-fn add_unique_candidate(candidates: &mut Vec<String>, candidate: String) {
-    if candidate.is_empty() {
-        return;
-    }
-
-    if !candidates.iter().any(|entry| entry == &candidate) {
-        candidates.push(candidate);
-    }
-}
-
-#[cfg(test)]
-pub(crate) fn asset_path_to_filesystem_path(asset_path: &str) -> PathBuf {
-    Path::new("assets").join(normalize_asset_reference(asset_path))
-}
-
-pub(crate) fn normalize_asset_reference(reference: &str) -> String {
-    reference.trim().trim_start_matches("assets/").to_string()
-}
 
 pub(crate) fn bottom_left_to_world(
     window_size: Vec2,
@@ -544,73 +467,71 @@ pub(crate) fn clamp_level_position(x: f32, y: f32, entity_size: Vec2, level_size
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, OnceLock};
+    use bevy::asset::AssetPlugin;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn cwd_test_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
-
-    fn unique_temp_root() -> PathBuf {
+    fn unique_temp_root() -> String {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system clock should be valid")
             .as_nanos();
-        std::env::temp_dir().join(format!("plasmabob-tests-{unique}"))
+        let tmp_dir = std::env::var("TMPDIR").unwrap_or_else(|_| "/tmp".to_string());
+        format!("{tmp_dir}/plasmabob-tests-{unique}")
     }
 
-    fn write_temp_file(root: &Path, relative_path: &str, content: &str) -> String {
-        let full_path = root.join(relative_path);
+    fn write_temp_file(root: &str, relative_path: &str, content: &str) {
+        let full_path = format!("{root}/{relative_path}");
 
         std::fs::create_dir_all(
-            full_path
+            std::path::Path::new(&full_path)
                 .parent()
                 .expect("temporary file path should have a parent directory"),
         )
         .expect("temporary directory should be created");
 
-        std::fs::write(&full_path, content).expect("temporary file should be written");
-        full_path.to_string_lossy().to_string()
+        std::fs::write(full_path, content).expect("temporary file should be written");
     }
 
-    fn in_temp_working_directory<F: FnOnce()>(test: F) {
-        let _lock = cwd_test_lock()
-            .lock()
-            .expect("cwd test lock should be acquirable");
-
-        struct WorkingDirGuard {
-            previous: PathBuf,
+    fn with_temp_asset_root<F: FnOnce(&str)>(test: F) {
+        struct TempRootGuard {
+            root: String,
         }
 
-        impl Drop for WorkingDirGuard {
+        impl Drop for TempRootGuard {
             fn drop(&mut self) {
-                std::env::set_current_dir(&self.previous)
-                    .expect("should restore previous working directory");
+                let _ = std::fs::remove_dir_all(&self.root);
             }
         }
 
-        let previous = std::env::current_dir().expect("current directory should be readable");
-        let _guard = WorkingDirGuard { previous };
         let root = unique_temp_root();
-        std::fs::create_dir_all(root.join("assets")).expect("temporary assets directory should exist");
-        std::env::set_current_dir(&root).expect("should switch to temporary working directory");
-        test();
+        std::fs::create_dir_all(format!("{root}/assets")).expect("temporary assets directory should exist");
+        let _guard = TempRootGuard { root: root.clone() };
+        test(&root);
+    }
+
+    fn with_test_asset_server<F: FnOnce(&AssetServer)>(root: &str, test: F) {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(AssetPlugin {
+            file_path: format!("{root}/assets"),
+            ..default()
+        });
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        test(&asset_server);
     }
 
     #[test]
     fn parses_the_split_level_schema() {
-        in_temp_working_directory(|| {
-            let root = std::env::current_dir().expect("current directory should be readable");
-            let level_path = write_temp_file(
-                &root,
+        with_temp_asset_root(|root| {
+            write_temp_file(
+                root,
                 "assets/levels/level.json",
                 r#"
                 {
                     "terrain": {
-                        "background": "assets/backgrounds/level1.png"
+                        "background": "backgrounds/level1.png"
                     },
-                    "music": "assets/music/level1.ogg",
+                    "music": "music/level1.ogg",
                     "bounds": {
                         "width": 1584,
                         "height": 1024
@@ -636,13 +557,13 @@ mod tests {
             );
 
             write_temp_file(
-                &root,
+                root,
                 "assets/entity_types/dirt.json",
                 r#"{
                     "component": ["floor"],
                     "states": {
                         "default": {
-                            "animation": ["assets/dirt/default1.png", "assets/dirt/default2.png"],
+                            "animation": ["dirt/default1.png", "dirt/default2.png"],
                             "animation_frame_ms": 500
                         }
                     },
@@ -651,13 +572,13 @@ mod tests {
                 }"#,
             );
             write_temp_file(
-                &root,
+                root,
                 "assets/entity_types/cockroach.json",
                 r#"{
                     "component": ["npc", "hostile"],
                     "disposition": "hostile",
                     "states": {
-                        "default": { "animation": ["assets/cockroach/default1.png", "assets/cockroach/default2.png"] },
+                        "default": { "animation": ["cockroach/default1.png", "cockroach/default2.png"] },
                         "walk": { "animation": [] },
                         "jump": { "animation": [] },
                         "die": { "animation": [] },
@@ -669,13 +590,13 @@ mod tests {
                 }"#,
             );
             write_temp_file(
-                &root,
+                root,
                 "assets/entity_types/bob.json",
                 r#"{
                     "component": ["player"],
                     "states": {
                         "default": {
-                            "animation": ["assets/bob/default1.png", "assets/bob/default2.png"],
+                            "animation": ["bob/default1.png", "bob/default2.png"],
                             "animation_frame_ms": 250
                         },
                         "walk": { "animation": [] },
@@ -689,33 +610,35 @@ mod tests {
                 }"#,
             );
 
-            let parsed = load_level_from_asset_path(&level_path).expect("schema should parse");
+            with_test_asset_server(root, |asset_server| {
+                let parsed =
+                    load_level_from_asset_server(asset_server, "levels/level.json").expect("schema should parse");
 
-            assert_eq!(parsed.entity_types.len(), 3);
-            assert_eq!(parsed.entities.len(), 2);
-            assert_eq!(parsed.bounds_size(), Some(Vec2::new(1584.0, 1024.0)));
-            assert_eq!(parsed.terrain_background_asset_path(), "backgrounds/level1.png");
-            assert_eq!(parsed.music_asset_path(), "music/level1.ogg");
-            assert!(parsed.quote_asset_paths().is_empty());
-            assert_eq!(parsed.entity_types["dirt"].components, vec!["floor"]);
-            assert_eq!(parsed.entity_types["cockroach"].disposition.as_deref(), Some("hostile"));
-            assert_eq!(parsed.entity_types["bob"].width, 100.0);
-            assert_eq!(parsed.entity_types["bob"].animation_frame_seconds_for_state("default"), 0.25);
-            assert_eq!(parsed.entities[1].z_index, Some(20.0));
+                assert_eq!(parsed.entity_types.len(), 3);
+                assert_eq!(parsed.entities.len(), 2);
+                assert_eq!(parsed.bounds_size(), Some(Vec2::new(1584.0, 1024.0)));
+                assert_eq!(parsed.terrain_background_asset_path(), "backgrounds/level1.png");
+                assert_eq!(parsed.music_asset_path(), "music/level1.ogg");
+                assert!(parsed.quote_asset_paths().is_empty());
+                assert_eq!(parsed.entity_types["dirt"].components, vec!["floor"]);
+                assert_eq!(parsed.entity_types["cockroach"].disposition.as_deref(), Some("hostile"));
+                assert_eq!(parsed.entity_types["bob"].width, 100.0);
+                assert_eq!(parsed.entity_types["bob"].animation_frame_seconds_for_state("default"), 0.25);
+                assert_eq!(parsed.entities[1].z_index, Some(20.0));
+            });
         });
     }
 
     #[test]
     fn uses_default_entity_types_directory_when_field_is_missing() {
-        in_temp_working_directory(|| {
-            let root = std::env::current_dir().expect("current directory should be readable");
-            let level_path = write_temp_file(
-                &root,
+        with_temp_asset_root(|root| {
+            write_temp_file(
+                root,
                 "assets/levels/level.json",
                 r#"
                 {
-                    "terrain": { "background": "assets/backgrounds/level1.png" },
-                    "music": "assets/music/level1.ogg",
+                    "terrain": { "background": "backgrounds/level1.png" },
+                    "music": "music/level1.ogg",
                     "entities": [
                         { "id": "dummy1", "entity_type": "dummy", "x": 0, "y": 0 }
                     ]
@@ -724,77 +647,27 @@ mod tests {
             );
 
             write_temp_file(
-                &root,
+                root,
                 "assets/entity_types/dummy.json",
                 r#"{
                     "component": ["npc"],
                     "states": {
-                        "default": { "animation": ["assets/dirt/default1.png"] }
+                        "default": { "animation": ["dirt/default1.png"] }
                     },
                     "width": 16,
                     "height": 16
                 }"#,
             );
 
-            let parsed = load_level_from_asset_path(&level_path).expect("schema should parse");
-            assert_eq!(parsed.entity_types["dummy"].animation_frame_seconds(), 0.5);
+            with_test_asset_server(root, |asset_server| {
+                let parsed =
+                    load_level_from_asset_server(asset_server, "levels/level.json").expect("schema should parse");
+                assert_eq!(parsed.entity_types["dummy"].animation_frame_seconds(), 0.5);
+            });
         });
     }
 
-    #[test]
-    fn resolves_entity_type_dir_candidates_with_fallbacks() {
-        let candidates = resolve_entity_types_dir_candidates("levels/planet1/level.json", "entity_types.json");
-        assert!(candidates.contains(&"entitytypes".to_string()));
-        assert!(candidates.contains(&"entity_types".to_string()));
-        assert!(candidates.contains(&"entity_types.json".to_string()));
 
-        let relative = resolve_entity_types_dir_candidates("levels/planet1/level.json", "entitytypes");
-        assert!(relative.contains(&"levels/planet1/entitytypes".to_string()));
-    }
-
-    #[test]
-    fn finds_fallback_entity_types_directory() {
-        in_temp_working_directory(|| {
-            let root = std::env::current_dir().expect("current directory should be readable");
-            write_temp_file(
-                &root,
-                "assets/entity_types/dummy.json",
-                r#"{
-                    "component": ["npc"],
-                    "states": {
-                        "default": {
-                            "animation": ["assets/dirt/default1.png"],
-                            "animation_frame_ms": 500
-                        }
-                    },
-                    "width": 16,
-                    "height": 16
-                }"#,
-            );
-
-            let resolved = find_entity_types_dir("levels/planet1/level.json", "entity_types.json")
-                .expect("fallback directory should be resolved");
-            assert_eq!(resolved, "entity_types");
-        });
-    }
-
-    #[test]
-    fn resolves_relative_entity_types_path_against_level_directory() {
-        assert_eq!(
-            resolve_entity_types_dir_candidates("levels/planet1/level.json", "entitytypes")[1],
-            "levels/planet1/entitytypes"
-        );
-        assert_eq!(
-            resolve_entity_types_dir_candidates("assets/levels/planet1/level.json", "assets/entitytypes")[0],
-            "entitytypes"
-        );
-    }
-
-    #[test]
-    fn strips_assets_prefix_from_asset_references() {
-        assert_eq!(normalize_asset_reference("assets/levels/level1.json"), "levels/level1.json");
-        assert_eq!(normalize_asset_reference("bob/default1.png"), "bob/default1.png");
-    }
 
     #[test]
     fn converts_bottom_left_level_coordinates_to_world_space() {

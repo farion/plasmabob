@@ -2,7 +2,7 @@
   "component": ["collision", "floor"],
   "states": {
     "default": {
-      "animation": ["assets/sprites/ground/stone-platform-1.png"],
+      "animation": ["sprites/ground/stone-platform-1.png"],
       "hitbox": [[0, 0], [337, 0], [337, 60], [0, 60]],
       "animation_frame_ms": 500
     }

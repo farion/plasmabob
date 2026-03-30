@@ -2,7 +2,7 @@
   "component": ["doodad"],
   "states": {
     "default": {
-      "animation": ["assets/sprites/doodads/mountain1.png"],
+      "animation": ["sprites/doodads/mountain1.png"],
       "hitbox": [[0, 0], [945, 0], [945, 384], [0, 384]],
       "animation_frame_ms": 500
     }

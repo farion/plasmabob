@@ -2,7 +2,7 @@
   "component": ["doodad"],
   "states": {
     "default": {
-      "animation": ["assets/sprites/doodads/flora1.png"],
+      "animation": ["sprites/doodads/flora1.png"],
       "hitbox": [[0, 0], [217, 0], [217, 100], [0, 100]],
       "animation_frame_ms": 500
     }

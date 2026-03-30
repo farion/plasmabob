@@ -1,16 +1,16 @@
 {
   "terrain": {
-    "background": "assets/backgrounds/level1.png"
+    "background": "backgrounds/level1.png"
   },
   "quotes": [
-    "assets/audio/quote1.ogg",
-    "assets/audio/quote2.ogg",
-    "assets/audio/quote3.ogg",
-    "assets/audio/quote4.ogg",
-    "assets/audio/quote5.ogg",
-    "assets/audio/quote6.ogg"
+    "audio/quote1.ogg",
+    "audio/quote2.ogg",
+    "audio/quote3.ogg",
+    "audio/quote4.ogg",
+    "audio/quote5.ogg",
+    "audio/quote6.ogg"
   ],
-  "music": "assets/music/level1.ogg",
+  "music": "music/level1.ogg",
   "bounds": {
     "width": 30000.0,
     "height": 1024.0
