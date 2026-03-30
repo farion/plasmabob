@@ -75,7 +75,7 @@ fn setup_start_view(mut commands: Commands) {
 
 fn start_game(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter) {
-        next_state.set(AppState::GameView);
+        next_state.set(AppState::LoadView);
     }
 }
 

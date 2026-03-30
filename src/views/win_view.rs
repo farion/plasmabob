@@ -44,6 +44,15 @@ fn setup_win_view(mut commands: Commands) {
                 WinViewEntity,
             ));
             parent.spawn((
+                Text::new("Thank you for playing. Sorry, there is this level only for now. Come back later for more content."),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                WinViewEntity,
+            ));
+            parent.spawn((
                 Text::new("Press Enter to play again"),
                 TextFont {
                     font_size: 28.0,
@@ -72,7 +81,7 @@ fn return_to_main_menu(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<N
 
 fn restart_level(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter) {
-        next_state.set(AppState::GameView);
+        next_state.set(AppState::LoadView);
     }
 }
 

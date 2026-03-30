@@ -6,6 +6,14 @@ This was started on a 24h hackathon at exxeta to explore the Bevy game engine an
 
 Have Fun!
 
+## Quick Start
+
+Go to releases and download the latest release for your platform.
+
+[Download the latest release](https://github.com/farion/plasmabob/releases/latest)
+
+Note for MacOS users: https://support.apple.com/de-de/guide/mac-help/mh40616/mac
+
 ## Screenshot
 
 ### Startscreen
@@ -59,4 +67,3 @@ Each gameplay component has its own Rust file under `src/components/`:
 - `npc`
 - `hostile`
 - `player`
-

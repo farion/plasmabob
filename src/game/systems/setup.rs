@@ -30,7 +30,7 @@ pub(super) fn setup_game_view(
     let mut spawned_count = 0usize;
 
     let (status_title, status_detail) = match cached_level_definition.level_definition() {
-        Ok(level_definition) if cached_level_definition.asset_path() == level_selection.asset_path() => {
+        Ok(level_definition) => {
             let mut quote_clips = Vec::new();
             let level_bounds = match level_definition.bounds_size() {
                 Some(bounds) if bounds.x > 0.0 && bounds.y > 0.0 => Some(bounds),
@@ -173,13 +173,6 @@ pub(super) fn setup_game_view(
                 },
             )
         }
-        Ok(_) => (
-            format!("Could not load {}", level_selection.asset_path()),
-            format!(
-                "Cached level data does not match current selection '{}'. Restart the app to refresh the cache.",
-                level_selection.asset_path()
-            ),
-        ),
         Err(error) => (
             format!("Could not load {}", level_selection.asset_path()),
             error.to_string(),

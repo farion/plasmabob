@@ -101,7 +101,7 @@ pub(crate) struct MainCamera;
 
 fn main() {
     let level_selection = LevelSelection::from_cli_arg(std::env::args().nth(1));
-    let cached_level_definition = game::level::CachedLevelDefinition::preload(level_selection.asset_path());
+    let cached_level_definition = game::level::CachedLevelDefinition::empty();
     let audio_settings = AudioSettings::load_from_disk();
     let key_bindings = key_bindings::KeyBindings::load_from_disk();
 

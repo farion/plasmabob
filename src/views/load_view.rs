@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::game::level::CachedLevelDefinition;
+use crate::{AppState, LevelSelection};
 
 pub struct LoadViewPlugin;
 
@@ -9,7 +10,10 @@ struct LoadViewEntity;
 
 impl Plugin for LoadViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::LoadView), setup_load_view)
+        app.add_systems(
+            OnEnter(AppState::LoadView),
+            (load_level_for_game_view, setup_load_view).chain(),
+        )
             .add_systems(
                 Update,
                 return_to_main_menu.run_if(in_state(AppState::LoadView)),
@@ -18,7 +22,35 @@ impl Plugin for LoadViewPlugin {
     }
 }
 
-fn setup_load_view(mut commands: Commands) {
+fn load_level_for_game_view(
+    asset_server: Res<AssetServer>,
+    mut cached_level_definition: ResMut<CachedLevelDefinition>,
+    level_selection: Res<LevelSelection>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    cached_level_definition.refresh(&asset_server, level_selection.asset_path());
+
+    if cached_level_definition.level_definition().is_ok() {
+        next_state.set(AppState::GameView);
+    }
+}
+
+fn setup_load_view(
+    mut commands: Commands,
+    level_selection: Res<LevelSelection>,
+    cached_level_definition: Res<CachedLevelDefinition>,
+) {
+    let (title, detail) = match cached_level_definition.level_definition() {
+        Ok(_) => (
+            "Load View".to_string(),
+            format!("Loaded '{}'. Entering game...", level_selection.asset_path()),
+        ),
+        Err(error) => (
+            "Could not load level".to_string(),
+            format!("{}\nPress Esc to return", error),
+        ),
+    };
+
     commands
         .spawn((
             Node {
@@ -35,7 +67,7 @@ fn setup_load_view(mut commands: Commands) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("Load View"),
+                Text::new(title),
                 TextFont {
                     font_size: 56.0,
                     ..default()
@@ -44,7 +76,7 @@ fn setup_load_view(mut commands: Commands) {
                 LoadViewEntity,
             ));
             parent.spawn((
-                Text::new("Press Esc to return"),
+                Text::new(detail),
                 TextFont {
                     font_size: 28.0,
                     ..default()

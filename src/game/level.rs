@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(test)]
+use std::path::PathBuf;
 
+use bevy::asset::io::AssetSourceId;
 use bevy::prelude::*;
 use serde::Deserialize;
 
@@ -26,19 +29,18 @@ pub(crate) struct CachedLevelDefinition {
 }
 
 impl CachedLevelDefinition {
-    pub(crate) fn preload(asset_path: &str) -> Self {
-        let normalized_asset_path = normalize_asset_reference(asset_path);
-        let loaded_level = load_level_from_asset_path(&normalized_asset_path)
-            .map_err(|error| error.to_string());
-
+    pub(crate) fn empty() -> Self {
         Self {
-            asset_path: normalized_asset_path,
-            loaded_level,
+            asset_path: String::new(),
+            loaded_level: Err("Level has not been loaded yet".to_string()),
         }
     }
 
-    pub(crate) fn asset_path(&self) -> &str {
-        &self.asset_path
+    pub(crate) fn refresh(&mut self, asset_server: &AssetServer, asset_path: &str) {
+        let normalized_asset_path = normalize_asset_reference(asset_path);
+        self.loaded_level = load_level_from_asset_server(asset_server, &normalized_asset_path)
+            .map_err(|error| error.to_string());
+        self.asset_path = normalized_asset_path;
     }
 
     pub(crate) fn level_definition(&self) -> Result<&LevelDefinition, &str> {
@@ -313,6 +315,7 @@ impl From<serde_json::Error> for LoadLevelError {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn load_level_from_asset_path(asset_path: &str) -> Result<LevelDefinition, LoadLevelError> {
     let content = std::fs::read_to_string(asset_path_to_filesystem_path(asset_path))?;
     let raw_level: RawLevelDefinition = serde_json::from_str(&content)?;
@@ -327,6 +330,69 @@ pub(crate) fn load_level_from_asset_path(asset_path: &str) -> Result<LevelDefini
         bounds: raw_level.bounds,
         entity_types,
         entities: raw_level.entities,
+    })
+}
+
+pub(crate) fn load_level_from_asset_server(
+    asset_server: &AssetServer,
+    asset_path: &str,
+) -> Result<LevelDefinition, LoadLevelError> {
+    let content = read_asset_text_from_server(asset_server, asset_path)?;
+    let raw_level: RawLevelDefinition = serde_json::from_str(&content)?;
+
+    let entity_types_dir = find_entity_types_dir(asset_path, &raw_level.entity_types_path)?;
+    let entity_types = load_entity_types_from_dir(&entity_types_dir)?;
+
+    Ok(LevelDefinition {
+        terrain: raw_level.terrain,
+        music: raw_level.music,
+        quotes: raw_level.quotes,
+        bounds: raw_level.bounds,
+        entity_types,
+        entities: raw_level.entities,
+    })
+}
+
+fn read_asset_text_from_server(
+    asset_server: &AssetServer,
+    asset_path: &str,
+) -> Result<String, LoadLevelError> {
+    let normalized = normalize_asset_reference(asset_path);
+    let source = asset_server.get_source(AssetSourceId::Default).map_err(|error| {
+        LoadLevelError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Asset source error: {error}"),
+        ))
+    })?;
+
+    let mut bytes = Vec::new();
+    pollster::block_on(async {
+        let mut reader = source
+            .reader()
+            .read(Path::new(&normalized))
+            .await
+            .map_err(|error| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("Could not read asset '{normalized}': {error}"),
+                )
+            })?;
+
+        reader.read_to_end(&mut bytes).await.map_err(|error| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Could not read asset bytes for '{normalized}': {error}"),
+            )
+        })?;
+
+        Ok::<(), std::io::Error>(())
+    })?;
+
+    String::from_utf8(bytes).map_err(|error| {
+        LoadLevelError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Asset '{normalized}' is not valid UTF-8: {error}"),
+        ))
     })
 }
 
@@ -445,6 +511,7 @@ fn add_unique_candidate(candidates: &mut Vec<String>, candidate: String) {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn asset_path_to_filesystem_path(asset_path: &str) -> PathBuf {
     Path::new("assets").join(normalize_asset_reference(asset_path))
 }
