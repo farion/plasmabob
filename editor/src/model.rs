@@ -119,7 +119,7 @@ mod tests {
             states: HashMap::from([(
                 "default".to_string(),
                 EntityTypeStateDefinition {
-                    animation: vec!["assets/bob/Bob-Stand.png".to_string()],
+                    animation: vec!["assets/bob/bob-default.png".to_string()],
                     hitbox: vec![],
                     animation_frame_ms: None,
                 },
@@ -133,7 +133,7 @@ mod tests {
 
         assert_eq!(
             entity_type.default_texture_asset_path().as_deref(),
-            Some("bob/Bob-Stand.png")
+            Some("bob/bob-default.png")
         );
     }
 }

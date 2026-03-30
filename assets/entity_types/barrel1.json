@@ -1,13 +1,12 @@
 {
   "component": ["collision", "doodad"],
+  "height": 100,
   "states": {
     "default": {
-      "animation": ["sprites/doodads/barrel1.png"],
-      "hitbox": [[0, 0], [67, 0], [67, 100], [0, 100]],
-      "animation_frame_ms": 500
+      "animation": ["sprites/barrel1/barrel1-default.png"],
+      "animation_frame_ms": 500,
+      "hitbox": [[1, 14], [3, 21], [3, 34], [1, 36], [3, 42], [3, 62], [1, 68], [3, 69], [3, 83], [1, 91], [9, 96], [26, 100], [42, 100], [54, 98], [61, 95], [67, 91], [65, 84], [65, 69], [67, 64], [65, 62], [65, 42], [67, 36], [65, 34], [65, 21], [67, 14], [61, 9], [43, 3], [25, 3], [15, 5], [7, 9]]
     }
   },
-  "width": 67,
-  "height": 100
+  "width": 67
 }
-

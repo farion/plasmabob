@@ -1,13 +1,12 @@
 {
   "component": ["collision", "floor"],
+  "height": 181,
   "states": {
     "default": {
-      "animation": ["sprites/ground/street.png"],
-      "hitbox": [[0, 0], [1629, 0], [1629, 153], [0, 153]],
-      "animation_frame_ms": 500
+      "animation": ["sprites/street/street-default.png"],
+      "animation_frame_ms": 500,
+      "hitbox": [[0, 0], [0, 155], [1522, 155], [1522, 0]]
     }
   },
-  "width": 1629,
-  "height": 181
+  "width": 1522
 }
-

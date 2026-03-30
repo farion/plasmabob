@@ -55,8 +55,8 @@
     {
       "id": "barrel11",
       "entity_type": "barrel1",
-      "x": 260.323,
-      "y": 181.0,
+      "x": 344.19638,
+      "y": 165.46785,
       "z_index": 99.0
     },
     {
@@ -88,8 +88,8 @@
       "z_index": 100.0
     },
     {
-      "id": "stone-platform-21",
-      "entity_type": "stone-platform-2",
+      "id": "stoneplatform21",
+      "entity_type": "stoneplatform2",
       "x": 550.6562,
       "y": 342.62085,
       "z_index": 100.0
@@ -123,8 +123,8 @@
       "z_index": 50.0
     },
     {
-      "id": "stone-platform-18",
-      "entity_type": "stone-platform-1",
+      "id": "stoneplatform18",
+      "entity_type": "stoneplatform1",
       "x": 805.56934,
       "y": 690.37524,
       "z_index": 98.0
@@ -193,8 +193,8 @@
       "z_index": 149.0
     },
     {
-      "id": "stone-platform-13",
-      "entity_type": "stone-platform-1",
+      "id": "stoneplatform13",
+      "entity_type": "stoneplatform1",
       "x": 1220.718,
       "y": 477.05612,
       "z_index": 99.0
@@ -237,7 +237,7 @@
     {
       "id": "street2",
       "entity_type": "street",
-      "x": 1629.0,
+      "x": 1522.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -256,8 +256,8 @@
       "z_index": 50.0
     },
     {
-      "id": "stone-platform-31",
-      "entity_type": "stone-platform-3",
+      "id": "stoneplatform31",
+      "entity_type": "stoneplatform3",
       "x": 1695.007,
       "y": 319.7648,
       "z_index": 98.0
@@ -340,8 +340,8 @@
       "z_index": 150.0
     },
     {
-      "id": "stone-platform-15",
-      "entity_type": "stone-platform-1",
+      "id": "stoneplatform15",
+      "entity_type": "stoneplatform1",
       "x": 2598.974,
       "y": 479.38104,
       "z_index": 99.0
@@ -382,8 +382,8 @@
       "z_index": 150.0
     },
     {
-      "id": "stone-platform-16",
-      "entity_type": "stone-platform-1",
+      "id": "stoneplatform16",
+      "entity_type": "stoneplatform1",
       "x": 3042.202,
       "y": 634.81903,
       "z_index": 98.0
@@ -419,7 +419,7 @@
     {
       "id": "street3",
       "entity_type": "street",
-      "x": 3258.0,
+      "x": 3045.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -445,8 +445,8 @@
       "z_index": 100.0
     },
     {
-      "id": "stone-platform-17",
-      "entity_type": "stone-platform-1",
+      "id": "stoneplatform17",
+      "entity_type": "stoneplatform1",
       "x": 3562.9143,
       "y": 371.0759,
       "z_index": 98.0
@@ -559,7 +559,7 @@
     {
       "id": "street4",
       "entity_type": "street",
-      "x": 4887.0,
+      "x": 4564.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -587,8 +587,8 @@
     {
       "id": "cockroach_ext_1",
       "entity_type": "cockroach",
-      "x": 5800.0,
-      "y": 181.0,
+      "x": 5325.753,
+      "y": 170.64514,
       "z_index": 100.0
     },
     {
@@ -601,7 +601,7 @@
     {
       "id": "barrel_ground_ext_1",
       "entity_type": "barrel1",
-      "x": 5979.8745,
+      "x": 5576.0396,
       "y": 163.2423,
       "z_index": 99.0
     },
@@ -628,10 +628,10 @@
     },
     {
       "id": "platform_ext_1",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 6200.0,
       "y": 300.0,
-      "z_index": 98.0
+      "z_index": 100.0
     },
     {
       "id": "runestone_ext_2",
@@ -664,7 +664,7 @@
     {
       "id": "street_ext_1",
       "entity_type": "street",
-      "x": 6516.0,
+      "x": 6084.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -701,19 +701,19 @@
       "entity_type": "barrel1",
       "x": 6901.1836,
       "y": 158.507,
-      "z_index": 99.0
+      "z_index": 100.0
     },
     {
       "id": "platform_ext_2",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 6960.0,
       "y": 430.0,
-      "z_index": 99.0
+      "z_index": 100.0
     },
     {
       "id": "cockroach_ext_5",
       "entity_type": "cockroach",
-      "x": 7000.0,
+      "x": 6999.0693,
       "y": 181.0,
       "z_index": 100.0
     },
@@ -761,10 +761,10 @@
     },
     {
       "id": "platform_ext_3",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 7440.0,
       "y": 560.0,
-      "z_index": 98.0
+      "z_index": 100.0
     },
     {
       "id": "flora2_ext_5",
@@ -806,7 +806,7 @@
       "entity_type": "barrel1",
       "x": 7796.448,
       "y": 610.4038,
-      "z_index": 99.0
+      "z_index": 100.0
     },
     {
       "id": "flora2_ext_6",
@@ -831,22 +831,22 @@
     },
     {
       "id": "platform_ext_4",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 8100.0,
       "y": 420.0,
-      "z_index": 99.0
+      "z_index": 100.0
     },
     {
       "id": "street_ext_2",
       "entity_type": "street",
-      "x": 8145.0,
+      "x": 7603.0,
       "y": 0.0,
       "z_index": 98.0
     },
     {
       "id": "flora1_ext_7",
       "entity_type": "flora1",
-      "x": 8160.0,
+      "x": 8150.0,
       "y": 0.0,
       "z_index": 150.0
     },
@@ -873,10 +873,10 @@
     },
     {
       "id": "platform_ext_5",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 8400.0,
       "y": 300.0,
-      "z_index": 98.0
+      "z_index": 100.0
     },
     {
       "id": "runestone_ext_7",
@@ -904,7 +904,7 @@
       "entity_type": "barrel1",
       "x": 8694.08,
       "y": 350.40393,
-      "z_index": 99.0
+      "z_index": 100.0
     },
     {
       "id": "flora2_ext_8",
@@ -950,10 +950,10 @@
     },
     {
       "id": "platform_ext_6",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 9160.0,
       "y": 430.0,
-      "z_index": 99.0
+      "z_index": 100.0
     },
     {
       "id": "mountain_ext_4",
@@ -1006,7 +1006,7 @@
     },
     {
       "id": "platform_ext_7",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 9640.0,
       "y": 560.0,
       "z_index": 98.0
@@ -1028,7 +1028,7 @@
     {
       "id": "street_ext_3",
       "entity_type": "street",
-      "x": 9774.0,
+      "x": 9121.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -1036,7 +1036,7 @@
       "id": "flora1_ext_11",
       "entity_type": "flora1",
       "x": 9840.0,
-      "y": 0.0,
+      "y": 0.7538147,
       "z_index": 150.0
     },
     {
@@ -1090,7 +1090,7 @@
     },
     {
       "id": "platform_ext_8",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 10300.0,
       "y": 420.0,
       "z_index": 98.0
@@ -1125,7 +1125,7 @@
     },
     {
       "id": "platform_ext_9",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 10600.0,
       "y": 300.0,
       "z_index": 98.0
@@ -1188,7 +1188,7 @@
     },
     {
       "id": "platform_ext_10",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 11360.0,
       "y": 430.0,
       "z_index": 98.0
@@ -1210,8 +1210,8 @@
     {
       "id": "street_ext_4",
       "entity_type": "street",
-      "x": 11403.0,
-      "y": 0.0,
+      "x": 10643.0,
+      "y": 0.75375366,
       "z_index": 98.0
     },
     {
@@ -1258,7 +1258,7 @@
     },
     {
       "id": "platform_ext_11",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 11840.0,
       "y": 560.0,
       "z_index": 98.0
@@ -1328,7 +1328,7 @@
     },
     {
       "id": "platform_ext_12",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 12500.0,
       "y": 420.0,
       "z_index": 99.0
@@ -1356,7 +1356,7 @@
     },
     {
       "id": "platform_ext_13",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 12800.0,
       "y": 300.0,
       "z_index": 98.0
@@ -1385,7 +1385,7 @@
     {
       "id": "street_ext_5",
       "entity_type": "street",
-      "x": 13032.0,
+      "x": 12167.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -1433,7 +1433,7 @@
     },
     {
       "id": "platform_ext_14",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 13560.0,
       "y": 430.0,
       "z_index": 99.0
@@ -1496,7 +1496,7 @@
     },
     {
       "id": "platform_ext_15",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 14040.0,
       "y": 560.0,
       "z_index": 98.0
@@ -1560,13 +1560,13 @@
     {
       "id": "street_ext_6",
       "entity_type": "street",
-      "x": 14661.0,
+      "x": 13684.0,
       "y": 0.0,
       "z_index": 98.0
     },
     {
       "id": "platform_ext_16",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 14700.0,
       "y": 420.0,
       "z_index": 99.0
@@ -1601,7 +1601,7 @@
     },
     {
       "id": "platform_ext_17",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 15000.0,
       "y": 300.0,
       "z_index": 98.0
@@ -1678,7 +1678,7 @@
     },
     {
       "id": "platform_ext_18",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 15760.0,
       "y": 430.0,
       "z_index": 99.0
@@ -1734,7 +1734,7 @@
     },
     {
       "id": "platform_ext_19",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 16240.0,
       "y": 560.0,
       "z_index": 98.0
@@ -1749,7 +1749,7 @@
     {
       "id": "street_ext_7",
       "entity_type": "street",
-      "x": 16290.0,
+      "x": 15206.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -1825,7 +1825,7 @@
     },
     {
       "id": "platform_ext_20",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 16900.0,
       "y": 420.0,
       "z_index": 99.0
@@ -1853,7 +1853,7 @@
     },
     {
       "id": "platform_ext_21",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 17200.0,
       "y": 300.0,
       "z_index": 98.0
@@ -1894,13 +1894,6 @@
       "z_index": 150.0
     },
     {
-      "id": "barrel_ground_ext_14",
-      "entity_type": "barrel1",
-      "x": 17702.367,
-      "y": 157.32314,
-      "z_index": 99.0
-    },
-    {
       "id": "mountain_ext_13",
       "entity_type": "mountain1",
       "x": 17755.0,
@@ -1924,7 +1917,7 @@
     {
       "id": "street_ext_8",
       "entity_type": "street",
-      "x": 17919.0,
+      "x": 16729.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -1937,7 +1930,7 @@
     },
     {
       "id": "platform_ext_22",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 17960.0,
       "y": 430.0,
       "z_index": 99.0
@@ -1986,7 +1979,7 @@
     },
     {
       "id": "platform_ext_23",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 18440.0,
       "y": 560.0,
       "z_index": 98.0
@@ -2062,13 +2055,6 @@
       "z_index": 150.0
     },
     {
-      "id": "platform_ext_24",
-      "entity_type": "stone-platform-1",
-      "x": 19100.0,
-      "y": 420.0,
-      "z_index": 99.0
-    },
-    {
       "id": "flora2_ext_33",
       "entity_type": "flora2",
       "x": 19220.0,
@@ -2091,7 +2077,7 @@
     },
     {
       "id": "platform_ext_25",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 19400.0,
       "y": 300.0,
       "z_index": 98.0
@@ -2113,7 +2099,7 @@
     {
       "id": "street_ext_9",
       "entity_type": "street",
-      "x": 19548.0,
+      "x": 18245.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -2168,7 +2154,7 @@
     },
     {
       "id": "platform_ext_26",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 20160.0,
       "y": 430.0,
       "z_index": 99.0
@@ -2238,7 +2224,7 @@
     },
     {
       "id": "platform_ext_27",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 20640.0,
       "y": 560.0,
       "z_index": 98.0
@@ -2288,7 +2274,7 @@
     {
       "id": "street_ext_10",
       "entity_type": "street",
-      "x": 21177.0,
+      "x": 21287.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -2301,7 +2287,7 @@
     },
     {
       "id": "platform_ext_28",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 21300.0,
       "y": 420.0,
       "z_index": 99.0
@@ -2350,7 +2336,7 @@
     },
     {
       "id": "platform_ext_29",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 21600.0,
       "y": 300.0,
       "z_index": 98.0
@@ -2420,7 +2406,7 @@
     },
     {
       "id": "platform_ext_30",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 22360.0,
       "y": 430.0,
       "z_index": 99.0
@@ -2470,13 +2456,13 @@
     {
       "id": "street_ext_11",
       "entity_type": "street",
-      "x": 22806.0,
+      "x": 22805.0,
       "y": 0.0,
       "z_index": 98.0
     },
     {
       "id": "platform_ext_31",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 22840.0,
       "y": 560.0,
       "z_index": 98.0
@@ -2560,7 +2546,7 @@
     },
     {
       "id": "platform_ext_32",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 23500.0,
       "y": 420.0,
       "z_index": 99.0
@@ -2588,7 +2574,7 @@
     },
     {
       "id": "platform_ext_33",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 23800.0,
       "y": 300.0,
       "z_index": 98.0
@@ -2659,7 +2645,7 @@
     {
       "id": "street_ext_12",
       "entity_type": "street",
-      "x": 24435.0,
+      "x": 24328.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -2672,7 +2658,7 @@
     },
     {
       "id": "platform_ext_34",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 24560.0,
       "y": 430.0,
       "z_index": 99.0
@@ -2728,7 +2714,7 @@
     },
     {
       "id": "platform_ext_35",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 25040.0,
       "y": 560.0,
       "z_index": 98.0
@@ -2798,7 +2784,7 @@
     },
     {
       "id": "platform_ext_36",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 25700.0,
       "y": 420.0,
       "z_index": 99.0
@@ -2833,7 +2819,7 @@
     },
     {
       "id": "platform_ext_37",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 26000.0,
       "y": 300.0,
       "z_index": 98.0
@@ -2841,7 +2827,7 @@
     {
       "id": "street_ext_13",
       "entity_type": "street",
-      "x": 26064.0,
+      "x": 25850.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -2910,7 +2896,7 @@
     },
     {
       "id": "platform_ext_38",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 26760.0,
       "y": 430.0,
       "z_index": 99.0
@@ -2973,7 +2959,7 @@
     },
     {
       "id": "platform_ext_39",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 27240.0,
       "y": 560.0,
       "z_index": 98.0
@@ -3023,7 +3009,7 @@
     {
       "id": "street_ext_14",
       "entity_type": "street",
-      "x": 27693.0,
+      "x": 27373.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -3050,7 +3036,7 @@
     },
     {
       "id": "platform_ext_40",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 27900.0,
       "y": 420.0,
       "z_index": 99.0
@@ -3085,7 +3071,7 @@
     },
     {
       "id": "platform_ext_41",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 28200.0,
       "y": 300.0,
       "z_index": 98.0
@@ -3155,7 +3141,7 @@
     },
     {
       "id": "platform_ext_42",
-      "entity_type": "stone-platform-1",
+      "entity_type": "stoneplatform1",
       "x": 28960.0,
       "y": 430.0,
       "z_index": 99.0
@@ -3205,7 +3191,7 @@
     {
       "id": "street_ext_15",
       "entity_type": "street",
-      "x": 29322.0,
+      "x": 28894.0,
       "y": 0.0,
       "z_index": 98.0
     },
@@ -3225,7 +3211,7 @@
     },
     {
       "id": "platform_ext_43",
-      "entity_type": "stone-platform-2",
+      "entity_type": "stoneplatform2",
       "x": 29440.0,
       "y": 560.0,
       "z_index": 98.0
@@ -3264,6 +3250,13 @@
       "x": 29860.0,
       "y": 0.0,
       "z_index": 150.0
+    },
+    {
+      "id": "street5",
+      "entity_type": "street",
+      "x": 19766.688,
+      "y": 0.0,
+      "z_index": 98.0
     }
   ]
 }

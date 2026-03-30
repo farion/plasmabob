@@ -3748,6 +3748,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_egui",
+ "image",
  "serde",
  "serde_json",
 ]

@@ -1,13 +1,12 @@
 {
   "component": ["doodad"],
+  "height": 128,
   "states": {
     "default": {
-      "animation": ["sprites/doodads/runestone1.png"],
-      "hitbox": [[0, 0], [51, 0], [51, 128], [0, 128]],
-      "animation_frame_ms": 500
+      "animation": ["sprites/runestone1/runestone1-default.png"],
+      "animation_frame_ms": 500,
+      "hitbox": [[9, 17], [9, 99], [10, 106], [13, 109], [14, 111], [19, 116], [19, 118], [23, 121], [28, 128], [32, 128], [41, 112], [46, 106], [45, 86], [47, 79], [47, 58], [47, 58], [47, 44], [48, 43], [48, 30], [48, 18], [49, 11], [50, 11], [51, 2], [49, 1], [16, 1], [16, 0], [8, 0], [6, 2], [0, 4], [1, 12]]
     }
   },
-  "width": 51,
-  "height": 128
+  "width": 51
 }
-
