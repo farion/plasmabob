@@ -129,7 +129,6 @@ impl Plugin for GameViewPlugin {
                     .before(combat::shoot_plasma),
                 npc::control_moving_entities,
                 combat::tick_invincibility_timers,
-                combat::tick_stomp_cooldowns,
                 combat::apply_hostile_contact_damage,
                 combat::set_hostile_fight_state_on_player_contact,
                 combat::shoot_plasma.before(combat::update_plasma_beams),
