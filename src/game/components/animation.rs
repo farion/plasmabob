@@ -145,12 +145,16 @@ pub(crate) fn can_set_state(
         return next == EntityState::Die;
     }
 
+    // When in Hit or Fight with an active timer, allow any transition except
+    // `Walk`. This makes Hit and Fight able to overwrite each other (and be
+    // overwritten by Jump, Default, Die, etc.), but prevents low-priority
+    // Walk updates from cancelling temporary combat animations.
     if state.current == EntityState::Hit && hit_timer.is_some() {
-        return matches!(next, EntityState::Hit | EntityState::Die);
+        return next != EntityState::Walk;
     }
 
     if state.current == EntityState::Fight && fight_timer.is_some() {
-        return matches!(next, EntityState::Fight | EntityState::Hit | EntityState::Die);
+        return next != EntityState::Walk;
     }
 
     true
