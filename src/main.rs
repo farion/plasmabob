@@ -4,6 +4,7 @@ use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
 use avian2d::{math::Vector, prelude::{Gravity, PhysicsPlugins}};
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 use crate::audio_settings::AudioSettings;
+use crate::game::world::WorldCatalog;
 
 mod audio_settings;
 mod game;
@@ -24,6 +25,7 @@ pub(crate) enum AppState {
     #[default]
     MainMenu,
     StartView,
+    WorldMapView,
     GameView,
     LoseView,
     WinView,
@@ -45,6 +47,30 @@ struct MenuSelection {
     index: usize,
 }
 
+#[derive(Resource, Default)]
+pub(crate) struct WorldListSelection {
+    pub(crate) index: usize,
+}
+
+#[derive(Resource, Default)]
+pub(crate) struct WorldMapSelection {
+    pub(crate) index: usize,
+}
+
+#[derive(Resource, Default, Debug, Clone)]
+pub(crate) struct CampaignProgress {
+    pub(crate) world_index: Option<usize>,
+    pub(crate) planet_index: Option<usize>,
+    pub(crate) level_index: usize,
+}
+
+impl CampaignProgress {
+    pub(crate) fn clear_planet_progress(&mut self) {
+        self.planet_index = None;
+        self.level_index = 0;
+    }
+}
+
 #[derive(Resource, Debug, Clone)]
 pub(crate) struct LevelSelection {
     asset_path: String,
@@ -57,6 +83,16 @@ pub(crate) struct DebugRenderSettings {
 }
 
 impl LevelSelection {
+    fn normalize_asset_path(raw: &str) -> String {
+        let trimmed = raw.trim().trim_start_matches("assets/");
+
+        if trimmed.ends_with(".json") {
+            trimmed.to_string()
+        } else {
+            format!("{trimmed}.json")
+        }
+    }
+
     fn from_cli_arg(arg: Option<String>) -> Self {
         let raw = arg.unwrap_or_else(|| "level1.json".to_string());
         let trimmed = raw.trim().trim_start_matches("assets/");
@@ -67,13 +103,13 @@ impl LevelSelection {
             format!("levels/{trimmed}")
         };
 
-        let asset_path = if with_folder.ends_with(".json") {
-            with_folder
-        } else {
-            format!("{with_folder}.json")
-        };
+        let asset_path = Self::normalize_asset_path(&with_folder);
 
         Self { asset_path }
+    }
+
+    pub(crate) fn set_asset_path(&mut self, raw: &str) {
+        self.asset_path = Self::normalize_asset_path(raw);
     }
 
     pub(crate) fn asset_path(&self) -> &str {
@@ -117,7 +153,11 @@ fn main() {
             show_overlay: false,
         })
         .init_resource::<MenuSelection>()
+        .init_resource::<WorldListSelection>()
+        .init_resource::<WorldMapSelection>()
+        .init_resource::<CampaignProgress>()
         .insert_resource(level_selection)
+        .insert_resource(WorldCatalog::default())
         .insert_resource(cached_level_definition)
         .insert_resource(audio_settings)
         .insert_resource(key_bindings)

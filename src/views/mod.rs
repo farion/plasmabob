@@ -6,6 +6,7 @@ mod load_view;
 mod lose_view;
 mod settings_view;
 mod start_view;
+mod world_map_view;
 mod win_view;
 
 pub struct ViewsPlugin;
@@ -19,6 +20,7 @@ impl Plugin for ViewsPlugin {
             lose_view::LoseViewPlugin,
             settings_view::SettingsViewPlugin,
             about_view::AboutViewPlugin,
+            world_map_view::WorldMapViewPlugin,
             win_view::WinViewPlugin,
         ));
     }

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::{AppState, CampaignProgress};
 
 pub struct LoseViewPlugin;
 
@@ -12,7 +12,7 @@ impl Plugin for LoseViewPlugin {
         app.add_systems(OnEnter(AppState::LoseView), setup_lose_view)
             .add_systems(
                 Update,
-                (return_to_main_menu, restart_level).run_if(in_state(AppState::LoseView)),
+                (return_to_world_map, restart_level).run_if(in_state(AppState::LoseView)),
             )
             .add_systems(OnExit(AppState::LoseView), cleanup_lose_view);
     }
@@ -35,7 +35,7 @@ fn setup_lose_view(mut commands: Commands) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("PlasmaBob Level 1 - You Lost!"),
+                Text::new("Du hast verloren!"),
                 TextFont {
                     font_size: 56.0,
                     ..default()
@@ -44,7 +44,7 @@ fn setup_lose_view(mut commands: Commands) {
                 LoseViewEntity,
             ));
             parent.spawn((
-                Text::new("Press Enter to try again"),
+                Text::new("Enter: Level wiederholen"),
                 TextFont {
                     font_size: 28.0,
                     ..default()
@@ -53,7 +53,7 @@ fn setup_lose_view(mut commands: Commands) {
                 LoseViewEntity,
             ));
             parent.spawn((
-                Text::new("Press Esc to return"),
+                Text::new("Esc: Abbrechen und zur Weltkarte"),
                 TextFont {
                     font_size: 24.0,
                     ..default()
@@ -64,9 +64,14 @@ fn setup_lose_view(mut commands: Commands) {
         });
 }
 
-fn return_to_main_menu(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn return_to_world_map(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut progress: ResMut<CampaignProgress>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if keys.just_pressed(KeyCode::Escape) {
-        next_state.set(AppState::MainMenu);
+        progress.clear_planet_progress();
+        next_state.set(AppState::WorldMapView);
     }
 }
 

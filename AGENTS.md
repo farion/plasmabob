@@ -35,8 +35,41 @@ Reused helper methods must be placed in `src/game/systems/common`.
 
 
 ## State Machine
-`AppState` enum in `main.rs`: `MainMenu → StartView → LoadView → GameView → LoseView / WinView`  
+`AppState` enum in `main.rs`: `MainMenu → StartView (Weltenliste) → WorldMapView → LoadView → GameView → LoseView / WinView`  
 Each state has `OnEnter`, `Update` (`.run_if(in_state(…))`), and `OnExit` schedules.
+
+## Welt-/Kampagnen-Mechanik
+- `Start` im Hauptmenue oeffnet die Weltenliste (`StartView`), nicht mehr direkt ein Level.
+- Verfuegbare Welten werden aus `assets/worlds/*.json` geladen (`WorldCatalog` Resource).
+- Weltenliste: **Pfeil hoch/runter** waehlt Welt, **Enter** oeffnet `WorldMapView`, **Esc** zurueck ins Hauptmenue.
+- Weltkarte (`WorldMapView`) nutzt pro Welt-JSON:
+  - `background` fuer das Kartenbild
+  - `planets[]` mit `name`, `position: [x,y]`, `radius`, optional `levels[]`
+  - `paths[]` fuer Verbindungsdaten (rein datengetrieben, aktuell ohne erzwungene Traversal-Logik)
+- Planetenwahl auf Weltkarte:
+  - **Mausklick** innerhalb des Radius waehlt Planet
+  - **Pfeiltasten** waehlen positionsbasiert den naechsten Planeten in Blickrichtung
+  - **Enter** startet das erste Level des gewaehlten Planeten
+  - **Esc** zurueck zur Weltenliste
+- Kampagnenfluss pro Planet:
+  - Nach Sieg (`WinView`) geht es mit **Enter** ins naechste Level des Planeten
+  - Nach letztem Planet-Level geht es mit **Enter** zurueck auf die Weltkarte
+  - Niederlage (`LoseView`): **Enter** wiederholt das aktuelle Level, **Esc** bricht ab und geht zur Weltkarte
+
+### Welt-JSON Schema (`assets/worlds/*.json`)
+- Top-Level Felder:
+  - `name: string`
+  - `background: string` (Asset-Pfad relativ zu `assets/`)
+  - `planets: Planet[]`
+  - `paths: Path[]` (optional)
+- `Planet` Felder:
+  - `name: string`
+  - `position: [number, number]` (Kartenkoordinate in Pixeln)
+  - `radius: number` (Klick-/Auswahlradius in Pixeln)
+  - `levels: PlanetLevel[]` (optional; leer = nicht startbar)
+- `PlanetLevel` Felder:
+  - `name: string`
+  - `json: string` (Level-JSON Pfad relativ zu `assets/`, z. B. `worlds/auralis/viridare_level1.json`)
 
 ## Level Format (`assets/levels/`)
 - `assets/entity_types/*.json` — eine Datei pro Entity-Type (components, animations, hitbox, size, health, damage)

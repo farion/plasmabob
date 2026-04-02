@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::game::world::WorldCatalog;
+use crate::{AppState, CampaignProgress, LevelSelection};
 
 pub struct WinViewPlugin;
 
@@ -12,13 +13,31 @@ impl Plugin for WinViewPlugin {
         app.add_systems(OnEnter(AppState::WinView), setup_win_view)
             .add_systems(
                 Update,
-                (return_to_main_menu, restart_level).run_if(in_state(AppState::WinView)),
+                (return_to_world_map, continue_campaign).run_if(in_state(AppState::WinView)),
             )
             .add_systems(OnExit(AppState::WinView), cleanup_win_view);
     }
 }
 
-fn setup_win_view(mut commands: Commands) {
+fn setup_win_view(
+    mut commands: Commands,
+    world_catalog: Res<WorldCatalog>,
+    progress: Res<CampaignProgress>,
+) {
+    let has_next_level = next_level_json(&world_catalog, &progress).is_some();
+
+    let title = if has_next_level {
+        "Level geschafft!"
+    } else {
+        "Planet abgeschlossen!"
+    };
+
+    let detail = if has_next_level {
+        "Enter: Naechstes Level | Esc: Weltkarte"
+    } else {
+        "Enter: Zurueck zur Weltkarte | Esc: Weltkarte"
+    };
+
     commands
         .spawn((
             Node {
@@ -35,7 +54,7 @@ fn setup_win_view(mut commands: Commands) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("PlasmaBob Level 1 - You Win!"),
+                Text::new(title),
                 TextFont {
                     font_size: 56.0,
                     ..default()
@@ -44,16 +63,7 @@ fn setup_win_view(mut commands: Commands) {
                 WinViewEntity,
             ));
             parent.spawn((
-                Text::new("Thank you for playing. Sorry, there is this level only for now. Come back later for more content."),
-                TextFont {
-                    font_size: 18.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                WinViewEntity,
-            ));
-            parent.spawn((
-                Text::new("Press Enter to play again"),
+                Text::new(detail),
                 TextFont {
                     font_size: 28.0,
                     ..default()
@@ -61,28 +71,51 @@ fn setup_win_view(mut commands: Commands) {
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
                 WinViewEntity,
             ));
-            parent.spawn((
-                Text::new("Press Esc to return"),
-                TextFont {
-                    font_size: 24.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                WinViewEntity,
-            ));
         });
 }
 
-fn return_to_main_menu(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn return_to_world_map(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut progress: ResMut<CampaignProgress>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if keys.just_pressed(KeyCode::Escape) {
-        next_state.set(AppState::MainMenu);
+        progress.clear_planet_progress();
+        next_state.set(AppState::WorldMapView);
     }
 }
 
-fn restart_level(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn continue_campaign(
+    keys: Res<ButtonInput<KeyCode>>,
+    world_catalog: Res<WorldCatalog>,
+    mut progress: ResMut<CampaignProgress>,
+    mut level_selection: ResMut<LevelSelection>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter) {
-        next_state.set(AppState::LoadView);
+        if let Some(level_path) = next_level_json(&world_catalog, &progress) {
+            progress.level_index += 1;
+            level_selection.set_asset_path(level_path);
+            next_state.set(AppState::LoadView);
+        } else {
+            progress.clear_planet_progress();
+            next_state.set(AppState::WorldMapView);
+        }
     }
+}
+
+fn next_level_json<'a>(
+    world_catalog: &'a WorldCatalog,
+    progress: &CampaignProgress,
+) -> Option<&'a str> {
+    let world_index = progress.world_index?;
+    let planet_index = progress.planet_index?;
+
+    let world = &world_catalog.world(world_index)?.definition;
+    let planet = world.planets.get(planet_index)?;
+    let next_level_index = progress.level_index + 1;
+
+    planet.levels.get(next_level_index).map(|level| level.json.as_str())
 }
 
 fn cleanup_win_view(mut commands: Commands, entities: Query<Entity, (With<WinViewEntity>, Without<Parent>)>) {

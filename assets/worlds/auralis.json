@@ -1,11 +1,14 @@
 {
   "name": "Auralis",
-  "background": "worlds/world1.png",
+  "width": 320,
+  "height": 180,
+  "background": "worlds/auralis.png",
   "planets": [
     {
       "name": "Viridara",
-      "position": [ 44, 91 ],
-      "radius": 70,
+      "position": [ 44, 138 ],
+      "radius": 35,
+      "color": [ 40, 56, 11 ],
       "levels": [
         {
           "name": "Viridara Level 1",
@@ -15,23 +18,27 @@
     },
     {
       "name": "Tharok",
-      "position": [ 105, 154 ],
-      "radius": 70
+      "position": [ 105, 75 ],
+      "color": [ 61, 67, 66 ],
+      "radius": 35
     },
     {
       "name": "Aqueon",
-      "position": [ 202, 91 ],
-      "radius": 70
+      "position": [ 202, 138 ],
+      "color": [ 31, 69, 82 ],
+      "radius": 35
     },
     {
       "name": "Zephyria",
-      "position": [ 192, 199 ],
-      "radius": 70
+      "position": [ 192, 30 ],
+      "color": [ 77, 44, 63 ],
+      "radius": 35
     },
     {
       "name": "Solkhar",
-      "position": [ 274, 153 ],
-      "radius": 70
+      "position": [ 274, 76 ],
+      "color": [ 83, 44, 25 ],
+      "radius": 35
     }
   ],
   "paths": [

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::level::CachedLevelDefinition;
-use crate::{AppState, LevelSelection};
+use crate::{AppState, CampaignProgress, LevelSelection};
 
 pub struct LoadViewPlugin;
 
@@ -87,9 +87,17 @@ fn setup_load_view(
         });
 }
 
-fn return_to_main_menu(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn return_to_main_menu(
+    keys: Res<ButtonInput<KeyCode>>,
+    progress: Res<CampaignProgress>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if keys.just_pressed(KeyCode::Escape) {
-        next_state.set(AppState::MainMenu);
+        if progress.world_index.is_some() {
+            next_state.set(AppState::WorldMapView);
+        } else {
+            next_state.set(AppState::MainMenu);
+        }
     }
 }
 
