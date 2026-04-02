@@ -49,25 +49,7 @@ pub(super) struct PlasmaImpactParticle {
 #[derive(Component)]
 pub(super) struct DeadNpcCollisionDisabled;
 
-/// Tracks when a player is standing on top of a hostile NPC. If the timer
-/// reaches the configured duration the player will take the hostile's contact
-/// damage. If the player leaves before the timer finishes no damage is taken.
-#[derive(Component)]
-pub(super) struct StandingOnHostile {
-    hostile: Entity,
-    timer: Timer,
-}
-
-/// Prevents repeated stomp damage. When present the player cannot apply
-/// stomp damage again until the timer finishes; the component is removed by
-/// a ticker system when the timer elapses.
-#[derive(Component)]
-pub(super) struct StompCooldown(pub(crate) Timer);
-
-// Threshold for considering a vertical velocity as 'falling' when performing
-// a stomp. Negative values indicate downward velocity in the game's
-// coordinate system.
-const FALLING_STOMP_THRESHOLD: f32 = -140.0;
+// stomping behavior removed: players take contact damage immediately on collision.
 
 pub(super) fn tick_invincibility_timers(
     mut commands: Commands,
@@ -82,28 +64,14 @@ pub(super) fn tick_invincibility_timers(
     }
 }
 
-pub(super) fn tick_stomp_cooldowns(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut stomps: Query<(Entity, &mut StompCooldown)>,
-) {
-    for (entity, mut cooldown) in &mut stomps {
-        cooldown.0.tick(time.delta());
-        if cooldown.0.finished() {
-            commands.entity(entity).remove::<StompCooldown>();
-        }
-    }
-}
-
 pub(super) fn apply_hostile_contact_damage(
     mut commands: Commands,
-    time: Res<Time>,
+    _time: Res<Time>,
     mut hostiles: Query<(
         Entity,
         &Damage,
         Option<&mut Health>,
         &Transform,
-        &Sprite,
         &mut AnimationState,
         Option<&HitStateTimer>,
         Option<&FightStateTimer>,
@@ -113,145 +81,39 @@ pub(super) fn apply_hostile_contact_damage(
         Entity,
         &avian2d::prelude::CollidingEntities,
         &Transform,
-        &Sprite,
         &avian2d::prelude::LinearVelocity,
         &mut Health,
         &mut AnimationState,
-        Option<&mut StandingOnHostile>,
-        Option<&mut StompCooldown>,
         Option<&PlasmaAttack>,
     ), (With<Player>, Without<InvincibilityTimer>, Without<Hostile>)>,
 ) {
     for (
         player_entity,
         colliding_entities,
-        player_transform,
-        player_sprite,
-        player_velocity,
+        _player_transform,
+        _player_velocity,
         mut player_health,
         mut player_state,
-        mut standing_opt,
-        stomp_cooldown_opt,
-        plasma_attack_opt,
+        _plasma_attack_opt,
     ) in &mut player_query
     {
         if player_health.is_dead() {
             continue;
         }
 
-        // If the player currently has a StandingOnHostile component but is no
-        // longer colliding with that hostile, remove it (no damage).
-        if let Some(standing) = standing_opt.as_ref() {
-            let still_touching = colliding_entities.0.iter().any(|e| *e == standing.hostile);
-            if !still_touching {
-                commands.entity(player_entity).remove::<StandingOnHostile>();
-            }
-        }
-
-        'player_collisions: for &colliding_entity in colliding_entities.0.iter() {
-            if let Ok((hostile_entity, damage, hostile_health_opt, hostile_transform, hostile_sprite, mut hostile_state, hostile_hit_timer, hostile_fight_timer, _level_entity_type)) = hostiles.get_mut(colliding_entity) {
-                // Determine stomping using visual sizes: compare player's bottom
-                // y against hostile's top y, and require downward (or zero)
-                // vertical velocity. This is more reliable than comparing centers.
-                let _player_size = player_sprite.custom_size.unwrap_or(Vec2::new(96.0, 128.0));
-                let _hostile_size = hostile_sprite.custom_size.unwrap_or(Vec2::new(96.0, 128.0));
-
-                // Simpler, more permissive stomp detection: if the player's
-                // center is above the hostile's center by a small margin, treat
-                // it as a stomp. This is forgiving and avoids false immediate
-                // damage when landing on top of an NPC.
-                let stomp_center_margin = 2.0;
-                let stomping = player_transform.translation.y > hostile_transform.translation.y + stomp_center_margin;
-
-                if stomping {
-                    // Track whether this stomp actually applied damage to the hostile.
-                    let mut stomp_did_damage = false;
-
-                    // Only allow stomp damage at most once per second per player.
-                    let stomp_allowed = match stomp_cooldown_opt.as_ref() {
-                        Some(cd) => cd.0.finished(),
-                        None => true,
-                    };
-
-                    let is_falling = player_velocity.y < FALLING_STOMP_THRESHOLD;
-
-                    if stomp_allowed && is_falling {
-                        // If player stomps while falling, deal 25% of the player's usual damage to the hostile.
-                        if let Some(mut hostile_health) = hostile_health_opt {
-                            let player_dmg = plasma_attack_opt.map(|p| p.damage).unwrap_or(4);
-                            let stomp_dmg = (player_dmg as f32 * 0.25).round() as i32;
-                            let stomp_dmg = (stomp_dmg).max(1);
-
-                            hostile_health.take_damage(stomp_dmg);
-                            stomp_did_damage = true;
-
-                            info!("Stomp hit hostile for {} damage - HP: {}/{}", stomp_dmg, hostile_health.current, hostile_health.max);
-                        }
-
-                        // Start/reset the stomp cooldown on the player so further stomps
-                        // within 1 second do not damage hostiles.
-                        commands.entity(player_entity).insert(StompCooldown(Timer::from_seconds(1.0, TimerMode::Once)));
-                    }
-
-                    // When stomping, the player should not take damage immediately.
-                    // Instead insert or tick a StandingOnHostile timer: if the player
-                    // remains on the hostile for more than 1 second they take damage.
-                    let stomp_timer_secs = 1.0;
-                    if let Some(ref mut standing) = standing_opt {
-                        // Update existing timer only if it's for the same hostile.
-                        if standing.hostile != colliding_entity {
-                            standing.hostile = colliding_entity;
-                            standing.timer = Timer::from_seconds(stomp_timer_secs, TimerMode::Once);
-                        } else {
-                            standing.timer.tick(time.delta());
-                            if standing.timer.finished() {
-                                // Timer expired -> apply hostile contact damage to player now.
-                                player_health.take_damage(damage.0);
-                                commands.entity(player_entity).insert(InvincibilityTimer::new(PLAYER_INVINCIBILITY_SECONDS));
-
-                                if !player_health.is_dead() {
-                                    player_state.set(EntityState::Hit);
-                                    commands.entity(player_entity).insert(HitStateTimer::new(HIT_STATE_SECONDS, player_state.version));
-                                }
-
-                                if can_set_state(&hostile_state, hostile_hit_timer, hostile_fight_timer, EntityState::Fight) {
-                                    hostile_state.set(EntityState::Fight);
-                                    commands.entity(hostile_entity).insert(FightStateTimer::new(FIGHT_STATE_SECONDS));
-                                }
-
-                                info!("Player took {} damage from hostile (after standing) - HP: {}/{}", damage.0, player_health.current, player_health.max);
-
-                                // Remove the standing marker so we don't re-apply repeatedly.
-                                commands.entity(player_entity).remove::<StandingOnHostile>();
-                                break 'player_collisions;
-                            }
-                        }
-                    } else {
-                        // Insert new standing marker.
-                        commands.entity(player_entity).insert(StandingOnHostile { hostile: colliding_entity, timer: Timer::from_seconds(stomp_timer_secs, TimerMode::Once) });
-                    }
-
-                    // Only show Hit animation if the stomp actually dealt damage to the hostile.
-                    if stomp_did_damage {
-                        if can_set_state(&hostile_state, hostile_hit_timer, hostile_fight_timer, EntityState::Hit) {
-                            hostile_state.set(EntityState::Hit);
-                            commands.entity(hostile_entity).insert(HitStateTimer::new(HIT_STATE_SECONDS, hostile_state.version));
-                        }
-                    } else {
-                        // No damage dealt (e.g. player merely stood on the NPC or stomp cooldown prevented damage)
-                        // — let the hostile react by entering Fight as usual.
-                        if can_set_state(&hostile_state, hostile_hit_timer, hostile_fight_timer, EntityState::Fight) {
-                            hostile_state.set(EntityState::Fight);
-                            commands.entity(hostile_entity).insert(FightStateTimer::new(FIGHT_STATE_SECONDS));
-                        }
-                    }
-
-                    // When stomping we don't apply the usual immediate player damage, so
-                    // continue to the next collision.
-                    continue 'player_collisions;
-                }
-
-                // Non-stomp contact: apply damage to player immediately (original behaviour).
+        for &colliding_entity in colliding_entities.0.iter() {
+            if let Ok((
+                hostile_entity,
+                damage,
+                _hostile_health_opt,
+                _hostile_transform,
+                mut hostile_state,
+                hostile_hit_timer,
+                hostile_fight_timer,
+                _level_entity_type,
+            )) = hostiles.get_mut(colliding_entity)
+            {
+                // Apply contact damage immediately (stomping removed).
                 player_health.take_damage(damage.0);
                 commands.entity(player_entity).insert(InvincibilityTimer::new(PLAYER_INVINCIBILITY_SECONDS));
 
@@ -273,7 +135,7 @@ pub(super) fn apply_hostile_contact_damage(
             }
         }
     }
-}
+    }
 
 pub(super) fn set_hostile_fight_state_on_player_contact(
     mut commands: Commands,
@@ -1047,4 +909,6 @@ mod tests {
         assert!(entity.get::<DeadNpcCollisionDisabled>().is_none());
     }
 }
+
+
 

@@ -14,6 +14,8 @@ use bevy::sprite::Anchor;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, LevelEntry};
+use crate::dashboard;
+use crate::entity_types;
 use crate::model::{normalize_asset_reference, EntityDefinition, EntityTypeDefinition, LevelBoundsDefinition, LevelFile};
 
 pub(crate) fn run() {
@@ -30,6 +32,7 @@ pub(crate) fn run() {
         .init_resource::<ZOverlayMode>()
         .init_resource::<UndoHistory>()
         .init_resource::<UndoCaptureState>()
+            .init_resource::<EntityTypeViewState>()
         .init_resource::<ClipboardEntity>()
         .add_plugins(
             DefaultPlugins
@@ -52,6 +55,7 @@ pub(crate) fn run() {
         .add_systems(Startup, setup_camera)
         .add_systems(OnEnter(EditorMode::LevelPicker), refresh_level_catalog)
         .add_systems(Update, level_picker_ui.run_if(in_state(EditorMode::LevelPicker)))
+        .add_systems(Update, entity_types::entity_type_view_ui.run_if(in_state(EditorMode::EntityTypeView)))
         .add_systems(Update, check_sync_result.run_if(in_state(EditorMode::LevelPicker)))
         .add_systems(
             Update,
@@ -83,16 +87,17 @@ pub(crate) fn run() {
 }
 
 #[derive(States, Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]
-enum EditorMode {
+pub(crate) enum EditorMode {
     #[default]
     LevelPicker,
     Editing,
+    EntityTypeView,
 }
 
 #[derive(Resource, Default)]
-struct LevelCatalog {
-    levels: Vec<LevelEntry>,
-    error: Option<String>,
+pub(crate) struct LevelCatalog {
+    pub(crate) levels: Vec<LevelEntry>,
+    pub(crate) error: Option<String>,
 }
 
 #[derive(Resource)]
@@ -131,9 +136,9 @@ struct ToastState {
 }
 
 #[derive(Resource)]
-struct EntityTypesSyncState {
-    running: Arc<AtomicBool>,
-    result: Arc<Mutex<Option<Result<crate::io::EntityTypeSyncReport, String>>>>,
+pub(crate) struct EntityTypesSyncState {
+    pub(crate) running: Arc<AtomicBool>,
+    pub(crate) result: Arc<Mutex<Option<Result<crate::io::EntityTypeSyncReport, String>>>>,
 }
 
 impl Default for EntityTypesSyncState {
@@ -196,15 +201,21 @@ struct ClipboardEntity {
     entity: Option<EntityDefinition>,
 }
 
+#[derive(Resource, Default)]
+pub(crate) struct EntityTypeViewState {
+    // name of the selected entity type to view in detail
+    pub(crate) selected: Option<String>,
+}
+
 const UNDO_LIMIT: usize = 100;
 
 #[derive(Resource, Clone)]
-struct EditorDocument {
-    level_asset_path: String,
-    level_fs_path: PathBuf,
-    level: LevelFile,
-    entity_types: HashMap<String, EntityTypeDefinition>,
-    dirty: bool,
+pub(crate) struct EditorDocument {
+    pub(crate) level_asset_path: String,
+    pub(crate) level_fs_path: PathBuf,
+    pub(crate) level: LevelFile,
+    pub(crate) entity_types: HashMap<String, EntityTypeDefinition>,
+    pub(crate) dirty: bool,
 }
 
 #[derive(Component)]
@@ -346,7 +357,8 @@ fn level_picker_ui(
     mut camera_fit_requested: ResMut<CameraFitRequested>,
     mut undo_history: ResMut<UndoHistory>,
     mut undo_capture: ResMut<UndoCaptureState>,
-    sync_state: ResMut<EntityTypesSyncState>,
+    mut sync_state: ResMut<EntityTypesSyncState>,
+    mut view_state: ResMut<EntityTypeViewState>,
     _toast: ResMut<ToastState>,
 ) {
     let ctx = contexts.ctx_mut();
@@ -379,104 +391,17 @@ fn level_picker_ui(
         }
 
         let mut open_asset_path: Option<String> = None;
-        ui.columns(3, |columns| {
-            columns[0].vertical(|ui| {
-                ui.heading("Worlds");
-                ui.add_space(8.0);
-                ui.add_enabled(false, egui::Button::new("Force Reread"));
-                ui.add_space(8.0);
-
-                let list_height = ui.available_height();
-                ui.push_id("worlds_scroll_area", |ui| {
-                    egui::ScrollArea::vertical().max_height(list_height).show(ui, |ui| {
-                        ui.label("Noch keine Worlds vorhanden.");
-                    });
-                });
-            });
-
-            columns[1].vertical(|ui| {
-                ui.heading("Levels");
-                ui.add_space(8.0);
-                if ui.button("Force Reread").clicked() {
-                    match scan_levels() {
-                        Ok(levels) => {
-                            catalog.levels = levels;
-                            catalog.error = None;
-                        }
-                        Err(error) => {
-                            catalog.levels.clear();
-                            catalog.error = Some(error);
-                        }
-                    }
-                }
-                ui.add_space(8.0);
-
-                let list_height = ui.available_height();
-                ui.push_id("levels_scroll_area", |ui| {
-                    egui::ScrollArea::vertical().max_height(list_height).show(ui, |ui| {
-                        if let Some(error) = &catalog.error {
-                            ui.colored_label(egui::Color32::RED, error);
-                        } else if catalog.levels.is_empty() {
-                            ui.label("Keine gültigen Level-Dateien gefunden.");
-                        } else {
-                            for level in &catalog.levels {
-                                ui.push_id(format!("levels_item:{}", level.asset_path), |ui| {
-                                    if ui.button(&level.display_name).clicked() {
-                                        open_asset_path = Some(level.asset_path.clone());
-                                    }
-                                });
-                            }
-                        }
-                    });
-                });
-            });
-
-            columns[2].vertical(|ui| {
-                ui.heading("EntityTypes");
-                ui.add_space(8.0);
-                if ui.button("Regenerate entity types").clicked() {
-                    // Start background sync if not already running
-                    if !sync_state.running.load(Ordering::SeqCst) {
-                        sync_state.running.store(true, Ordering::SeqCst);
-                        let running_flag = sync_state.running.clone();
-                        let result_slot = sync_state.result.clone();
-                        std::thread::spawn(move || {
-                            let res = crate::io::sync_entity_types_with_sprites();
-                            if let Ok(mut guard) = result_slot.lock() {
-                                *guard = Some(res);
-                            }
-                            running_flag.store(false, Ordering::SeqCst);
-                        });
-                    }
-                }
-
-                // Show running indicator while sync is in progress
-                if sync_state.running.load(Ordering::SeqCst) {
-                    ui.horizontal(|ui| {
-                        ui.label("Update läuft...");
-                        ui.spinner();
-                    });
-                }
-                ui.add_space(8.0);
-
-                let list_height = ui.available_height();
-                ui.push_id("entity_types_scroll_area", |ui| {
-                    egui::ScrollArea::vertical().max_height(list_height).show(ui, |ui| {
-                        if let Some(error) = &entity_type_error {
-                            ui.colored_label(egui::Color32::RED, error);
-                        } else if entity_type_files.is_empty() {
-                            ui.label("Keine Entity-Type JSON-Dateien gefunden.");
-                        } else {
-                            for file_name in &entity_type_files {
-                                ui.push_id(format!("entity_type:{}", file_name), |ui| {
-                                    ui.label(file_name);
-                                });
-                            }
-                        }
-                    });
-                });
-            });
-        });
+        if let Some(selected) = dashboard::render_level_picker_columns(
+            ui,
+            &mut open_asset_path,
+            &mut catalog,
+            &mut sync_state,
+            &entity_type_files,
+            &entity_type_error,
+        ) {
+            view_state.selected = Some(selected.clone());
+            next_state.set(EditorMode::EntityTypeView);
+        }
 
         if let Some(asset_path) = open_asset_path {
             match load_level(&asset_path) {

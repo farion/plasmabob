@@ -5,7 +5,7 @@
     "default": {
       "animation": ["sprites/street/street-default.png"],
       "animation_frame_ms": 500,
-      "hitbox": [[0, 0], [0, 155], [1522, 155], [1522, 0]]
+      "hitbox": [[0, 0], [1522, 0], [1522, 155], [0, 155]]
     }
   },
   "width": 1522

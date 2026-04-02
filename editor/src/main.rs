@@ -1,6 +1,8 @@
 mod editor;
 mod io;
 mod model;
+mod dashboard;
+mod entity_types;
 use serde_json::Value;
 
 fn main() {
@@ -50,6 +52,6 @@ fn main() {
         }
     }
 
-    editor::run();
+    dashboard::run();
 }
 
