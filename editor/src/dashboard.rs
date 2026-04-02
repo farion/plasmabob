@@ -1,17 +1,21 @@
-use bevy_egui::egui;
+// Minimal dashboard entry module used by `editor/src/main.rs`.
+// It simply delegates to the editor run entrypoint so the editor starts in
+// the same way. The actual render function for the level picker lives in
+// `editor::dashboard` (module `src/editor/dashboard.rs`) where it can access
+// editor-local types.
 
-// This module contains the three-column level/entity-types/worlds picker used by the
-// level picker UI in the editor. It is a submodule of `editor.rs` and relies on
-// the parent's types (e.g. `LevelCatalog`, `EntityTypesSyncState`).
+use bevy_egui::egui;
 
 pub(crate) fn render_level_picker_columns(
     ui: &mut egui::Ui,
     open_asset_path: &mut Option<String>,
-    catalog: &mut super::LevelCatalog,
-    sync_state: &mut super::EntityTypesSyncState,
+    catalog: &mut crate::editor::LevelCatalog,
+    sync_state: &mut crate::editor::EntityTypesSyncState,
     entity_type_files: &Vec<String>,
     entity_type_error: &Option<String>,
-) {
+) -> Option<String> {
+    let mut selected: Option<String> = None;
+
     ui.columns(3, |columns| {
         columns[0].vertical(|ui| {
             ui.heading("Worlds");
@@ -102,7 +106,10 @@ pub(crate) fn render_level_picker_columns(
                     } else {
                         for file_name in entity_type_files {
                             ui.push_id(format!("entity_type:{}", file_name), |ui| {
-                                ui.label(file_name);
+                                if ui.button(file_name).clicked() {
+                                    let key = file_name.trim_end_matches(".json").to_string();
+                                    selected = Some(key);
+                                }
                             });
                         }
                     }
@@ -110,5 +117,11 @@ pub(crate) fn render_level_picker_columns(
             });
         });
     });
+
+    selected
+}
+
+pub fn run() {
+    crate::editor::run();
 }
 

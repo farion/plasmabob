@@ -1,4 +1,4 @@
-use avian2d::prelude::{Collider, LinearVelocity, ShapeCaster, ShapeHits};
+use avian2d::prelude::{Collider, LinearVelocity, ShapeCaster, ShapeHits, SpatialQuery, SpatialQueryFilter};
 use bevy::ecs::query::Has;
 use bevy::math::Dir2;
 use bevy::prelude::*;
@@ -79,6 +79,7 @@ pub(super) fn control_player(
     mut dust_particle_image: Local<Option<Handle<Image>>>,
     keys: Res<ButtonInput<KeyCode>>,
     key_bindings: Res<KeyBindings>,
+    spatial_query: SpatialQuery,
     mut players: Query<
         (
             Entity,
@@ -101,7 +102,7 @@ pub(super) fn control_player(
             continue;
         }
 
-        let mut move_axis = 0.0;
+        let mut move_axis: f32 = 0.0;
         if keys.pressed(key_bindings.move_left) {
             move_axis -= 1.0;
         }
@@ -109,7 +110,27 @@ pub(super) fn control_player(
             move_axis += 1.0;
         }
 
-        velocity.x = move_axis * PLAYER_MOVE_SPEED;
+        // Determine horizontal velocity to apply. If the player is airborne and
+        // there is an immediate obstacle to the side we're trying to move into,
+        // don't force the horizontal velocity into the obstacle. We probe at
+        // top/mid/bottom so side contact anywhere along the body is handled.
+        let mut apply_vx = true;
+        if move_axis.abs() > f32::EPSILON && !is_grounded {
+            apply_vx = !is_airborne_side_blocked(&spatial_query, entity, transform, &sprite, move_axis);
+        }
+
+        velocity.x = if apply_vx { move_axis * PLAYER_MOVE_SPEED } else { 0.0 };
+
+        // If player is moving horizontally and grounded, try to step over small
+        // bumps so the player does not snag on tiny geometry. Use the same
+        // raycast-based detection as NPCs. Do NOT run this while airborne —
+        // applying a step impulse in mid-air can undesirably reduce fall
+        // velocity when the player is sliding against a vertical obstacle.
+        if move_axis.abs() > f32::EPSILON && is_grounded {
+            if let Some(step_impulse) = detect_small_step_player(&spatial_query, entity, transform, move_axis.signum(), 8.0) {
+                velocity.y = velocity.y.max(step_impulse);
+            }
+        }
         update_sprite_flip_for_move_axis(&mut sprite, move_axis);
 
         if keys.just_pressed(key_bindings.jump) && is_grounded {
@@ -221,9 +242,83 @@ fn spawn_dust_burst(
     }
 }
 
+
+
 fn dust_origin(transform: &Transform, sprite: &Sprite) -> Vec2 {
     let size = sprite.custom_size.unwrap_or(Vec2::new(96.0, 128.0));
     Vec2::new(transform.translation.x, transform.translation.y - (size.y * 0.45))
+}
+
+/// Raycast-based small-step detection for player, matching NPC behavior.
+fn detect_small_step_player(
+    spatial_query: &SpatialQuery,
+    entity: Entity,
+    transform: &Transform,
+    direction: f32,
+    max_step: f32,
+) -> Option<f32> {
+    let foot_offset = -10.0;
+    let probe_x = transform.translation.x + (direction * 8.0);
+    let probe_y = transform.translation.y + foot_offset;
+
+    let origin_current = Vec2::new(transform.translation.x, probe_y);
+    let origin_ahead = Vec2::new(probe_x, probe_y);
+
+    let mut filter = SpatialQueryFilter::default();
+    filter.excluded_entities.insert(entity);
+
+    let hits_current = spatial_query.ray_hits(origin_current, Dir2::NEG_Y, 40.0, 8, true, &filter);
+    let hits_ahead = spatial_query.ray_hits(origin_ahead, Dir2::NEG_Y, 40.0, 8, true, &filter);
+
+    if hits_current.is_empty() || hits_ahead.is_empty() {
+        return None;
+    }
+
+    let current_min = hits_current.iter().map(|h| h.distance).fold(f32::INFINITY, f32::min);
+    let ahead_min = hits_ahead.iter().map(|h| h.distance).fold(f32::INFINITY, f32::min);
+
+    let current_ground_y = origin_current.y - current_min;
+    let ahead_ground_y = origin_ahead.y - ahead_min;
+
+    if ahead_ground_y > current_ground_y {
+        let step = ahead_ground_y - current_ground_y;
+        if step > 0.5 && step <= max_step {
+            return Some((step + 8.0).min(220.0));
+        }
+    }
+
+    None
+}
+
+fn is_airborne_side_blocked(
+    spatial_query: &SpatialQuery,
+    entity: Entity,
+    transform: &Transform,
+    sprite: &Sprite,
+    move_axis: f32,
+) -> bool {
+    let size = sprite.custom_size.unwrap_or(Vec2::new(96.0, 128.0));
+    let half_height = (size.y * 0.5).max(8.0);
+    let edge_inset = (half_height * 0.2).clamp(6.0, 20.0);
+    let sample_offsets = [
+        -half_height + edge_inset,
+        0.0,
+        half_height - edge_inset,
+    ];
+
+    let mut filter = SpatialQueryFilter::default();
+    filter.excluded_entities.insert(entity);
+
+    let dir = if move_axis > 0.0 { Dir2::X } else { Dir2::NEG_X };
+    for offset_y in sample_offsets {
+        let origin = Vec2::new(transform.translation.x, transform.translation.y + offset_y);
+        let hits = spatial_query.ray_hits(origin, dir, 6.0, 4, true, &filter);
+        if !hits.is_empty() {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn hash_to_unit(seed: u32) -> f32 {

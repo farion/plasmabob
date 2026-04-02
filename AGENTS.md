@@ -30,6 +30,10 @@ src/game/
 `game_view.rs` uses `#[path = "systems/xxx.rs"] mod xxx;` to pull in system files as
 private submodules — **do not add `pub mod` entries for them in `mod.rs`**.
 
+Each system file under `src/game/systems/` must contain exactly one system.
+Reused helper methods must be placed in `src/game/systems/common`.
+
+
 ## State Machine
 `AppState` enum in `main.rs`: `MainMenu → StartView → LoadView → GameView → LoseView / WinView`  
 Each state has `OnEnter`, `Update` (`.run_if(in_state(…))`), and `OnExit` schedules.

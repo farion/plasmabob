@@ -227,6 +227,51 @@ pub(crate) fn save_level(level_fs_path: &Path, level: &LevelFile) -> Result<(), 
     std::fs::write(level_fs_path, format!("{content}\n")).map_err(|error| error.to_string())
 }
 
+pub(crate) fn save_entity_type_hitboxes(
+    entity_type_name: &str,
+    hitboxes_by_state: &HashMap<String, [[f32; 2]; 4]>,
+) -> Result<(), String> {
+    let json_path = assets_dir()
+        .join("entity_types")
+        .join(format!("{entity_type_name}.json"));
+
+    let content = std::fs::read_to_string(&json_path)
+        .map_err(|error| format!("{}: {error}", json_path.display()))?;
+    let mut root = serde_json::from_str::<Value>(&content)
+        .map_err(|error| format!("{}: {error}", json_path.display()))?;
+
+    let states = root
+        .as_object_mut()
+        .and_then(|object| object.get_mut("states"))
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| format!("{}: missing object 'states'", json_path.display()))?;
+
+    for (state_key, points) in hitboxes_by_state {
+        let state_object = states
+            .get_mut(state_key)
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| format!("{}: missing object 'states.{state_key}'", json_path.display()))?;
+
+        let hitbox_points = points
+            .iter()
+            .map(|[x, y]| {
+                let rounded_x = x.round().max(0.0) as i64;
+                let rounded_y = y.round().max(0.0) as i64;
+                Value::Array(vec![
+                    Value::Number(Number::from(rounded_x)),
+                    Value::Number(Number::from(rounded_y)),
+                ])
+            })
+            .collect::<Vec<_>>();
+
+        state_object.insert("hitbox".to_string(), Value::Array(hitbox_points));
+    }
+
+    let serialized = render_value_compact_arrays(&root);
+    std::fs::write(&json_path, format!("{serialized}\n"))
+        .map_err(|error| format!("{}: {error}", json_path.display()))
+}
+
 pub(crate) fn next_entity_id(entity_type: &str, entities: &[EntityDefinition]) -> String {
     let max_suffix = entities
         .iter()
@@ -405,30 +450,32 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
             .collect();
         state_object.insert("animation".to_string(), Value::Array(animation_paths));
 
-        let ignore_top: u32 = if is_floor { 40 } else { 0 };
-        let (_img_w_px, _img_h_px, hitbox) =
-            build_hitbox_from_png(&frames[0].filesystem_path, ignore_top)?;
+        if should_regenerate_hitbox(&state_object) {
+            let ignore_top: u32 = if is_floor { 40 } else { 0 };
+            let (_img_w_px, _img_h_px, hitbox) =
+                build_hitbox_from_png(&frames[0].filesystem_path, ignore_top)?;
 
-        // Scale hitbox coordinates by the computed pixel->unit scale and convert to JSON numbers
-        // If a numeric "height" exists in the JSON the scale was set to
-        // existing_height / reference_image_pixel_height earlier, otherwise we
-        // use 1.0 / SCALE_FACTOR for backward compatibility.
-        let mut hitbox_array: Vec<Value> = Vec::with_capacity(hitbox.len());
-        for [x, y] in hitbox.into_iter() {
-            let xf = (x as f64) * scale_pixels_to_units;
-            let yf = (y as f64) * scale_pixels_to_units;
-            // Round to nearest whole number
-            let xf_i = xf.round();
-            let yf_i = yf.round();
-            if xf_i < 0.0 || yf_i < 0.0 {
-                return Err(format!("rounded hitbox coordinate negative: {}, {}", xf_i, yf_i));
+            // Scale hitbox coordinates by the computed pixel->unit scale and convert to JSON numbers
+            // If a numeric "height" exists in the JSON the scale was set to
+            // existing_height / reference_image_pixel_height earlier, otherwise we
+            // use 1.0 / SCALE_FACTOR for backward compatibility.
+            let mut hitbox_array: Vec<Value> = Vec::with_capacity(hitbox.len());
+            for [x, y] in hitbox.into_iter() {
+                let xf = (x as f64) * scale_pixels_to_units;
+                let yf = (y as f64) * scale_pixels_to_units;
+                // Round to nearest whole number
+                let xf_i = xf.round();
+                let yf_i = yf.round();
+                if xf_i < 0.0 || yf_i < 0.0 {
+                    return Err(format!("rounded hitbox coordinate negative: {}, {}", xf_i, yf_i));
+                }
+                let nx = Number::from(xf_i as u64);
+                let ny = Number::from(yf_i as u64);
+                hitbox_array.push(Value::Array(vec![Value::Number(nx), Value::Number(ny)]));
             }
-            let nx = Number::from(xf_i as u64);
-            let ny = Number::from(yf_i as u64);
-            hitbox_array.push(Value::Array(vec![Value::Number(nx), Value::Number(ny)]));
-        }
 
-        state_object.insert("hitbox".to_string(), Value::Array(hitbox_array));
+            state_object.insert("hitbox".to_string(), Value::Array(hitbox_array));
+        }
 
         if !state_object.contains_key("animation_frame_ms") {
             state_object.insert(
@@ -484,6 +531,14 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
     }
 
     Ok(Value::Object(root))
+}
+
+fn should_regenerate_hitbox(state_object: &Map<String, Value>) -> bool {
+    match state_object.get("hitbox") {
+        Some(Value::Array(hitbox)) => hitbox.is_empty(),
+        Some(_) => true,
+        None => true,
+    }
 }
 
 fn render_value_compact_arrays(value: &Value) -> String {
@@ -620,6 +675,11 @@ fn canonical_state_name(raw_state: &str) -> String {
 }
 
 fn build_hitbox_from_png(png_path: &Path, ignore_top: u32) -> Result<(u32, u32, Vec<[u32; 2]>), String> {
+    // New behavior: produce a single rectangular hitbox that covers the entire
+    // non-transparent area (after applying ignore_top). This preserves the
+    // existing special-case for 'floor' entities (ignore_top) and keeps the
+    // image width/height semantics unchanged. All other polygon/simplification
+    // logic is removed for this function.
     let image = image::open(png_path)
         .map_err(|error| format!("{}: {error}", png_path.display()))?
         .to_rgba8();
@@ -630,19 +690,40 @@ fn build_hitbox_from_png(png_path: &Path, ignore_top: u32) -> Result<(u32, u32, 
         return Ok((width, height, Vec::new()));
     }
 
-    let boundary_loops = build_boundary_loops(&opaque_pixels, height as i32);
-    let Some(largest_loop) = boundary_loops
-        .into_iter()
-        .max_by_key(|polygon| polygon_area_abs(polygon))
-    else {
-        return Ok((width, height, Vec::new()));
-    };
+    // Compute bounding box in image coordinates (origin: top-left, y increases downwards)
+    let mut min_x = i32::MAX;
+    let mut max_x = i32::MIN;
+    let mut min_y = i32::MAX;
+    let mut max_y = i32::MIN;
 
-    let simplified = simplify_polygon(largest_loop, 30);
-    let hitbox = simplified
-        .into_iter()
-        .map(|(x, y)| [x.max(0) as u32, y.max(0) as u32])
-        .collect();
+    for &(x, y) in &opaque_pixels {
+        if x < min_x {
+            min_x = x;
+        }
+        if x > max_x {
+            max_x = x;
+        }
+        if y < min_y {
+            min_y = y;
+        }
+        if y > max_y {
+            max_y = y;
+        }
+    }
+
+    // Convert to bottom-left origin coordinates used elsewhere in this file.
+    // For pixel rows, the bottom coordinate for the lowest opaque pixel (max_y)
+    // is: image_height - max_y - 1. The top coordinate for the highest opaque
+    // pixel (min_y) is: image_height - min_y.
+    let img_h_i = height as i32;
+    let left = min_x.max(0) as u32;
+    let right = (max_x + 1).max(0) as u32; // +1 to include the full pixel column
+    let bottom = (img_h_i - max_y - 1).max(0) as u32;
+    let top = (img_h_i - min_y).max(0) as u32; // top is exclusive of the next row
+
+    // Construct rectangle vertices in clockwise order (bottom-left origin):
+    // bottom-left, bottom-right, top-right, top-left
+    let hitbox = vec![[left, bottom], [right, bottom], [right, top], [left, top]];
 
     Ok((width, height, hitbox))
 }
@@ -669,127 +750,10 @@ fn collect_opaque_pixels(image: &image::RgbaImage, ignore_top: u32) -> HashSet<(
     opaque_pixels
 }
 
-fn build_boundary_loops(opaque_pixels: &HashSet<(i32, i32)>, image_height: i32) -> Vec<Vec<(i32, i32)>> {
-    let mut edges: HashMap<(i32, i32), Vec<(i32, i32)>> = HashMap::new();
-
-    for &(x, y) in opaque_pixels {
-        let by = image_height - y - 1;
-
-        if !opaque_pixels.contains(&(x - 1, y)) {
-            edges.entry((x, by)).or_default().push((x, by + 1));
-        }
-        if !opaque_pixels.contains(&(x, y - 1)) {
-            edges.entry((x, by + 1)).or_default().push((x + 1, by + 1));
-        }
-        if !opaque_pixels.contains(&(x + 1, y)) {
-            edges.entry((x + 1, by + 1)).or_default().push((x + 1, by));
-        }
-        if !opaque_pixels.contains(&(x, y + 1)) {
-            edges.entry((x + 1, by)).or_default().push((x, by));
-        }
-    }
-
-    let mut loops = Vec::new();
-    while let Some(start) = edges
-        .iter()
-        .find_map(|(point, targets)| (!targets.is_empty()).then_some(*point))
-    {
-        let mut current = start;
-        let mut polygon = vec![start];
-
-        loop {
-            let next = {
-                let Some(targets) = edges.get_mut(&current) else {
-                    break;
-                };
-                targets.pop()
-            };
-
-            let Some(next) = next else {
-                break;
-            };
-            if next == start {
-                break;
-            }
-
-            polygon.push(next);
-            current = next;
-        }
-
-        if polygon.len() >= 3 {
-            loops.push(remove_collinear_points(polygon));
-        }
-    }
-
-    loops
-}
-
-fn simplify_polygon(mut polygon: Vec<(i32, i32)>, max_points: usize) -> Vec<(i32, i32)> {
-    polygon = remove_collinear_points(polygon);
-
-    while polygon.len() > max_points && polygon.len() > 3 {
-        let mut remove_index = None;
-        let mut smallest_area = i64::MAX;
-
-        for index in 0..polygon.len() {
-            let previous = polygon[(index + polygon.len() - 1) % polygon.len()];
-            let current = polygon[index];
-            let next = polygon[(index + 1) % polygon.len()];
-            let area = triangle_area2(previous, current, next).abs();
-
-            if area < smallest_area {
-                smallest_area = area;
-                remove_index = Some(index);
-            }
-        }
-
-        let Some(index) = remove_index else {
-            break;
-        };
-        polygon.remove(index);
-        polygon = remove_collinear_points(polygon);
-    }
-
-    polygon
-}
-
-fn remove_collinear_points(polygon: Vec<(i32, i32)>) -> Vec<(i32, i32)> {
-    if polygon.len() <= 3 {
-        return polygon;
-    }
-
-    let mut result = Vec::with_capacity(polygon.len());
-    for index in 0..polygon.len() {
-        let previous = polygon[(index + polygon.len() - 1) % polygon.len()];
-        let current = polygon[index];
-        let next = polygon[(index + 1) % polygon.len()];
-
-        if triangle_area2(previous, current, next) != 0 {
-            result.push(current);
-        }
-    }
-
-    if result.len() < 3 { polygon } else { result }
-}
-
-fn triangle_area2(a: (i32, i32), b: (i32, i32), c: (i32, i32)) -> i64 {
-    (b.0 as i64 - a.0 as i64) * (c.1 as i64 - a.1 as i64)
-        - (b.1 as i64 - a.1 as i64) * (c.0 as i64 - a.0 as i64)
-}
-
-fn polygon_area_abs(polygon: &[(i32, i32)]) -> i64 {
-    if polygon.len() < 3 {
-        return 0;
-    }
-
-    let mut area = 0_i64;
-    for index in 0..polygon.len() {
-        let current = polygon[index];
-        let next = polygon[(index + 1) % polygon.len()];
-        area += current.0 as i64 * next.1 as i64 - next.0 as i64 * current.1 as i64;
-    }
-    area.abs()
-}
+// Polygon boundary and simplification helpers were removed because
+// hitboxes are now always a single rectangle covering the non-transparent
+// portion of the sprite (respecting `ignore_top` for floors). The old
+// functions were intentionally deleted to avoid confusion and unused code.
 
 #[cfg(test)]
 mod tests {
@@ -1118,6 +1082,57 @@ mod tests {
             slime_json["states"]["walk"]["animation"],
             json!(["sprites/slime/slime-walk-1.png"])
         );
+    }
+
+    #[test]
+    fn build_entity_type_json_preserves_existing_hitboxes_and_only_regenerates_missing_ones() {
+        let root = unique_temp_root();
+
+        write_png(
+            &root,
+            "assets/sprites/bob/Bob-Stand.png",
+            4,
+            4,
+            &[(1, 0), (1, 1), (2, 1)],
+        );
+        write_png(
+            &root,
+            "assets/sprites/bob/Bob-Walk-1.png",
+            4,
+            4,
+            &[(0, 0), (1, 0), (1, 1)],
+        );
+
+        let merged = build_entity_type_json(
+            "bob",
+            &root.join("assets/sprites/bob"),
+            json!({
+                "component": ["player"],
+                "height": 8,
+                "states": {
+                    "default": {
+                        "animation": ["old.png"],
+                        "hitbox": [[10, 11], [12, 11], [12, 13], [10, 13]]
+                    },
+                    "walk": {
+                        "animation": ["old-walk.png"],
+                        "hitbox": []
+                    }
+                }
+            }),
+        )
+        .expect("entity type json should build");
+
+        assert_eq!(
+            merged["states"]["default"]["hitbox"],
+            json!([[10, 11], [12, 11], [12, 13], [10, 13]])
+        );
+
+        let walk_hitbox = merged["states"]["walk"]["hitbox"]
+            .as_array()
+            .expect("walk hitbox should be regenerated as an array");
+        assert!(!walk_hitbox.is_empty());
+        assert_ne!(merged["states"]["walk"]["hitbox"], json!([]));
     }
 }
 
