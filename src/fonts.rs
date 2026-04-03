@@ -20,7 +20,7 @@
 //! | [`ItalicText`]           | SpaceMono Italic    |
 //! | [`BoldText`]+[`ItalicText`] | SpaceMono BoldItalic |
 
-use bevy::asset::load_internal_binary_asset;
+use bevy::asset::{load_internal_binary_asset, uuid_handle};
 use bevy::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -29,13 +29,13 @@ use bevy::prelude::*;
 // ---------------------------------------------------------------------------
 
 pub(crate) const FONT_BOLD_HANDLE: Handle<Font> =
-    Handle::weak_from_u128(0x5053_4D5F_424F_4C44_0000_0000_0000_0001);
+    uuid_handle!("50534d5f-424f-4c44-0000-000000000001");
 
 pub(crate) const FONT_ITALIC_HANDLE: Handle<Font> =
-    Handle::weak_from_u128(0x5053_4D5F_4954_414C_0000_0000_0000_0001);
+    uuid_handle!("50534d5f-4954-414c-0000-000000000001");
 
 pub(crate) const FONT_BOLD_ITALIC_HANDLE: Handle<Font> =
-    Handle::weak_from_u128(0x5053_4D5F_4249_5441_0000_0000_0000_0001);
+    uuid_handle!("50534d5f-4249-5441-0000-000000000001");
 
 // ---------------------------------------------------------------------------
 // Marker components

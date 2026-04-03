@@ -200,7 +200,7 @@ fn fit_story_background_to_viewport(
     images: Res<Assets<Image>>,
     mut backgrounds: Query<(&Sprite, &mut Transform), With<StoryBackground>>,
 ) {
-    let Ok(window) = windows.get_single() else {
+    let Ok(window) = windows.single() else {
         return;
     };
 
@@ -228,7 +228,7 @@ fn fit_story_background_to_viewport(
 
 fn read_story_scroll_input(
     keys: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel: EventReader<MouseWheel>,
+    mut mouse_wheel: MessageReader<MouseWheel>,
     mut scroll: ResMut<StoryScrollState>,
 ) {
     const KEY_STEP_PX: f32 = 44.0;
@@ -258,10 +258,10 @@ fn apply_story_scroll(
     mut content_query: Query<(&mut Node, &ComputedNode), With<StoryTextContent>>,
     mut scroll: ResMut<StoryScrollState>,
 ) {
-    let Ok(viewport) = viewport_query.get_single() else {
+    let Ok(viewport) = viewport_query.single() else {
         return;
     };
-    let Ok((_content_style, content_node)) = content_query.get_single_mut() else {
+    let Ok((_content_style, content_node)) = content_query.single_mut() else {
         return;
     };
 
@@ -278,7 +278,7 @@ fn smooth_scroll(
     mut scroll: ResMut<StoryScrollState>,
     mut content_query: Query<&mut Node, With<StoryTextContent>>,
 ) {
-    let Ok(mut content_style) = content_query.get_single_mut() else {
+    let Ok(mut content_style) = content_query.single_mut() else {
         return;
     };
 
@@ -318,7 +318,7 @@ fn continue_story(
     target_query: Query<&StoryContinueTarget>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    let Ok(target) = target_query.get_single() else {
+    let Ok(target) = target_query.single() else {
         return;
     };
 
@@ -336,9 +336,9 @@ fn continue_story(
     }
 }
 
-fn cleanup_story_view(mut commands: Commands, entities: Query<Entity, (With<StoryViewEntity>, Without<Parent>)>) {
+fn cleanup_story_view(mut commands: Commands, entities: Query<Entity, (With<StoryViewEntity>, Without<ChildOf>)>) {
     for entity in &entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -508,4 +508,3 @@ fn markdown_text_color(kind: &MarkdownBlockKind) -> Color {
         _ => Color::WHITE,
     }
 }
-

@@ -179,7 +179,7 @@ fn setup_settings_view(
         });
 }
 
-fn spawn_section_header(parent: &mut ChildBuilder, key: &str) {
+fn spawn_section_header(parent: &mut ChildSpawnerCommands, key: &str) {
     parent.spawn((
         Text::new(""),
         TextFont { font_size: 20.0, ..default() },
@@ -189,7 +189,7 @@ fn spawn_section_header(parent: &mut ChildBuilder, key: &str) {
     ));
 }
 
-fn spawn_volume_row(parent: &mut ChildBuilder, setting: VolumeSetting, value: f32) {
+fn spawn_volume_row(parent: &mut ChildSpawnerCommands, setting: VolumeSetting, value: f32) {
     let label_key = match setting {
         VolumeSetting::Music => "settings.volume.music",
         VolumeSetting::Effects => "settings.volume.effects",
@@ -229,7 +229,7 @@ fn spawn_volume_row(parent: &mut ChildBuilder, setting: VolumeSetting, value: f3
         });
 }
 
-fn spawn_key_binding_row(parent: &mut ChildBuilder, action: KeyAction, current_key: KeyCode) {
+fn spawn_key_binding_row(parent: &mut ChildSpawnerCommands, action: KeyAction, current_key: KeyCode) {
     parent
         .spawn((
             Node {
@@ -487,16 +487,16 @@ fn update_error_messages(
 ) {
     for (entity, mut error) in &mut error_messages {
         error.timer.tick(time.delta());
-        if error.timer.finished() {
+        if error.timer.just_finished() {
             commands.entity(entity).despawn();
         }
     }
 }
 
-fn cleanup_settings_view(mut commands: Commands, entities: Query<Entity, (With<SettingsViewEntity>, Without<Parent>)>) {
+fn cleanup_settings_view(mut commands: Commands, entities: Query<Entity, (With<SettingsViewEntity>, Without<ChildOf>)>) {
     commands.remove_resource::<SettingsSelection>();
     commands.remove_resource::<BindingCapture>();
     for entity in &entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }

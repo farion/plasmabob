@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-avian2d = "0.2.0"
-bevy = { version = "0.15", features = ["jpeg", "wayland"] }
-bevy_framepace = "0.18.0"
+avian2d = "0.6"
+bevy = { version = "0.18.1", features = ["jpeg", "wayland", "audio"] }
+bevy_framepace = "0.21"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 futures-lite = "2"
@@ -25,4 +25,12 @@ opt-level = 3        # Dependencies werden einmal voll optimiert und dann gecach
 opt-level = 3
 lto = true
 codegen-units = 1
+
+
+
+[patch.crates-io]
+# Uncomment and update these entries to point to your forks if you need to patch
+# transitive crates to bevy 0.18.1 compatibility. Replace URLs/rev with your repo.
+# avian2d = { git = "https://github.com/<dein-orga>/avian2d", rev = "012345abcdef" }
+# bevy_framepace = { git = "https://github.com/<dein-orga>/bevy_framepace", rev = "feedbeef1234" }
 

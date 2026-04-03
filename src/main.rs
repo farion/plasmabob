@@ -313,7 +313,7 @@ fn setup_main_menu(
         AudioPlayer::new(asset_server.load("music/start.ogg")),
         PlaybackSettings {
             mode: bevy::audio::PlaybackMode::Loop,
-            volume: bevy::audio::Volume::new(audio_settings.music_volume),
+            volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
             ..default()
         },
         MenuMusicEntity,
@@ -374,15 +374,15 @@ fn setup_main_menu(
         });
 }
 
-fn cleanup_main_menu(mut commands: Commands, entities: Query<Entity, (With<MainMenuEntity>, Without<Parent>)>) {
+fn cleanup_main_menu(mut commands: Commands, entities: Query<Entity, (With<MainMenuEntity>, Without<ChildOf>)>) {
     for entity in &entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
 fn stop_menu_music(mut commands: Commands, music_entities: Query<Entity, With<MenuMusicEntity>>) {
     for entity in &music_entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -416,7 +416,7 @@ fn menu_pointer_input(
     interactions: Query<(&Interaction, &MenuButton), (Changed<Interaction>, With<Button>)>,
     mut selection: ResMut<MenuSelection>,
     mut next_state: ResMut<NextState<AppState>>,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
     world_catalog: Res<WorldCatalog>,
     mut progress: ResMut<CampaignProgress>,
     mut modal_state: ResMut<ExitConfirmModalState>,
@@ -450,7 +450,7 @@ fn activate_selected_menu_item(
     keys: Res<ButtonInput<KeyCode>>,
     selection: Res<MenuSelection>,
     mut next_state: ResMut<NextState<AppState>>,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
     world_catalog: Res<WorldCatalog>,
     mut progress: ResMut<CampaignProgress>,
     mut modal_state: ResMut<ExitConfirmModalState>,
@@ -484,7 +484,7 @@ fn activate_selected_menu_item(
 fn activate_action(
     action: MenuAction,
     next_state: &mut ResMut<NextState<AppState>>,
-    app_exit: &mut EventWriter<AppExit>,
+    app_exit: &mut MessageWriter<AppExit>,
     world_catalog: &Res<WorldCatalog>,
     progress: &mut ResMut<CampaignProgress>,
     modal_state: &mut ResMut<ExitConfirmModalState>,
@@ -554,7 +554,7 @@ fn modal_keyboard_navigation(
 fn modal_pointer_input(
     interactions: Query<(&Interaction, &ExitConfirmButton), (Changed<Interaction>, With<Button>)>,
     mut modal_state: ResMut<ExitConfirmModalState>,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
 ) {
     if !modal_state.is_open {
         return;
@@ -577,7 +577,7 @@ fn modal_pointer_input(
 fn activate_selected_modal_item(
     keys: Res<ButtonInput<KeyCode>>,
     mut modal_state: ResMut<ExitConfirmModalState>,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
 ) {
     if !modal_state.is_open {
         return;
@@ -611,11 +611,11 @@ fn is_enter_just_pressed(keys: &ButtonInput<KeyCode>) -> bool {
 fn execute_exit_modal_action(
     action: ExitConfirmAction,
     modal_state: &mut ResMut<ExitConfirmModalState>,
-    app_exit: &mut EventWriter<AppExit>,
+    app_exit: &mut MessageWriter<AppExit>,
 ) {
     match action {
         ExitConfirmAction::Confirm => {
-            app_exit.send(AppExit::Success);
+            app_exit.write(AppExit::Success);
         }
         ExitConfirmAction::Cancel => {
             modal_state.is_open = false;
@@ -731,7 +731,7 @@ fn sync_exit_modal(
     }
 
     for entity in &roots {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -749,7 +749,7 @@ fn update_modal_visuals(
         *background = BackgroundColor(Color::NONE);
 
         for child in children.iter() {
-            if let Ok(mut text_color) = text_colors.get_mut(*child) {
+            if let Ok(mut text_color) = text_colors.get_mut(child) {
                 *text_color = if is_selected {
                     TextColor(Color::srgb(0.3, 0.6, 1.0))
                 } else {
@@ -777,7 +777,7 @@ fn update_menu_visuals(
         *background = BackgroundColor(Color::NONE);
 
         for child in children.iter() {
-            if let Ok(mut text_color) = text_colors.get_mut(*child) {
+            if let Ok(mut text_color) = text_colors.get_mut(child) {
                 *text_color = if is_selected {
                     TextColor(Color::srgb(0.3, 0.6, 1.0))
                 } else {
@@ -794,7 +794,9 @@ fn fit_background_to_window(
     images: Res<Assets<Image>>,
     mut backgrounds: Query<(&Sprite, &mut Transform), With<StartScreenBackground>>,
 ) {
-    let window = windows.single();
+    let Ok(window) = windows.single() else {
+        return;
+    };
 
     let window_size = Vec2::new(window.width(), window.height());
 

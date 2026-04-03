@@ -188,8 +188,8 @@ fn update_world_list_visuals(
     }
 }
 
-fn cleanup_start_view(mut commands: Commands, entities: Query<Entity, (With<StartViewEntity>, Without<Parent>)>) {
+fn cleanup_start_view(mut commands: Commands, entities: Query<Entity, (With<StartViewEntity>, Without<ChildOf>)>) {
     for entity in &entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }

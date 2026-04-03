@@ -44,7 +44,7 @@ pub(super) fn update_pause_menu(
 
         virtual_time.unpause();
         for entity in &roots {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
         return;
     }
@@ -107,7 +107,7 @@ pub(super) fn update_pause_menu(
         *background = BackgroundColor(Color::NONE);
 
         for child in children.iter() {
-            if let Ok(mut text_color) = text_colors.get_mut(*child) {
+            if let Ok(mut text_color) = text_colors.get_mut(child) {
                 *text_color = if is_selected {
                     TextColor(Color::srgb(0.3, 0.6, 1.0))
                 } else {
@@ -256,7 +256,4 @@ fn execute_action(
         }
     }
 }
-
-
-
 

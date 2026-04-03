@@ -64,7 +64,7 @@ pub(super) fn spawn_player_health_hud(mut commands: Commands) {
                         padding: UiRect::all(Val::Px(HUD_BAR_BORDER_WIDTH)),
                             ..default()
                         },
-                        BorderColor(Color::WHITE),
+                        BorderColor::all(Color::WHITE),
                         BackgroundColor(Color::srgb(0.08, 0.02, 0.02)),
                         GameViewEntity,
                     ))
@@ -139,7 +139,7 @@ pub(super) fn spawn_player_health_hud(mut commands: Commands) {
                             padding: UiRect::all(Val::Px(HUD_BAR_BORDER_WIDTH)),
                             ..default()
                         },
-                        BorderColor(Color::WHITE),
+                        BorderColor::all(Color::WHITE),
                         BackgroundColor(Color::srgb(0.02, 0.04, 0.08)),
                         GameViewEntity,
                     ))
@@ -274,7 +274,7 @@ pub(super) fn tick_level_time(
     let seconds = (stats.total_time_seconds as u32) % 60;
     let time_str = format!("{}:{:02}", minutes, seconds);
 
-    if let Ok(mut text) = time_query.get_single_mut() {
+    if let Ok(mut text) = time_query.single_mut() {
         text.0 = time_str;
     }
 }
@@ -298,7 +298,7 @@ pub(super) fn update_level_hud(
         }
     }
 
-    if let Ok(mut text) = kills_query.get_single_mut() {
+    if let Ok(mut text) = kills_query.single_mut() {
         // Show remaining enemies (total - killed) followed by total
         let remaining = total_enemies.saturating_sub(stats.enemies_killed);
         text.0 = format!("{}/{}", remaining, total_enemies);

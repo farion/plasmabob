@@ -35,7 +35,7 @@ pub(super) fn attach_parallax_anchors(
     backgrounds: Query<(Entity, &Transform), (With<BackgroundParallax>, Without<ParallaxAnchor>, Added<BackgroundParallax>)>,
 ) {
     // Determine current camera x (if available). If no camera is present yet, assume 0.
-    let camera_x = cameras.get_single().map(|t| t.translation.x).unwrap_or(0.0);
+    let camera_x = cameras.single().map(|t| t.translation.x).unwrap_or(0.0);
 
     for (entity, transform, sprite_opt, rb_opt) in &spawned_visuals {
         // Only attach to entities that have a Sprite and no RigidBody
@@ -67,7 +67,7 @@ pub(super) fn apply_parallax_from_camera(
     cameras: Query<&Transform, (With<Camera>, With<MainCamera>)>,
     mut entities: Query<(&ParallaxAnchor, &mut Transform), Without<MainCamera>>,
 ) {
-    let Ok(camera_transform) = cameras.get_single() else {
+    let Ok(camera_transform) = cameras.single() else {
         return;
     };
 

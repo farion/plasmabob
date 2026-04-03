@@ -116,9 +116,9 @@ fn return_to_main_menu(
     }
 }
 
-fn cleanup_load_view(mut commands: Commands, entities: Query<Entity, (With<LoadViewEntity>, Without<Parent>)>) {
+fn cleanup_load_view(mut commands: Commands, entities: Query<Entity, (With<LoadViewEntity>, Without<ChildOf>)>) {
     for entity in &entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 

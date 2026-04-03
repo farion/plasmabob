@@ -2,10 +2,10 @@ use std::collections::HashSet;
 
 use avian2d::prelude::{Collider, CollidingEntities, CollisionLayers, LinearVelocity, LockedAxes, RigidBody, SpatialQuery, SpatialQueryFilter};
 use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::asset::RenderAssetUsages;
 use bevy::ecs::query::QueryFilter;
 use bevy::math::Dir2;
 use bevy::prelude::*;
-use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::game::components::animation::{AnimationState, EntityState, FIGHT_STATE_SECONDS, FightStateTimer, HIT_STATE_SECONDS, HitStateTimer, can_set_state};
@@ -64,7 +64,7 @@ pub(super) fn tick_invincibility_timers(
 ) {
     for (entity, mut timer) in &mut timers {
         timer.0.tick(time.delta());
-        if timer.0.finished() {
+        if timer.0.just_finished() {
             commands.entity(entity).remove::<InvincibilityTimer>();
         }
     }
@@ -191,7 +191,7 @@ pub(super) fn despawn_dead_entities(
     for (entity, health) in &dead_query {
         if health.is_dead() {
             info!("Entity {:?} died - despawning.", entity);
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -236,7 +236,7 @@ pub(super) fn play_hostile_death_quotes(
         // play the audio when the cooldown has elapsed.
         commands.entity(entity).insert(DeathQuotePlayed);
 
-        if !cooldown.0.finished() {
+        if !cooldown.0.just_finished() {
             continue;
         }
 
@@ -244,7 +244,7 @@ pub(super) fn play_hostile_death_quotes(
             .duration_since(std::time::UNIX_EPOCH)
             .map(|duration| duration.as_nanos() as usize)
             .unwrap_or(0)
-            .wrapping_add(entity.index() as usize);
+            .wrapping_add(entity.index_u32() as usize);
         let index = random_seed % quotes.clips.len();
         let quote_handle = quotes.clips[index].clone();
 
@@ -252,7 +252,7 @@ pub(super) fn play_hostile_death_quotes(
             AudioPlayer::new(quote_handle),
             PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Despawn,
-                volume: bevy::audio::Volume::new(audio_settings.quotes_volume),
+                volume: bevy::audio::Volume::Linear(audio_settings.quotes_volume),
                 ..default()
             },
             GameViewEntity,
@@ -307,7 +307,7 @@ pub(super) fn shoot_plasma(
 
         plasma_attack.cooldown.tick(time.delta());
 
-        if !keys.just_pressed(key_bindings.shoot) || !plasma_attack.cooldown.finished() {
+        if !keys.just_pressed(key_bindings.shoot) || !plasma_attack.cooldown.is_finished() {
             continue;
         }
 
@@ -416,7 +416,7 @@ pub(super) fn shoot_plasma(
                 AudioPlayer::new(combat_sfx.plasma_shot.clone()),
                 PlaybackSettings {
                     mode: bevy::audio::PlaybackMode::Despawn,
-                    volume: bevy::audio::Volume::new(audio_settings.effects_volume),
+                    volume: bevy::audio::Volume::Linear(audio_settings.effects_volume),
                     ..default()
                 },
                 GameViewEntity,
@@ -456,7 +456,7 @@ pub(super) fn update_plasma_beams(
                 }
                 Err(_) => {
                     // Player was despawned - remove the orphaned beam.
-                    commands.entity(entity).despawn_recursive();
+                    commands.entity(entity).despawn();
                     continue;
                 }
             };
@@ -518,7 +518,7 @@ pub(super) fn update_plasma_beams(
                                         AudioPlayer::new(sound),
                                         PlaybackSettings {
                                             mode: bevy::audio::PlaybackMode::Despawn,
-                                            volume: bevy::audio::Volume::new(audio_settings.effects_volume),
+                                            volume: bevy::audio::Volume::Linear(audio_settings.effects_volume),
                                             ..default()
                                         },
                                         GameViewEntity,
@@ -549,8 +549,8 @@ pub(super) fn update_plasma_beams(
             );
 
             beam.linger_timer.tick(time.delta());
-            if beam.linger_timer.finished() {
-                commands.entity(entity).despawn_recursive();
+            if beam.linger_timer.just_finished() {
+                commands.entity(entity).despawn();
             }
         }
     }
@@ -573,7 +573,7 @@ pub(super) fn update_plasma_impact_particles(
         let size = particle.start_size * (0.6 + remaining.max(0.0));
         sprite.custom_size = Some(Vec2::splat(size));
 
-        if particle.lifetime.finished() {
+        if particle.lifetime.just_finished() {
             commands.entity(entity).despawn();
         }
     }
@@ -587,7 +587,7 @@ fn update_beam_particles<F: QueryFilter>(
     alpha_multiplier: f32,
 ) {
     for child in children.iter() {
-        let Ok((particle, mut particle_transform, mut particle_sprite)) = beam_particles.get_mut(*child)
+        let Ok((particle, mut particle_transform, mut particle_sprite)) = beam_particles.get_mut(child)
         else {
             continue;
         };
@@ -970,6 +970,9 @@ mod tests {
         assert!(entity.get::<DeadNpcCollisionDisabled>().is_none());
     }
 }
+
+
+
 
 
 

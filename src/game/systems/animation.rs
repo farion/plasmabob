@@ -23,7 +23,7 @@ pub(super) fn tick_hit_state_timers(
 ) {
     for (entity, mut state, mut hit_timer) in &mut entities {
         hit_timer.timer.tick(time.delta());
-        if !hit_timer.timer.finished() {
+        if !hit_timer.timer.just_finished() {
             continue;
         }
 
@@ -42,7 +42,7 @@ pub(super) fn tick_fight_state_timers(
 ) {
     for (entity, mut state, mut fight_timer) in &mut entities {
         fight_timer.timer.tick(time.delta());
-        if fight_timer.timer.finished() {
+        if fight_timer.timer.just_finished() {
             if state.current == EntityState::Fight {
                 state.set(EntityState::Default);
             }

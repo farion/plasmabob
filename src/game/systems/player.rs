@@ -1,8 +1,8 @@
 use avian2d::prelude::{Collider, LinearVelocity, ShapeCaster, ShapeHits, SpatialQuery, SpatialQueryFilter};
+use bevy::asset::RenderAssetUsages;
 use bevy::ecs::query::Has;
 use bevy::math::Dir2;
 use bevy::prelude::*;
-use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::game::components::animation::{AnimationState, EntityState, HitStateTimer, can_set_state};
@@ -61,7 +61,7 @@ pub(super) fn update_grounded(
                 dust_origin(transform, sprite),
                 &particle_image,
                 LAND_DUST_COUNT,
-                player.index() as u32 + 100,
+                player.index_u32() + 100,
                 220.0,
             );
         }
@@ -142,7 +142,7 @@ pub(super) fn control_player(
                 dust_origin(transform, &sprite),
                 &particle_image,
                 JUMP_DUST_COUNT,
-                entity.index() as u32 + 1_000,
+                entity.index_u32() + 1_000,
                 180.0,
             );
             // Record a jump in level statistics
@@ -183,7 +183,7 @@ pub(super) fn update_dust_particles(
         sprite.color = Color::srgba(0.55, 0.55, 0.55, alpha);
         sprite.custom_size = Some(Vec2::splat(size));
 
-        if particle.lifetime.finished() {
+        if particle.lifetime.just_finished() {
             commands.entity(entity).despawn();
         }
     }

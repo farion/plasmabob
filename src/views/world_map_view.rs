@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::asset::RenderAssetUsages;
 use bevy::window::PrimaryWindow;
 use std::f32::consts::TAU;
 
@@ -180,15 +181,15 @@ fn update_world_map_layout(
         return;
     };
 
-    let Ok(window) = windows.get_single() else {
+    let Ok(window) = windows.single() else {
         return;
     };
 
-    let Ok(camera) = camera_query.get_single() else {
+    let Ok(camera) = camera_query.single() else {
         return;
     };
 
-    let Ok((mut sprite, mut transform)) = backgrounds.get_single_mut() else {
+    let Ok((mut sprite, mut transform)) = backgrounds.single_mut() else {
         return;
     };
 
@@ -308,7 +309,7 @@ fn create_round_particle_image(size: u32) -> Image {
         bevy::render::render_resource::TextureDimension::D2,
         data,
         bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
-        bevy::render::render_asset::RenderAssetUsages::default(),
+        RenderAssetUsages::default(),
     )
 }
 
@@ -364,7 +365,7 @@ fn select_planet_by_click(
         return;
     };
 
-    let Ok(window) = windows.get_single() else {
+    let Ok(window) = windows.single() else {
         return;
     };
 
@@ -372,7 +373,7 @@ fn select_planet_by_click(
         return;
     };
 
-    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+    let Ok((camera, camera_transform)) = camera_query.single() else {
         return;
     };
 
@@ -429,7 +430,7 @@ fn update_planet_label(
     translations: Res<Translations>,
     current: Res<CurrentLanguage>,
 ) {
-    let Ok(mut label) = labels.get_single_mut() else {
+    let Ok(mut label) = labels.single_mut() else {
         return;
     };
 
@@ -483,9 +484,9 @@ fn return_to_world_select(
     }
 }
 
-fn cleanup_world_map_view(mut commands: Commands, entities: Query<Entity, (With<WorldMapEntity>, Without<Parent>)>) {
+fn cleanup_world_map_view(mut commands: Commands, entities: Query<Entity, (With<WorldMapEntity>, Without<ChildOf>)>) {
     for entity in &entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 

@@ -29,12 +29,14 @@ pub(super) fn setup_game_view(
     *stats = LevelStats::default();
     level_timer.0.reset();
 
-    let window = windows.single();
+    let Ok(window) = windows.single() else {
+        return;
+    };
     let window_size = Vec2::new(window.width(), window.height());
     let mut warnings = Vec::new();
     let mut spawned_count = 0usize;
 
-    let (status_title, status_detail) = match cached_level_definition.level_definition() {
+    let (status_title, status_detail) = match cached_level_definition.level_definition().cloned() {
         Ok(level_definition) => {
             let mut quote_clips = Vec::new();
             let level_bounds = match level_definition.bounds_size() {
@@ -58,7 +60,7 @@ pub(super) fn setup_game_view(
 
             commands.spawn((
                 TerrainBackgroundConfig {
-                    image: asset_server.load(level_definition.terrain_background_asset_path()),
+                    image: asset_server.load(level_definition.terrain_background_asset_path().to_string()),
                 },
                 GameViewEntity,
             ));
@@ -71,10 +73,10 @@ pub(super) fn setup_game_view(
                 ));
             } else {
                 commands.spawn((
-                    AudioPlayer::new(asset_server.load(music_asset_path)),
+                    AudioPlayer::new(asset_server.load(music_asset_path.to_string())),
                     PlaybackSettings {
                         mode: bevy::audio::PlaybackMode::Loop,
-                        volume: bevy::audio::Volume::new(audio_settings.music_volume),
+                        volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
                         ..default()
                     },
                     GameViewEntity,
@@ -90,7 +92,7 @@ pub(super) fn setup_game_view(
                     continue;
                 }
 
-                quote_clips.push(asset_server.load(quote_asset_path));
+                quote_clips.push(asset_server.load(quote_asset_path.to_string()));
             }
 
             commands.insert_resource(LevelQuotes { clips: quote_clips });
@@ -253,7 +255,9 @@ pub(super) fn spawn_terrain_background_tiles(
     active_level_bounds: Option<Res<ActiveLevelBounds>>,
     configs: Query<(Entity, &TerrainBackgroundConfig), Without<TerrainBackgroundReady>>,
 ) {
-    let window = windows.single();
+    let Ok(window) = windows.single() else {
+        return;
+    };
 
     for (entity, config) in &configs {
         let Some(image) = images.get(&config.image) else {
@@ -283,9 +287,9 @@ pub(super) fn spawn_terrain_background_tiles(
                 Sprite {
                     image: config.image.clone(),
                     custom_size: Some(Vec2::new(tile_width, tile_height)),
-                    anchor: Anchor::BottomLeft,
                     ..default()
                 },
+                Anchor::BOTTOM_LEFT,
                 Transform::from_xyz(x, y, -100.0),
                 super::parallax::BackgroundParallax,
                 GameViewEntity,
@@ -448,7 +452,6 @@ mod tests {
         assert_eq!(doodad_z, 0.0);
     }
 }
-
 
 
 

@@ -83,7 +83,7 @@ fn setup_win_view(
             ))
             .with_children(|table| {
                 // rows: label (left) and value (right)
-                fn row(table: &mut ChildBuilder, label_key: &str, value: String) {
+                fn row(table: &mut ChildSpawnerCommands, label_key: &str, value: String) {
                     table.spawn((
                         Node {
                             width: Val::Percent(100.0),
@@ -222,9 +222,9 @@ fn next_level_json<'a>(
     planet.levels.get(next_level_index).map(|level| level.json.as_str())
 }
 
-fn cleanup_win_view(mut commands: Commands, entities: Query<Entity, (With<WinViewEntity>, Without<Parent>)>) {
+fn cleanup_win_view(mut commands: Commands, entities: Query<Entity, (With<WinViewEntity>, Without<ChildOf>)>) {
     for entity in &entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 

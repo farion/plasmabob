@@ -1,127 +1,77 @@
 # AGENTS.md — PlasmaBob Codebase Guide
 
 ## Stack
-- **Rust** (2024 edition) + **Bevy 0.15** (ECS game engine)
-- **avian2d 0.2** for physics (rigid bodies, colliders, shape casters)
-- **bevy_framepace** for frame-rate limiting
-- **serde / serde_json** for JSON level loading
+- **Rust** (2024 edition)
+- **Bevy 0.18.1** (ECS game engine)
+- **avian2d 0.6.1** for physics (rigid bodies, colliders, shape casters)
+- **bevy_framepace 0.21** for frame-rate limiting
+- **serde 1.0.228 / serde_json 1.0.149** for JSON level loading
+
+All mentioned dependencies are compatible with bevy 0.18.1.
 
 ## Build & Run
-```powershell
-cargo run                          # default level (level1.json)
-cargo run -- level1.json           # explicit level (assets/ prefix is stripped automatically)
-cargo run -- levels/level1.json    # also accepted
-cargo build --release              # optimised binary
+```bash
+cargo run             # debug binary with hot reload
+cargo build --release # optimised binary
 ```
 Dev profile already sets `opt-level = 1` and `lto = "thin"` for fast iteration.
 
 ## Architecture Overview
 
 ```
-main.rs          ← AppState FSM, plugin registration, CLI arg → LevelSelection resource
-src/views/       ← One file per non-game screen (start, load, lose, win, settings, about)
-src/game/
-  game_view.rs   ← GameViewPlugin: declares all systems and their ordering
-  level.rs       ← JSON loading (CachedLevelDefinition resource), all level data structs
-  components/    ← One file per ECS component type; each exports an insert() fn
-  systems/       ← Included via #[path] attributes inside game_view.rs
+main.rs            ← Entry point with the main menu
+src/views/         ← All the UI views
+src/game/          ← Everything related to the game itself running a level 
+  game_view.rs     ← GameViewPlugin: declares all systems and their ordering
+  components/      ← One file per ECS component type; each exports an insert() fn
+  systems/         ← One file per ECS system
+  systems/common/  ← Reusable helper methods for systems
 ```
 
-`game_view.rs` uses `#[path = "systems/xxx.rs"] mod xxx;` to pull in system files as
-private submodules — **do not add `pub mod` entries for them in `mod.rs`**.
+## JSON Assets
+- All game data is loaded from JSON files in the `assets/` directory
+- This includes world definitions, level layouts, entity types, and story text
 
-Each system file under `src/game/systems/` must contain exactly one system.
-Reused helper methods must be placed in `src/game/systems/common`.
+### Welt-JSON Schema
+`assets/worlds/*.json`
 
 
-## State Machine
-`AppState` enum in `main.rs`: `MainMenu → StartView (Weltenliste) → WorldMapView → LoadView → GameView → LoseView / WinView`  
-Each state has `OnEnter`, `Update` (`.run_if(in_state(…))`), and `OnExit` schedules.
 
-## Welt-/Kampagnen-Mechanik
-- `Start` im Hauptmenue oeffnet die Weltenliste (`StartView`), nicht mehr direkt ein Level.
-- Verfuegbare Welten werden aus `assets/worlds/*.json` geladen (`WorldCatalog` Resource).
-- Weltenliste: **Pfeil hoch/runter** waehlt Welt, **Enter** oeffnet `WorldMapView`, **Esc** zurueck ins Hauptmenue.
-- Weltkarte (`WorldMapView`) nutzt pro Welt-JSON:
-  - `background` fuer das Kartenbild
-  - `planets[]` mit `name`, `position: [x,y]`, `radius`, optional `levels[]`
-  - `paths[]` fuer Verbindungsdaten (rein datengetrieben, aktuell ohne erzwungene Traversal-Logik)
-- Planetenwahl auf Weltkarte:
-  - **Mausklick** innerhalb des Radius waehlt Planet
-  - **Pfeiltasten** waehlen positionsbasiert den naechsten Planeten in Blickrichtung
-  - **Enter** startet das erste Level des gewaehlten Planeten
-  - **Esc** zurueck zur Weltenliste
-- Kampagnenfluss pro Planet:
-  - Nach Sieg (`WinView`) geht es mit **Enter** ins naechste Level des Planeten
-  - Nach letztem Planet-Level geht es mit **Enter** zurueck auf die Weltkarte
-  - Niederlage (`LoseView`): **Enter** wiederholt das aktuelle Level, **Esc** bricht ab und geht zur Weltkarte
+## Level Format 
+`assets/worlds/{worldname}/{levelname}_level{number}.json`
 
-### Welt-JSON Schema (`assets/worlds/*.json`)
-- Top-Level Felder:
-  - `name: string`
-  - `background: string` (Asset-Pfad relativ zu `assets/`)
-  - `planets: Planet[]`
-  - `paths: Path[]` (optional)
-- `Planet` Felder:
-  - `name: string`
-  - `position: [number, number]` (Kartenkoordinate in Pixeln)
-  - `radius: number` (Klick-/Auswahlradius in Pixeln)
-  - `levels: PlanetLevel[]` (optional; leer = nicht startbar)
-- `PlanetLevel` Felder:
-  - `name: string`
-  - `json: string` (Level-JSON Pfad relativ zu `assets/`, z. B. `worlds/auralis/viridare_level1.json`)
+## Entity Types Format
+`assets/entity_types/*.json`
 
-## Level Format (`assets/levels/`)
-- `assets/entity_types/*.json` — eine Datei pro Entity-Type (components, animations, hitbox, size, health, damage)
-- `levelN.json` — terrain, music, quotes, bounds, and entity instances
-- **Coordinates**: bottom-left origin `(0, 0)`; `x/y` in `EntityDefinition` are bottom-left of the entity
-- `z_index` on instances controls draw order (higher = in front)
-- `entity_types_path` defaults to `"entity_types"` (Ordner unter `assets/`)
+Entities in PlasmaBob are not hardcoded in Rust but defined via JSON data. Each entity type has a name, a list of
+gameplay components, and a map of animations for different states.
 
-Adding a new entity type: create `assets/entity_types/<name>.json` with the `component` array and
-`animations` map, then place instances in the level JSON.
+## States
 
-## Component System
-Each component module under `src/game/components/` exports `pub(crate) fn insert(entity: &mut EntityCommands)`.  
-`spawn_entity()` in `components/mod.rs` reads the `"component"` array from JSON and dispatches to these functions.
+States in PlasmaBob are defined via the `EntityState` enum. Each entity can be in one of these states, which affects
+its animation, hitbox and gameplay behavior. For example, an entity in the `Walk` state will use the walking animation
+and have a different hitbox than when it is in the `Jump` state.
 
-**Known component names** (as used in JSON):
-`collision`, `doodad`, `exit`, `floor`, `hostile`, `moving`, `npc`, `player`
+Available states:
+- `Default`
+- `Walk`
+- `Jump`
+- `Fight`
+- `Hit`
+- `Die`
 
-Physics assignment rules in `spawn_entity()`:
-- `player` or `moving` → `RigidBody::Dynamic` + polygon collider from hitbox
-- `collision` only → `RigidBody::Static`
-- `collision` + `moving` → also sets `CollisionLayers` (layer mask `0b0010` / `0b1101`)
+An entity must at least have a `Default` state defined in its `animations` map, but it can have any combination of
+the other states as well.
 
 ## Animation
-`EntityState` variants (`Default`, `Walk`, `Jump`, `Fight`, `Hit`, `Die`) map to the matching key in the
-`animations` map. Changing state is done via `AnimationState::set(next)` — it no-ops if state is unchanged.  
-`PreloadedAnimations` caches `Handle<Image>` for all frames at spawn time.
 
 ## Hitbox Polygons
-- Points are in local space with **bottom-left as origin** (pixel coords from image)
-- `centered_hitbox_polygon()` converts them to entity-centred coordinates for avian2d
-- `gen_hitbox.py` can be used to extract polygon points from sprite images
 
-## Key Constants (game_view.rs)
-| Constant | Value |
-|---|---|
-| `PLAYER_MOVE_SPEED` | 320.0 px/s |
-| `PLAYER_JUMP_SPEED` | 700.0 px/s |
-| `MOVING_NPC_MAX_DISTANCE_FROM_ORIGIN` | 500.0 px |
-| `PLAYER_INVINCIBILITY_SECONDS` | 1.0 s |
-| `SHOW_HITBOX_DEBUG_LINES` (main.rs) | `false` |
+## Best Practices
 
-## Debug Mode
-Press **F1** to toggle hitbox debug lines at runtime (also controlled by `SHOW_HITBOX_DEBUG_LINES`).  
-`DebugRenderSettings` resource is inserted in `main.rs` at startup.
+### Adding a new game system
 
-## Audio
-Only `.ogg` files are supported for music and quotes. `AudioSettings` resource (persisted across states)
-holds volume levels. `CombatSoundEffects` resource holds handles for plasma and enemy-death sounds.
-
-## Adding a New Game System
-1. Create `src/game/systems/my_system.rs`
-2. Add `#[path = "systems/my_system.rs"] mod my_system;` inside `game_view.rs`
-3. Register the system in `GameViewPlugin::build` with appropriate ordering constraints
-
+Adding a new game system in PlasmaBob is straightforward. You can create a new Rust file under `src/game/systems/` and
+define your system there. Then you need to add it to the `GameViewPlugin` in `src/game/game_view.rs` and specify its 
+ordering with respect to the other systems. Only one system per file is recommended for better readability and
+maintainability.
