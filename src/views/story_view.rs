@@ -132,21 +132,25 @@ fn setup_story_view(
                 ))
                 .with_children(|panel| {
                     panel.spawn((
-                        Node {
-                            width: Val::Percent(100.0),
-                            flex_grow: 1.0,
-                            overflow: Overflow::clip(),
-                            ..default()
-                        },
-                        StoryTextViewport,
-                        StoryViewEntity,
-                    ))
+                            Node {
+                                width: Val::Percent(100.0),
+                                flex_grow: 1.0,
+                                overflow: Overflow::clip(),
+                                position_type: PositionType::Relative,
+                                ..default()
+                            },
+                            StoryTextViewport,
+                            StoryViewEntity,
+                        ))
                     .with_children(|viewport| {
                         viewport.spawn((
                             Node {
                                 width: Val::Percent(100.0),
                                 flex_direction: FlexDirection::Column,
                                 row_gap: Val::Px(10.0),
+                                position_type: PositionType::Absolute,
+                                left: Val::Px(0.0),
+                                top: Val::Px(0.0),
                                 ..default()
                             },
                             StoryTextContent,

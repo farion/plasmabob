@@ -454,12 +454,19 @@ fn update_planet_label(
 
 fn return_to_world_select(
     keys: Res<ButtonInput<KeyCode>>,
+    world_catalog: Res<WorldCatalog>,
     mut progress: ResMut<CampaignProgress>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
         progress.clear_planet_progress();
-        next_state.set(AppState::StartView);
+        // If there's only one world available, skip the world selection and
+        // return to the main menu instead of StartView.
+        if world_catalog.worlds().len() == 1 {
+            next_state.set(AppState::MainMenu);
+        } else {
+            next_state.set(AppState::StartView);
+        }
     }
 }
 

@@ -24,6 +24,12 @@ pub(super) struct PlayerPlasmaCooldownBarFill;
 #[derive(Component)]
 pub(super) struct PlayerPlasmaCooldownPercentText;
 
+#[derive(Component)]
+pub(super) struct LevelTimeText;
+
+#[derive(Component)]
+pub(super) struct LevelKillsText;
+
 pub(super) fn spawn_player_health_hud(mut commands: Commands) {
     commands
         .spawn((
@@ -189,6 +195,114 @@ pub(super) fn spawn_player_health_hud(mut commands: Commands) {
                     });
                 });
         });
+}
+
+pub(super) fn spawn_level_hud(mut commands: Commands) {
+    // Top-center: level time
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: Val::Px(8.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        GameViewEntity,
+    ))
+    .with_children(|parent| {
+                parent.spawn((
+                    Text::new("0:00"),
+                    TextFont { font_size: 22.0, ..default() },
+                    TextColor(Color::WHITE),
+                    LevelTimeText,
+                    GameViewEntity,
+                ));
+    });
+
+    // Top-right: kills X/total
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(20.0),
+            top: Val::Px(8.0),
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::FlexEnd,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        GameViewEntity,
+    ))
+    .with_children(|parent| {
+        parent.spawn((
+            Text::new("0/0"),
+            TextFont { font_size: 20.0, ..default() },
+            TextColor(Color::WHITE),
+            LevelKillsText,
+            GameViewEntity,
+        ));
+    });
+}
+#[derive(Resource)]
+pub(super) struct LevelTimer(pub Timer);
+
+impl Default for LevelTimer {
+    fn default() -> Self {
+        LevelTimer(Timer::from_seconds(1.0, TimerMode::Repeating))
+    }
+}
+
+pub(super) fn tick_level_time(
+    time: Res<Time>,
+    mut stats: ResMut<crate::LevelStats>,
+    _cached_level: Option<Res<crate::game::level::CachedLevelDefinition>>,
+    mut timer: ResMut<LevelTimer>,
+    mut time_query: Query<&mut Text, With<LevelTimeText>>,
+) {
+    // Always accumulate elapsed time
+    let delta = time.delta_secs();
+    stats.total_time_seconds += delta;
+
+    // Tick the 1s timer and only update the displayed text when it finishes
+    timer.0.tick(time.delta());
+    if !timer.0.just_finished() {
+        return;
+    }
+
+    let minutes = (stats.total_time_seconds as u32) / 60;
+    let seconds = (stats.total_time_seconds as u32) % 60;
+    let time_str = format!("{}:{:02}", minutes, seconds);
+
+    if let Ok(mut text) = time_query.get_single_mut() {
+        text.0 = time_str;
+    }
+}
+
+pub(super) fn update_level_hud(
+    stats: Res<crate::LevelStats>,
+    cached_level: Option<Res<crate::game::level::CachedLevelDefinition>>,
+    mut kills_query: Query<&mut Text, (With<LevelKillsText>, Without<LevelTimeText>, Without<PlayerHealthPercentText>, Without<PlayerPlasmaCooldownPercentText>)>,
+) {
+    // Determine total enemies from cached level if present
+    let mut total_enemies: u32 = 0;
+    if let Some(cached) = cached_level {
+        if let Ok(level_def) = cached.level_definition() {
+            for ent in &level_def.entities {
+                if let Some(entity_type_def) = level_def.entity_types.get(&ent.entity_type) {
+                    if entity_type_def.components.iter().any(|c| c == "hostile") {
+                        total_enemies += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if let Ok(mut text) = kills_query.get_single_mut() {
+        // Show remaining enemies (total - killed) followed by total
+        let remaining = total_enemies.saturating_sub(stats.enemies_killed);
+        text.0 = format!("{}/{}", remaining, total_enemies);
+    }
 }
 
 pub(super) fn update_player_health_hud(

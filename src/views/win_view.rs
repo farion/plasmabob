@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 
 use crate::game::world::WorldCatalog;
-use crate::{AppState, CampaignProgress, LevelSelection};
+use crate::game::level::CachedLevelDefinition;
+use crate::{AppState, CampaignProgress, LevelSelection, LevelStats};
 
 pub struct WinViewPlugin;
 
@@ -23,6 +24,8 @@ fn setup_win_view(
     mut commands: Commands,
     world_catalog: Res<WorldCatalog>,
     progress: Res<CampaignProgress>,
+    stats: Res<LevelStats>,
+    cached_level: Res<CachedLevelDefinition>,
 ) {
     let has_next_level = next_level_json(&world_catalog, &progress).is_some();
 
@@ -71,7 +74,114 @@ fn setup_win_view(
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
                 WinViewEntity,
             ));
+
+            // Statistics table
+            parent.spawn((
+                Node {
+                    width: Val::Px(480.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(6.0),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.06, 0.06, 0.07)),
+                WinViewEntity,
+            ))
+            .with_children(|table| {
+                // rows: label (left) and value (right)
+                fn row(table: &mut ChildBuilder, label: &str, value: String) {
+                    table.spawn((
+                        Node {
+                            width: Val::Percent(100.0),
+                            flex_direction: FlexDirection::Row,
+                            justify_content: JustifyContent::SpaceBetween,
+                            ..default()
+                        },
+                        WinViewEntity,
+                    ))
+                    .with_children(|row| {
+                        row.spawn((Text::new(label), TextFont { font_size: 20.0, ..default() }, TextColor(Color::WHITE), WinViewEntity));
+                        row.spawn((Text::new(value), TextFont { font_size: 20.0, ..default() }, TextColor(Color::WHITE), WinViewEntity));
+                    });
+                }
+
+                let accuracy = if stats.shots == 0 { 0.0 } else { (stats.hits as f32) / (stats.shots as f32) };
+
+                // derive level metrics from cached level definition when available
+                let mut total_enemies: u32 = 0;
+                let mut level_length: f32 = 800.0; // fallback length in px
+                if let Ok(level_def) = cached_level.level_definition() {
+                    if let Some(bounds) = &level_def.bounds {
+                        level_length = bounds.width.max(bounds.height);
+                    }
+
+                    for ent in &level_def.entities {
+                        if let Some(entity_type_def) = level_def.entity_types.get(&ent.entity_type) {
+                            if entity_type_def.components.iter().any(|c| c == "hostile") {
+                                total_enemies += 1;
+                            }
+                        }
+                    }
+                }
+
+                row(table, "Getötete Gegner", format!("{}", stats.enemies_killed));
+                row(table, "Gesamtzeit", format!("{:.2} s", stats.total_time_seconds));
+                row(table, "Sprünge", format!("{}", stats.jumps));
+                row(table, "Schüsse", format!("{}", stats.shots));
+                row(table, "Trefferquote", format!("{:.1}%", accuracy * 100.0));
+
+                // compute reference time and total score
+                // reference time derived from level length and enemy count
+                const PLAYER_REF_SPEED: f32 = 40.0; // px/s
+                const TIME_PER_ENEMY: f32 = 8.0; // seconds expected per enemy
+                let travel_time = level_length / PLAYER_REF_SPEED;
+                let reference_time = travel_time + (total_enemies as f32 * TIME_PER_ENEMY);
+
+                let score = compute_score(stats.enemies_killed, total_enemies, stats.total_time_seconds, reference_time, accuracy);
+                table.spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        flex_direction: FlexDirection::Row,
+                        justify_content: JustifyContent::SpaceBetween,
+                        margin: UiRect::top(Val::Px(8.0)),
+                        ..default()
+                    },
+                    WinViewEntity,
+                ))
+                .with_children(|row| {
+                    row.spawn((Text::new("Gesamtpunktzahl"), TextFont { font_size: 22.0, ..default() }, TextColor(Color::WHITE), WinViewEntity));
+                    row.spawn((Text::new(format!("{}", score)), TextFont { font_size: 22.0, ..default() }, TextColor(Color::srgb(0.9, 0.9, 0.4)), WinViewEntity));
+                });
+            });
         });
+}
+
+fn compute_score(enemies_killed: u32, total_enemies: u32, total_time_s: f32, reference_time_s: f32, accuracy: f32) -> u32 {
+    // Algorithm design:
+    // - kills component: up to 500 points, proportional to fraction of enemies killed (full 500 if all killed)
+    // - time component: up to 300 points, faster times than reference_time give more points
+    // - accuracy component: up to 200 points, linear with accuracy (0.0..1.0)
+    // Total max = 1000
+
+    // Kills points: proportional to fraction of enemies killed, full 500 if all killed. If no enemies present, award full kills points.
+    let kills_points = if total_enemies == 0 {
+        500.0
+    } else {
+        ((enemies_killed as f32 / total_enemies as f32).clamp(0.0, 1.0) * 500.0).round()
+    };
+
+    // Time points: compare against reference_time_s derived from level length & enemies
+    let time_ratio = if reference_time_s <= 0.0 {
+        0.0
+    } else {
+        ((reference_time_s - total_time_s) / reference_time_s).clamp(0.0, 1.0)
+    };
+    let time_points = (time_ratio * 300.0).round();
+
+    let accuracy_points = (accuracy.clamp(0.0, 1.0) * 200.0).round();
+
+    let total = kills_points + time_points + accuracy_points;
+    total.min(1000.0) as u32
 }
 
 fn return_to_world_map(

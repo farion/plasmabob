@@ -11,6 +11,7 @@ use crate::game::components::hitbox::PrecomputedPlayerHitbox;
 use crate::game::components::moving::Moving;
 use crate::game::components::player::Player;
 use crate::key_bindings::KeyBindings;
+use crate::LevelStats;
 
 use super::{GameViewEntity, Grounded, PLAYER_JUMP_SPEED, PLAYER_MOVE_SPEED};
 
@@ -93,6 +94,7 @@ pub(super) fn control_player(
         ),
         With<Player>,
     >,
+    mut stats: ResMut<LevelStats>,
 ) {
     let particle_image = ensure_dust_particle_image(&mut dust_particle_image, &mut images);
 
@@ -143,6 +145,8 @@ pub(super) fn control_player(
                 entity.index() as u32 + 1_000,
                 180.0,
             );
+            // Record a jump in level statistics
+            stats.jumps = stats.jumps.saturating_add(1);
         }
 
         let next_state = if !is_grounded {

@@ -27,11 +27,15 @@ use crate::audio_settings::AudioSettings;
 use crate::game::level::CachedLevelDefinition;
 use crate::AppState;
 use crate::{PendingStoryScreen, StoryScreenRequest};
+use crate::LevelStats;
 
 use super::{CombatSoundEffects, GameViewEntity, LevelQuotes, PLAYER_INVINCIBILITY_SECONDS};
 
 #[derive(Component)]
 pub(super) struct DeathQuotePlayed;
+
+#[derive(Component)]
+pub(super) struct DeathCounted;
 
 #[derive(Component)]
 pub(super) struct PlasmaBeamParticle {
@@ -258,6 +262,23 @@ pub(super) fn play_hostile_death_quotes(
     }
 }
 
+/// Count hostile deaths once and record them in LevelStats.
+pub(super) fn count_hostile_deaths(
+    mut commands: Commands,
+    mut stats: ResMut<LevelStats>,
+    dead_hostiles: Query<(Entity, &Health), (With<Hostile>, With<SpawnedLevelEntity>, Without<DeathCounted>)>,
+) {
+    for (entity, health) in &dead_hostiles {
+        if !health.is_dead() {
+            continue;
+        }
+
+        // Increment enemy kill count exactly once per entity and mark it.
+        stats.enemies_killed = stats.enemies_killed.saturating_add(1);
+        commands.entity(entity).insert(DeathCounted);
+    }
+}
+
 /// Fires a plasma beam in the player's facing direction when Space is pressed.
 pub(super) fn shoot_plasma(
     mut commands: Commands,
@@ -269,12 +290,13 @@ pub(super) fn shoot_plasma(
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
     spatial_query: SpatialQuery,
-    mut players: Query<
-        (Entity, &Transform, &Sprite, &Health, &mut PlasmaAttack, &mut AnimationState, Option<&HitStateTimer>),
+    mut players: Query<(
+        Entity, &Transform, &Sprite, &Health, &mut PlasmaAttack, &mut AnimationState, Option<&HitStateTimer>),
         With<Player>,
     >,
     collision_query: Query<Entity, With<Collision>>,
     hostile_query: Query<Entity, (With<Hostile>, With<Health>)>,
+    mut stats: ResMut<LevelStats>,
 ) {
     let particle_image = ensure_plasma_particle_image(&mut plasma_particle_image, &mut images);
 
@@ -290,6 +312,8 @@ pub(super) fn shoot_plasma(
         }
 
         plasma_attack.cooldown.reset();
+        // record a shot
+        stats.shots = stats.shots.saturating_add(1);
 
         if can_set_state(&state, hit_timer, None, EntityState::Fight) {
             state.set(EntityState::Fight);
@@ -410,15 +434,16 @@ pub(super) fn update_plasma_beams(
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
     mut beams: Query<(Entity, &mut PlasmaBeam, &mut Transform, &Children), Without<Player>>,
-    player_query: Query<
-        (&Transform, &Sprite),
+    player_query: Query<(
+        &Transform, &Sprite),
         (With<Player>, Without<PlasmaBeam>, Without<PlasmaBeamParticle>),
     >,
-    mut beam_particles: Query<
-        (&PlasmaBeamParticle, &mut Transform, &mut Sprite),
+    mut beam_particles: Query<(
+        &PlasmaBeamParticle, &mut Transform, &mut Sprite),
         (Without<Player>, Without<PlasmaBeam>),
     >,
     mut health_query: Query<(Entity, &mut Health, &mut AnimationState, &LevelEntityType), With<Hostile>>,
+    mut stats: ResMut<LevelStats>,
 ) {
     let particle_image = ensure_plasma_particle_image(&mut plasma_particle_image, &mut images);
 
@@ -505,6 +530,8 @@ pub(super) fn update_plasma_beams(
                                 "Plasma hit hostile for {} damage - HP: {}/{}",
                                 beam.damage, health.current, health.max
                             );
+                            // record a hit
+                            stats.hits = stats.hits.saturating_add(1);
                         }
                     }
                 }

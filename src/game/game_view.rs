@@ -113,10 +113,12 @@ impl Plugin for GameViewPlugin {
                 camera::snap_camera_to_player,
                 player::configure_player_controller,
                 hud::spawn_player_health_hud,
+                hud::spawn_level_hud,
             )
                 .chain(),
         )
         .init_resource::<QuoteCooldown>()
+        .init_resource::<hud::LevelTimer>()
         .add_systems(
             Update,
             (
@@ -144,6 +146,8 @@ impl Plugin for GameViewPlugin {
                     animation::sync_death_state_from_health,
                     combat::disable_dead_npc_collisions,
                     combat::play_hostile_death_quotes,
+                    // Count deaths for level stats before we despawn the entities.
+                    combat::count_hostile_deaths,
                     animation::tick_hit_state_timers,
                     animation::tick_fight_state_timers,
                     animation::sync_state_hitboxes,
@@ -154,6 +158,8 @@ impl Plugin for GameViewPlugin {
                 debug::update_debug_stats_labels,
                 debug::toggle_debug_overlay,
                 debug::draw_hitbox_debug_lines,
+                hud::tick_level_time,
+                hud::update_level_hud,
                 hud::update_player_health_hud,
                 (
                     combat::detect_player_defeated,

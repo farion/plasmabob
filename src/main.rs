@@ -66,6 +66,15 @@ pub(crate) struct CampaignProgress {
     pub(crate) world_start_story_seen: bool,
 }
 
+#[derive(Resource, Debug, Default, Clone)]
+pub(crate) struct LevelStats {
+    pub(crate) enemies_killed: u32,
+    pub(crate) total_time_seconds: f32,
+    pub(crate) jumps: u32,
+    pub(crate) shots: u32,
+    pub(crate) hits: u32,
+}
+
 impl CampaignProgress {
     pub(crate) fn clear_planet_progress(&mut self) {
         self.planet_index = None;
@@ -180,6 +189,7 @@ fn main() {
         .init_resource::<WorldListSelection>()
         .init_resource::<WorldMapSelection>()
         .init_resource::<CampaignProgress>()
+        .init_resource::<LevelStats>()
         .init_resource::<PendingStoryScreen>()
         .insert_resource(level_selection)
         .insert_resource(WorldCatalog::default())
@@ -238,8 +248,13 @@ fn setup_main_menu(
     asset_server: Res<AssetServer>,
     audio_settings: Res<AudioSettings>,
     mut selection: ResMut<MenuSelection>,
+    mut world_catalog: ResMut<WorldCatalog>,
 ) {
     selection.index = 0;
+
+    // Refresh world catalog early so the main menu can make decisions
+    // (e.g. skip the StartView when only one world is present).
+    world_catalog.refresh(&asset_server);
 
     commands.spawn((
         AudioPlayer::new(asset_server.load("music/start.ogg")),
@@ -336,6 +351,8 @@ fn menu_pointer_input(
     mut selection: ResMut<MenuSelection>,
     mut next_state: ResMut<NextState<AppState>>,
     mut app_exit: EventWriter<AppExit>,
+    world_catalog: Res<WorldCatalog>,
+    mut progress: ResMut<CampaignProgress>,
 ) {
     for (interaction, button) in &interactions {
         match *interaction {
@@ -344,7 +361,7 @@ fn menu_pointer_input(
             }
             Interaction::Pressed => {
                 selection.index = button.index;
-                activate_action(button.action, &mut next_state, &mut app_exit);
+                activate_action(button.action, &mut next_state, &mut app_exit, &world_catalog, &mut progress);
             }
             Interaction::None => {}
         }
@@ -356,22 +373,37 @@ fn activate_selected_menu_item(
     selection: Res<MenuSelection>,
     mut next_state: ResMut<NextState<AppState>>,
     mut app_exit: EventWriter<AppExit>,
+    world_catalog: Res<WorldCatalog>,
+    mut progress: ResMut<CampaignProgress>,
 ) {
     if !keys.just_pressed(KeyCode::Enter) && !keys.just_pressed(KeyCode::NumpadEnter) {
         return;
     }
 
     let (_, action) = MENU_ITEMS[selection.index];
-    activate_action(action, &mut next_state, &mut app_exit);
+    activate_action(action, &mut next_state, &mut app_exit, &world_catalog, &mut progress);
 }
 
 fn activate_action(
     action: MenuAction,
     next_state: &mut ResMut<NextState<AppState>>,
     app_exit: &mut EventWriter<AppExit>,
+    world_catalog: &Res<WorldCatalog>,
+    progress: &mut ResMut<CampaignProgress>,
 ) {
     match action {
-        MenuAction::Start => next_state.set(AppState::StartView),
+        MenuAction::Start => {
+            let count = world_catalog.worlds().len();
+            if count == 1 {
+                // Skip world list and go directly to the single world's map
+                progress.world_index = Some(0);
+                progress.clear_planet_progress();
+                progress.world_start_story_seen = false;
+                next_state.set(AppState::WorldMapView);
+            } else {
+                next_state.set(AppState::StartView);
+            }
+        }
         MenuAction::Settings => next_state.set(AppState::SettingsView),
         MenuAction::About => next_state.set(AppState::AboutView),
         MenuAction::Exit => {
