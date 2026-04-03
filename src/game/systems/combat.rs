@@ -743,14 +743,6 @@ pub(super) fn maintain_player_fight_state(
     }
 }
 
-pub(super) fn return_to_main_menu(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut next_state: ResMut<NextState<AppState>>,
-) {
-    if keys.just_pressed(KeyCode::Escape) {
-        next_state.set(AppState::MainMenu);
-    }
-}
 
 pub(super) fn detect_player_reached_exit(
     player_query: Query<(&CollidingEntities, &Health), With<Player>>,

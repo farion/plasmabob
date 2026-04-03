@@ -1,5 +1,6 @@
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::prelude::*;
+use bevy::ui::FocusPolicy;
 use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
 use avian2d::{math::Vector, prelude::{Gravity, PhysicsPlugins}};
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
@@ -18,6 +19,11 @@ const MENU_ITEMS: [(&str, MenuAction); 4] = [
     ("Settings", MenuAction::Settings),
     ("About", MenuAction::About),
     ("Exit", MenuAction::Exit),
+];
+
+const EXIT_CONFIRM_ITEMS: [(&str, ExitConfirmAction); 2] = [
+    ("Ja", ExitConfirmAction::Confirm),
+    ("Nein", ExitConfirmAction::Cancel),
 ];
 
 #[derive(States, Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
@@ -43,9 +49,22 @@ enum MenuAction {
     Exit,
 }
 
+#[derive(Clone, Copy)]
+enum ExitConfirmAction {
+    Confirm,
+    Cancel,
+}
+
 #[derive(Resource, Default)]
 struct MenuSelection {
     index: usize,
+}
+
+#[derive(Resource, Default)]
+struct ExitConfirmModalState {
+    is_open: bool,
+    selection: usize,
+    suppress_enter_until_release: bool,
 }
 
 #[derive(Resource, Default)]
@@ -163,6 +182,15 @@ struct MenuButton {
 }
 
 #[derive(Component)]
+struct ExitConfirmModalRoot;
+
+#[derive(Component)]
+struct ExitConfirmButton {
+    index: usize,
+    action: ExitConfirmAction,
+}
+
+#[derive(Component)]
 struct StartScreenBackground;
 
 #[derive(Component)]
@@ -186,6 +214,7 @@ fn main() {
             show_overlay: false,
         })
         .init_resource::<MenuSelection>()
+        .init_resource::<ExitConfirmModalState>()
         .init_resource::<WorldListSelection>()
         .init_resource::<WorldMapSelection>()
         .init_resource::<CampaignProgress>()
@@ -216,10 +245,16 @@ fn main() {
             Update,
             (
                 fit_background_to_window,
+                open_or_close_exit_modal_with_escape,
                 menu_keyboard_navigation,
                 menu_pointer_input,
                 activate_selected_menu_item,
                 update_menu_visuals,
+                modal_keyboard_navigation,
+                modal_pointer_input,
+                activate_selected_modal_item,
+                update_modal_visuals,
+                sync_exit_modal,
             )
                 .run_if(in_state(AppState::MainMenu)),
         )
@@ -248,9 +283,13 @@ fn setup_main_menu(
     asset_server: Res<AssetServer>,
     audio_settings: Res<AudioSettings>,
     mut selection: ResMut<MenuSelection>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
     mut world_catalog: ResMut<WorldCatalog>,
 ) {
     selection.index = 0;
+    modal_state.is_open = false;
+    modal_state.selection = 1;
+    modal_state.suppress_enter_until_release = false;
 
     // Refresh world catalog early so the main menu can make decisions
     // (e.g. skip the StartView when only one world is present).
@@ -332,7 +371,19 @@ fn stop_menu_music(mut commands: Commands, music_entities: Query<Entity, With<Me
     }
 }
 
-fn menu_keyboard_navigation(keys: Res<ButtonInput<KeyCode>>, mut selection: ResMut<MenuSelection>) {
+fn menu_keyboard_navigation(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut selection: ResMut<MenuSelection>,
+    modal_state: Res<ExitConfirmModalState>,
+) {
+    if modal_state.is_open {
+        return;
+    }
+
+    if selection.index >= MENU_ITEMS.len() {
+        selection.index = 0;
+    }
+
     if keys.just_pressed(KeyCode::ArrowDown) {
         selection.index = (selection.index + 1) % MENU_ITEMS.len();
     }
@@ -353,7 +404,12 @@ fn menu_pointer_input(
     mut app_exit: EventWriter<AppExit>,
     world_catalog: Res<WorldCatalog>,
     mut progress: ResMut<CampaignProgress>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
 ) {
+    if modal_state.is_open {
+        return;
+    }
+
     for (interaction, button) in &interactions {
         match *interaction {
             Interaction::Hovered => {
@@ -361,7 +417,14 @@ fn menu_pointer_input(
             }
             Interaction::Pressed => {
                 selection.index = button.index;
-                activate_action(button.action, &mut next_state, &mut app_exit, &world_catalog, &mut progress);
+                activate_action(
+                    button.action,
+                    &mut next_state,
+                    &mut app_exit,
+                    &world_catalog,
+                    &mut progress,
+                    &mut modal_state,
+                );
             }
             Interaction::None => {}
         }
@@ -375,13 +438,32 @@ fn activate_selected_menu_item(
     mut app_exit: EventWriter<AppExit>,
     world_catalog: Res<WorldCatalog>,
     mut progress: ResMut<CampaignProgress>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
 ) {
-    if !keys.just_pressed(KeyCode::Enter) && !keys.just_pressed(KeyCode::NumpadEnter) {
+    if modal_state.is_open {
+        return;
+    }
+
+    if modal_state.suppress_enter_until_release {
+        if !is_enter_pressed(&keys) {
+            modal_state.suppress_enter_until_release = false;
+        }
+        return;
+    }
+
+    if !is_enter_just_pressed(&keys) {
         return;
     }
 
     let (_, action) = MENU_ITEMS[selection.index];
-    activate_action(action, &mut next_state, &mut app_exit, &world_catalog, &mut progress);
+    activate_action(
+        action,
+        &mut next_state,
+        &mut app_exit,
+        &world_catalog,
+        &mut progress,
+        &mut modal_state,
+    );
 }
 
 fn activate_action(
@@ -390,6 +472,7 @@ fn activate_action(
     app_exit: &mut EventWriter<AppExit>,
     world_catalog: &Res<WorldCatalog>,
     progress: &mut ResMut<CampaignProgress>,
+    modal_state: &mut ResMut<ExitConfirmModalState>,
 ) {
     match action {
         MenuAction::Start => {
@@ -407,16 +490,268 @@ fn activate_action(
         MenuAction::Settings => next_state.set(AppState::SettingsView),
         MenuAction::About => next_state.set(AppState::AboutView),
         MenuAction::Exit => {
+            let _ = app_exit;
+            modal_state.is_open = true;
+            modal_state.selection = 1;
+            // If Enter opened the modal, keep that keypress from selecting inside/outside the modal.
+            modal_state.suppress_enter_until_release = true;
+        }
+    }
+}
+
+fn open_or_close_exit_modal_with_escape(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
+) {
+    if !keys.just_pressed(KeyCode::Escape) {
+        return;
+    }
+
+    if modal_state.is_open {
+        modal_state.is_open = false;
+    } else {
+        modal_state.is_open = true;
+        modal_state.selection = 1;
+    }
+}
+
+fn modal_keyboard_navigation(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
+) {
+    if !modal_state.is_open {
+        return;
+    }
+
+    if keys.just_pressed(KeyCode::ArrowLeft) || keys.just_pressed(KeyCode::ArrowUp) {
+        modal_state.selection = if modal_state.selection == 0 {
+            EXIT_CONFIRM_ITEMS.len() - 1
+        } else {
+            modal_state.selection - 1
+        };
+    }
+
+    if keys.just_pressed(KeyCode::ArrowRight) || keys.just_pressed(KeyCode::ArrowDown) {
+        modal_state.selection = (modal_state.selection + 1) % EXIT_CONFIRM_ITEMS.len();
+    }
+}
+
+fn modal_pointer_input(
+    interactions: Query<(&Interaction, &ExitConfirmButton), (Changed<Interaction>, With<Button>)>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
+    mut app_exit: EventWriter<AppExit>,
+) {
+    if !modal_state.is_open {
+        return;
+    }
+
+    for (interaction, button) in &interactions {
+        match *interaction {
+            Interaction::Hovered => {
+                modal_state.selection = button.index;
+            }
+            Interaction::Pressed => {
+                modal_state.selection = button.index;
+                execute_exit_modal_action(button.action, &mut modal_state, &mut app_exit);
+            }
+            Interaction::None => {}
+        }
+    }
+}
+
+fn activate_selected_modal_item(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
+    mut app_exit: EventWriter<AppExit>,
+) {
+    if !modal_state.is_open {
+        return;
+    }
+
+    if modal_state.suppress_enter_until_release {
+        if !is_enter_pressed(&keys) {
+            modal_state.suppress_enter_until_release = false;
+        }
+        return;
+    }
+
+    if !is_enter_just_pressed(&keys) {
+        return;
+    }
+
+    modal_state.suppress_enter_until_release = true;
+
+    let (_, action) = EXIT_CONFIRM_ITEMS[modal_state.selection];
+    execute_exit_modal_action(action, &mut modal_state, &mut app_exit);
+}
+
+fn is_enter_pressed(keys: &ButtonInput<KeyCode>) -> bool {
+    keys.pressed(KeyCode::Enter) || keys.pressed(KeyCode::NumpadEnter)
+}
+
+fn is_enter_just_pressed(keys: &ButtonInput<KeyCode>) -> bool {
+    keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter)
+}
+
+fn execute_exit_modal_action(
+    action: ExitConfirmAction,
+    modal_state: &mut ResMut<ExitConfirmModalState>,
+    app_exit: &mut EventWriter<AppExit>,
+) {
+    match action {
+        ExitConfirmAction::Confirm => {
             app_exit.send(AppExit::Success);
+        }
+        ExitConfirmAction::Cancel => {
+            modal_state.is_open = false;
+            modal_state.selection = 1;
+        }
+    }
+}
+
+fn sync_exit_modal(
+    mut commands: Commands,
+    modal_state: Res<ExitConfirmModalState>,
+    roots: Query<Entity, With<ExitConfirmModalRoot>>,
+) {
+    if modal_state.is_open {
+        if roots.iter().next().is_some() {
+            return;
+        }
+
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                FocusPolicy::Block,
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
+                ExitConfirmModalRoot,
+                MainMenuEntity,
+            ))
+            .with_children(|overlay| {
+                overlay
+                    .spawn((
+                        Node {
+                            width: Val::Px(520.0),
+                            padding: UiRect::all(Val::Px(20.0)),
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(16.0),
+                            align_items: AlignItems::Stretch,
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.06, 0.06, 0.08)),
+                        MainMenuEntity,
+                    ))
+                    .with_children(|panel| {
+                        panel.spawn((
+                            Text::new("Spiel wirklich beenden?"),
+                            TextFont {
+                                font_size: 34.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                            MainMenuEntity,
+                        ));
+                        panel.spawn((
+                            Text::new("Enter: ausfuehren | Esc: abbrechen"),
+                            TextFont {
+                                font_size: 22.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgb(0.72, 0.72, 0.72)),
+                            MainMenuEntity,
+                        ));
+
+                        panel
+                            .spawn((
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    flex_direction: FlexDirection::Column,
+                                    row_gap: Val::Px(12.0),
+                                    ..default()
+                                },
+                                MainMenuEntity,
+                            ))
+                            .with_children(|button_list| {
+                                for (index, (label, action)) in EXIT_CONFIRM_ITEMS.into_iter().enumerate() {
+                                    button_list
+                                        .spawn((
+                                            Button,
+                                            Node {
+                                                width: Val::Percent(100.0),
+                                                padding: UiRect::all(Val::Px(8.0)),
+                                                ..default()
+                                            },
+                                            BackgroundColor(Color::NONE),
+                                            ExitConfirmButton { index, action },
+                                            MainMenuEntity,
+                                        ))
+                                        .with_children(|button| {
+                                            button.spawn((
+                                                Text::new(label),
+                                                TextFont {
+                                                    font_size: 34.0,
+                                                    ..default()
+                                                },
+                                                TextColor(Color::WHITE),
+                                                MainMenuEntity,
+                                            ));
+                                        });
+                                }
+                            });
+                    });
+            });
+        return;
+    }
+
+    for entity in &roots {
+        commands.entity(entity).despawn_recursive();
+    }
+}
+
+fn update_modal_visuals(
+    modal_state: Res<ExitConfirmModalState>,
+    mut button_query: Query<(&ExitConfirmButton, &Children, &mut BackgroundColor), With<Button>>,
+    mut text_colors: Query<&mut TextColor>,
+) {
+    if !modal_state.is_open {
+        return;
+    }
+
+    for (button, children, mut background) in &mut button_query {
+        let is_selected = button.index == modal_state.selection;
+        *background = BackgroundColor(Color::NONE);
+
+        for child in children.iter() {
+            if let Ok(mut text_color) = text_colors.get_mut(*child) {
+                *text_color = if is_selected {
+                    TextColor(Color::srgb(0.3, 0.6, 1.0))
+                } else {
+                    TextColor(Color::WHITE)
+                };
+            }
         }
     }
 }
 
 fn update_menu_visuals(
     selection: Res<MenuSelection>,
+    modal_state: Res<ExitConfirmModalState>,
     mut button_query: Query<(&MenuButton, &Children, &mut BackgroundColor), With<Button>>,
     mut text_colors: Query<&mut TextColor>,
 ) {
+    if modal_state.is_open {
+        return;
+    }
+
     for (button, children, mut background) in &mut button_query {
         let is_selected = button.index == selection.index;
 
@@ -434,6 +769,7 @@ fn update_menu_visuals(
         }
     }
 }
+
 
 fn fit_background_to_window(
     windows: Query<&Window, With<PrimaryWindow>>,

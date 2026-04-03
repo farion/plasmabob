@@ -9,7 +9,7 @@ use crate::game::level::{
     bottom_left_to_world, clamp_level_position, CachedLevelDefinition,
 };
 use crate::audio_settings::AudioSettings;
-use crate::LevelSelection;
+use crate::{LevelSelection, LevelStats};
 
 use super::{
     ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LEVEL_BOUNDARY_THICKNESS, LevelQuotes,
@@ -22,8 +22,13 @@ pub(super) fn setup_game_view(
     audio_settings: Res<AudioSettings>,
     cached_level_definition: Res<CachedLevelDefinition>,
     level_selection: Res<LevelSelection>,
+    mut stats: ResMut<LevelStats>,
+    mut level_timer: ResMut<super::hud::LevelTimer>,
     windows: Query<&Window, With<PrimaryWindow>>,
 ) {
+    *stats = LevelStats::default();
+    level_timer.0.reset();
+
     let window = windows.single();
     let window_size = Vec2::new(window.width(), window.height());
     let mut warnings = Vec::new();
@@ -360,7 +365,7 @@ fn spawn_overlay(
                 GameViewEntity,
             ));
             parent.spawn((
-                Text::new("Press O to toggle overlay | Press L to toggle hitboxes | Press Esc to return"),
+                Text::new("Press O to toggle overlay | Press L to toggle hitboxes | Press Esc for pause menu"),
                 TextFont {
                     font_size: 18.0,
                     ..default()

@@ -21,6 +21,8 @@ mod player;
 mod parallax;
 #[path = "systems/setup.rs"]
 mod setup;
+#[path = "systems/pause_menu.rs"]
+mod pause_menu;
 
 pub struct GameViewPlugin;
 
@@ -77,6 +79,27 @@ struct CombatSoundEffects {
 #[derive(Resource)]
 struct QuoteCooldown(Timer);
 
+const PAUSE_MENU_ITEMS: [(&str, PauseMenuAction); 4] = [
+    ("Restart", PauseMenuAction::Restart),
+    ("Back to Worldmap", PauseMenuAction::BackToWorldMap),
+    ("Back to Mainmenu", PauseMenuAction::BackToMainMenu),
+    ("Cancel", PauseMenuAction::Cancel),
+];
+
+#[derive(Clone, Copy)]
+enum PauseMenuAction {
+    Restart,
+    BackToWorldMap,
+    BackToMainMenu,
+    Cancel,
+}
+
+#[derive(Resource, Default)]
+struct PauseMenuState {
+    is_open: bool,
+    selection: usize,
+}
+
 impl Default for QuoteCooldown {
     fn default() -> Self {
         let mut timer = Timer::from_seconds(8.0, TimerMode::Once);
@@ -118,7 +141,12 @@ impl Plugin for GameViewPlugin {
                 .chain(),
         )
         .init_resource::<QuoteCooldown>()
+        .init_resource::<PauseMenuState>()
         .init_resource::<hud::LevelTimer>()
+        .add_systems(
+            Update,
+            pause_menu::update_pause_menu.run_if(in_state(crate::AppState::GameView)),
+        )
         .add_systems(
             Update,
             (
@@ -164,9 +192,9 @@ impl Plugin for GameViewPlugin {
                 (
                     combat::detect_player_defeated,
                     combat::detect_player_reached_exit,
-                    combat::return_to_main_menu,
                 ),
             )
+                .run_if(gameplay_active)
                 .run_if(in_state(crate::AppState::GameView)),
         )
         .add_systems(
@@ -180,6 +208,10 @@ impl Plugin for GameViewPlugin {
         )
         .add_systems(OnExit(crate::AppState::GameView), cleanup::cleanup_game_view);
     }
+}
+
+fn gameplay_active(modal_state: Res<PauseMenuState>) -> bool {
+    !modal_state.is_open
 }
 
 
