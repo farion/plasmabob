@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::AppState;
+use crate::i18n::LocalizedText;
 
 pub struct AboutViewPlugin;
 
@@ -47,30 +48,33 @@ fn setup_about_view(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("About"),
+                Text::new(""),
                 TextFont {
                     font_size: 56.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
+                LocalizedText { key: "about.title".to_string() },
                 AboutViewEntity,
             ));
             parent.spawn((
-                Text::new("Made proudly by Frieder Reinhold with Rust and Bevy."),
+                Text::new(""),
                 TextFont {
                     font_size: 28.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.85)),
+                LocalizedText { key: "about.blurb".to_string() },
                 AboutViewEntity,
             ));
             parent.spawn((
-                Text::new("Press Esc to return"),
+                Text::new(""),
                 TextFont {
                     font_size: 28.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                LocalizedText { key: "about.hint".to_string() },
                 AboutViewEntity,
             ));
         });

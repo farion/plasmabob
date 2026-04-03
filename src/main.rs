@@ -8,22 +8,25 @@ use crate::audio_settings::AudioSettings;
 use crate::game::world::WorldCatalog;
 
 mod audio_settings;
+mod fonts;
 mod game;
 mod key_bindings;
 mod views;
+mod i18n;
 
 const SHOW_HITBOX_DEBUG_LINES: bool = false;
 
+// keys into the i18n JSON files
 const MENU_ITEMS: [(&str, MenuAction); 4] = [
-    ("Start", MenuAction::Start),
-    ("Settings", MenuAction::Settings),
-    ("About", MenuAction::About),
-    ("Exit", MenuAction::Exit),
+    ("menu.start", MenuAction::Start),
+    ("menu.settings", MenuAction::Settings),
+    ("menu.about", MenuAction::About),
+    ("menu.exit", MenuAction::Exit),
 ];
 
 const EXIT_CONFIRM_ITEMS: [(&str, ExitConfirmAction); 2] = [
-    ("Ja", ExitConfirmAction::Confirm),
-    ("Nein", ExitConfirmAction::Cancel),
+    ("modal.exit.yes", ExitConfirmAction::Confirm),
+    ("modal.exit.no", ExitConfirmAction::Cancel),
 ];
 
 #[derive(States, Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
@@ -220,6 +223,8 @@ fn main() {
         .init_resource::<CampaignProgress>()
         .init_resource::<LevelStats>()
         .init_resource::<PendingStoryScreen>()
+        .init_resource::<i18n::Translations>()
+        .init_resource::<i18n::CurrentLanguage>()
         .insert_resource(level_selection)
         .insert_resource(WorldCatalog::default())
         .insert_resource(cached_level_definition)
@@ -234,11 +239,16 @@ fn main() {
             }),
             ..default()
         }))
+        // Must come after DefaultPlugins so Assets<Font> already exists.
+        // Replaces Bevy's default FiraMono with SpaceMono Regular globally.
+        .add_plugins(fonts::FontsPlugin)
         .add_plugins(FramepacePlugin)
         .add_plugins(PhysicsPlugins::default().with_length_unit(100.0))
         .init_state::<AppState>()
         .add_systems(Startup, setup_camera)
+        .add_systems(Startup, i18n::load_translations)
         .add_systems(Update, toggle_fullscreen)
+        .add_systems(Update, i18n::update_localized_texts)
         // Always keep background sprites fitted to the current window size so views
         // that also spawn `StartScreenBackground` (About/Settings) are handled.
         .add_systems(Update, fit_background_to_window)
@@ -319,7 +329,7 @@ fn setup_main_menu(
     commands
         .spawn((
             Node {
-                width: Val::Px(320.0),
+                width: Val::Px(512.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
@@ -350,12 +360,13 @@ fn setup_main_menu(
                     ))
                     .with_children(|button| {
                         button.spawn((
-                            Text::new(label),
+                            Text::new(""),
                             TextFont {
                                 font_size: 46.0,
                                 ..default()
                             },
                             TextColor(Color::WHITE),
+                            i18n::LocalizedText { key: label.to_string() },
                             MainMenuEntity,
                         ));
                     });
@@ -656,21 +667,23 @@ fn sync_exit_modal(
                     ))
                     .with_children(|panel| {
                         panel.spawn((
-                            Text::new("Spiel wirklich beenden?"),
+                            Text::new(""),
                             TextFont {
                                 font_size: 34.0,
                                 ..default()
                             },
                             TextColor(Color::WHITE),
+                            i18n::LocalizedText { key: "modal.exit.title".to_string() },
                             MainMenuEntity,
                         ));
                         panel.spawn((
-                            Text::new("Enter: ausfuehren | Esc: abbrechen"),
+                            Text::new(""),
                             TextFont {
                                 font_size: 22.0,
                                 ..default()
                             },
                             TextColor(Color::srgb(0.72, 0.72, 0.72)),
+                            i18n::LocalizedText { key: "modal.exit.hint".to_string() },
                             MainMenuEntity,
                         ));
 
@@ -700,12 +713,13 @@ fn sync_exit_modal(
                                         ))
                                         .with_children(|button| {
                                             button.spawn((
-                                                Text::new(label),
+                                                Text::new(""),
                                                 TextFont {
                                                     font_size: 34.0,
                                                     ..default()
                                                 },
                                                 TextColor(Color::WHITE),
+                                                i18n::LocalizedText { key: label.to_string() },
                                                 MainMenuEntity,
                                             ));
                                         });

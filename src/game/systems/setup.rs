@@ -329,12 +329,13 @@ fn spawn_overlay(
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("Game View"),
+                Text::new(""),
                 TextFont {
                     font_size: 38.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
+                crate::i18n::LocalizedText { key: "game.view_title".to_string() },
                 GameViewEntity,
             ));
             parent.spawn((
@@ -365,12 +366,13 @@ fn spawn_overlay(
                 GameViewEntity,
             ));
             parent.spawn((
-                Text::new("Press O to toggle overlay | Press L to toggle hitboxes | Press Esc for pause menu"),
+                Text::new(""),
                 TextFont {
                     font_size: 18.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                crate::i18n::LocalizedText { key: "game.overlay_hint".to_string() },
                 GameViewEntity,
             ));
         });

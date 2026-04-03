@@ -8,6 +8,7 @@ use crate::{
     AppState, CampaignProgress, LevelSelection, MainCamera, PendingStoryScreen, StoryScreenRequest,
     WorldMapSelection,
 };
+use crate::i18n::{Translations, CurrentLanguage};
 
 pub struct WorldMapViewPlugin;
 
@@ -425,6 +426,8 @@ fn update_planet_label(
     progress: Res<CampaignProgress>,
     selection: Res<WorldMapSelection>,
     mut labels: Query<&mut Text, With<WorldMapPlanetLabel>>,
+    translations: Res<Translations>,
+    current: Res<CurrentLanguage>,
 ) {
     let Ok(mut label) = labels.get_single_mut() else {
         return;
@@ -435,21 +438,31 @@ fn update_planet_label(
     };
 
     let Some(planet) = world.planets.get(selection.index) else {
-        label.0 = "Pfeiltasten/Klick: Planet waehlen | Enter: Start | Esc: Welten".to_string();
+        label.0 = translations
+            .tr(&current.0, "worldmap.no_selection_hint")
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "Arrow/click: choose planet | Enter: start | Esc: worlds".to_string());
         return;
     };
 
     let level_info = if planet.levels.is_empty() {
-        "(kein Level)".to_string()
+        translations
+            .tr(&current.0, "worldmap.no_level")
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "(no levels)".to_string())
     } else {
         let first_level = &planet.levels[0];
         format!("{} Level (Start: {})", planet.levels.len(), first_level.name)
     };
 
-    label.0 = format!(
-        "Welt: {} | Planet: {} {} | Enter: Start | Esc: Welten",
-        world.name, planet.name, level_info
-    );
+    if let Some(fmt) = translations.tr(&current.0, "worldmap.label_format") {
+        label.0 = fmt.replace("{world}", &world.name).replace("{planet}", &planet.name).replace("{level_info}", &level_info);
+    } else {
+        label.0 = format!(
+            "World: {} | Planet: {} {} | Enter: Start | Esc: Worlds",
+            world.name, planet.name, level_info
+        );
+    }
 }
 
 fn return_to_world_select(

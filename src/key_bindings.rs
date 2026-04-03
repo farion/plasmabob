@@ -16,13 +16,14 @@ pub(crate) enum KeyAction {
 }
 
 impl KeyAction {
-    pub(crate) fn label(self) -> &'static str {
+    /// Return the i18n key for this action's human-readable label.
+    pub(crate) fn label_key(self) -> &'static str {
         match self {
-            Self::MoveLeft => "Laufen Links",
-            Self::MoveRight => "Laufen Rechts",
-            Self::Jump => "Springen",
-            Self::Shoot => "Schiessen",
-            Self::Fullscreen => "Vollbild",
+            Self::MoveLeft => "action.move_left",
+            Self::MoveRight => "action.move_right",
+            Self::Jump => "action.jump",
+            Self::Shoot => "action.shoot",
+            Self::Fullscreen => "action.fullscreen",
         }
     }
 

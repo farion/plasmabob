@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::game::world::WorldCatalog;
 use crate::{AppState, CampaignProgress, WorldListSelection};
+use crate::i18n::{Translations, CurrentLanguage};
 
 pub struct StartViewPlugin;
 
@@ -44,19 +45,31 @@ fn refresh_world_catalog(
     progress.clear_planet_progress();
 }
 
-fn setup_start_view(mut commands: Commands, world_catalog: Res<WorldCatalog>) {
-    let (title, subtitle) = if world_catalog.worlds().is_empty() {
+fn setup_start_view(
+    mut commands: Commands,
+    world_catalog: Res<WorldCatalog>,
+    translations: Res<Translations>,
+    current: Res<CurrentLanguage>,
+) {
+    // Determine title/subtitle keys or formatted detail when no worlds are available
+    let (title_key, subtitle_text) = if world_catalog.worlds().is_empty() {
         let detail = world_catalog
             .last_error()
-            .unwrap_or("Keine Welt-JSONs in assets/worlds gefunden.");
-        (
-            "Weltenauswahl nicht verfuegbar".to_string(),
-            format!("{detail}\nEsc: Zurueck zum Hauptmenue"),
-        )
+            .unwrap_or("No world JSONs found in assets/worlds.");
+        // Use localized template and insert detail
+        let template = translations
+            .tr(&current.0, "start.no_worlds_detail")
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "{detail}\nEsc: Back to main menu".to_string());
+        let subtitle = template.replace("{detail}", detail);
+        ("start.title_no_worlds", subtitle)
     } else {
         (
-            "Waehle eine Welt".to_string(),
-            "Pfeiltasten: Navigation | Enter: Weltkarte | Esc: Zurueck".to_string(),
+            "start.title",
+            translations
+                .tr(&current.0, "start.subtitle")
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "Arrow keys: navigate | Enter: world map | Esc: back".to_string()),
         )
     };
 
@@ -76,16 +89,19 @@ fn setup_start_view(mut commands: Commands, world_catalog: Res<WorldCatalog>) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new(title),
+                Text::new(""),
                 TextFont {
                     font_size: 56.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
+                crate::i18n::LocalizedText { key: title_key.to_string() },
                 StartViewEntity,
             ));
             parent.spawn((
-                Text::new(subtitle),
+                // subtitle may contain a formatted detail when no worlds exist, so we
+                // insert the prepared text directly rather than a LocalizedText key.
+                Text::new(subtitle_text),
                 TextFont {
                     font_size: 28.0,
                     ..default()

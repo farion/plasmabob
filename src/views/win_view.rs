@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::game::world::WorldCatalog;
 use crate::game::level::CachedLevelDefinition;
 use crate::{AppState, CampaignProgress, LevelSelection, LevelStats};
+use crate::i18n::LocalizedText;
 
 pub struct WinViewPlugin;
 
@@ -29,17 +30,8 @@ fn setup_win_view(
 ) {
     let has_next_level = next_level_json(&world_catalog, &progress).is_some();
 
-    let title = if has_next_level {
-        "Level geschafft!"
-    } else {
-        "Planet abgeschlossen!"
-    };
-
-    let detail = if has_next_level {
-        "Enter: Naechstes Level | Esc: Weltkarte"
-    } else {
-        "Enter: Zurueck zur Weltkarte | Esc: Weltkarte"
-    };
+    let title_key = if has_next_level { "win.level_cleared" } else { "win.planet_cleared" };
+    let detail_key = if has_next_level { "win.detail_next" } else { "win.detail_done" };
 
     commands
         .spawn((
@@ -57,21 +49,23 @@ fn setup_win_view(
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new(title),
+                Text::new(""),
                 TextFont {
                     font_size: 56.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
+                LocalizedText { key: title_key.to_string() },
                 WinViewEntity,
             ));
             parent.spawn((
-                Text::new(detail),
+                Text::new(""),
                 TextFont {
                     font_size: 28.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                LocalizedText { key: detail_key.to_string() },
                 WinViewEntity,
             ));
 
@@ -89,7 +83,7 @@ fn setup_win_view(
             ))
             .with_children(|table| {
                 // rows: label (left) and value (right)
-                fn row(table: &mut ChildBuilder, label: &str, value: String) {
+                fn row(table: &mut ChildBuilder, label_key: &str, value: String) {
                     table.spawn((
                         Node {
                             width: Val::Percent(100.0),
@@ -100,7 +94,7 @@ fn setup_win_view(
                         WinViewEntity,
                     ))
                     .with_children(|row| {
-                        row.spawn((Text::new(label), TextFont { font_size: 20.0, ..default() }, TextColor(Color::WHITE), WinViewEntity));
+                        row.spawn((Text::new(""), TextFont { font_size: 20.0, ..default() }, TextColor(Color::WHITE), LocalizedText { key: label_key.to_string() }, WinViewEntity));
                         row.spawn((Text::new(value), TextFont { font_size: 20.0, ..default() }, TextColor(Color::WHITE), WinViewEntity));
                     });
                 }
@@ -124,11 +118,11 @@ fn setup_win_view(
                     }
                 }
 
-                row(table, "Getötete Gegner", format!("{}", stats.enemies_killed));
-                row(table, "Gesamtzeit", format!("{:.2} s", stats.total_time_seconds));
-                row(table, "Sprünge", format!("{}", stats.jumps));
-                row(table, "Schüsse", format!("{}", stats.shots));
-                row(table, "Trefferquote", format!("{:.1}%", accuracy * 100.0));
+                row(table, "stats.enemies_killed", format!("{}", stats.enemies_killed));
+                row(table, "stats.total_time", format!("{:.2} s", stats.total_time_seconds));
+                row(table, "stats.jumps", format!("{}", stats.jumps));
+                row(table, "stats.shots", format!("{}", stats.shots));
+                row(table, "stats.accuracy", format!("{:.1}%", accuracy * 100.0));
 
                 // compute reference time and total score
                 // reference time derived from level length and enemy count
@@ -149,7 +143,7 @@ fn setup_win_view(
                     WinViewEntity,
                 ))
                 .with_children(|row| {
-                    row.spawn((Text::new("Gesamtpunktzahl"), TextFont { font_size: 22.0, ..default() }, TextColor(Color::WHITE), WinViewEntity));
+                    row.spawn((Text::new(""), TextFont { font_size: 22.0, ..default() }, TextColor(Color::WHITE), LocalizedText { key: "stats.total_score".to_string() }, WinViewEntity));
                     row.spawn((Text::new(format!("{}", score)), TextFont { font_size: 22.0, ..default() }, TextColor(Color::srgb(0.9, 0.9, 0.4)), WinViewEntity));
                 });
             });

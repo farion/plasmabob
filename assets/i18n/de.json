@@ -1,0 +1,73 @@
+{
+  "menu.start": "Start",
+  "menu.settings": "Einstellungen",
+  "menu.about": "Über",
+  "menu.exit": "Beenden",
+
+  "modal.exit.title": "Spiel wirklich beenden?",
+  "modal.exit.hint": "Enter: ausführen | Esc: abbrechen",
+  "modal.exit.yes": "Ja",
+  "modal.exit.no": "Nein",
+
+  "start.title_no_worlds": "Weltenauswahl nicht verfügbar",
+  "start.no_worlds_detail": "{detail}\nEsc: Zurück zum Hauptmenü",
+  "start.title": "Wähle eine Welt",
+  "start.subtitle": "Pfeiltasten: Navigation | Enter: Weltkarte | Esc: Zurück",
+
+  "settings.title": "Einstellungen",
+  "settings.hint": "Hoch/Runter: Auswahl | Links/Rechts: Lautstärke | Enter/Klick: Taste ändern | Esc: Zurück",
+  "settings.section.volume": "Lautstärke",
+  "settings.section.keybindings": "Tastenbelegung",
+  "settings.volume.music": "Musik",
+  "settings.volume.effects": "Effekte",
+  "settings.volume.quotes": "Quotes",
+  "settings.error.key_already_bound": "Diese Taste ist bereits belegt!",
+
+  "action.move_left": "Laufen Links",
+  "action.move_right": "Laufen Rechts",
+  "action.jump": "Springen",
+  "action.shoot": "Schießen",
+  "action.fullscreen": "Vollbild",
+
+  "story.hint": "Enter / Schießen / Springen: Weiter",
+  "story.asset_read_error": "Asset '{asset}' konnte nicht gelesen werden: {error}",
+  "story.asset_utf8_error": "Asset '{asset}' ist kein gültiges UTF-8: {error}",
+
+  "win.level_cleared": "Level geschafft!",
+  "win.planet_cleared": "Planet abgeschlossen!",
+  "win.detail_next": "Enter: Nächstes Level | Esc: Weltkarte",
+  "win.detail_done": "Enter: Zurück zur Weltkarte | Esc: Weltkarte",
+
+  "stats.enemies_killed": "Getötete Gegner",
+  "stats.total_time": "Gesamtzeit",
+  "stats.jumps": "Sprünge",
+  "stats.shots": "Schüsse",
+  "stats.accuracy": "Trefferquote",
+  "stats.total_score": "Gesamtpunktzahl",
+
+  "lose.title": "Du hast verloren!",
+  "lose.repeat": "Enter: Level wiederholen",
+  "lose.cancel": "Esc: Abbrechen und zur Weltkarte",
+
+  "about.title": "Über",
+  "about.blurb": "Made proudly by Frieder Reinhold with Rust and Bevy.",
+  "about.hint": "Esc: Zurück",
+
+  "worldmap.no_selection_hint": "Pfeiltasten/Klick: Planet wählen | Enter: Start | Esc: Welten",
+  "worldmap.no_level": "(kein Level)",
+  "worldmap.label_format": "Welt: {world} | Planet: {planet} {level_info} | Enter: Start | Esc: Welten"
+  ,
+  "pause.title": "Spiel pausiert",
+  "pause.hint": "Pfeiltasten/Maus: wählen | Enter: bestätigen | Esc: schließen",
+  "pause.restart": "Neustart",
+  "pause.back_to_worldmap": "Zur Weltkarte",
+  "pause.back_to_mainmenu": "Zum Hauptmenü",
+  "pause.cancel": "Abbrechen"
+  ,
+  "game.view_title": "Game View",
+  "game.overlay_hint": "Press O to toggle overlay | Press L to toggle hitboxes | Press Esc for pause menu"
+}
+
+
+
+

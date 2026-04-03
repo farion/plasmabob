@@ -1,0 +1,73 @@
+{
+  "menu.start": "Start",
+  "menu.settings": "Settings",
+  "menu.about": "About",
+  "menu.exit": "Exit",
+
+  "modal.exit.title": "Exit the game?",
+  "modal.exit.hint": "Enter: confirm | Esc: cancel",
+  "modal.exit.yes": "Yes",
+  "modal.exit.no": "No",
+
+  "start.title_no_worlds": "World selection not available",
+  "start.no_worlds_detail": "{detail}\nEsc: Back to main menu",
+  "start.title": "Choose a world",
+  "start.subtitle": "Arrow keys: navigate | Enter: world map | Esc: back",
+
+  "settings.title": "Settings",
+  "settings.hint": "Up/Down: select | Left/Right: volume | Enter/Click: change key | Esc: back",
+  "settings.section.volume": "Volume",
+  "settings.section.keybindings": "Key bindings",
+  "settings.volume.music": "Music",
+  "settings.volume.effects": "Effects",
+  "settings.volume.quotes": "Quotes",
+  "settings.error.key_already_bound": "This key is already bound!",
+
+  "action.move_left": "Move left",
+  "action.move_right": "Move right",
+  "action.jump": "Jump",
+  "action.shoot": "Shoot",
+  "action.fullscreen": "Fullscreen",
+
+  "story.hint": "Enter / Shoot / Jump: Continue",
+  "story.asset_read_error": "Asset '{asset}' could not be read: {error}",
+  "story.asset_utf8_error": "Asset '{asset}' is not valid UTF-8: {error}",
+
+  "win.level_cleared": "Level cleared!",
+  "win.planet_cleared": "Planet completed!",
+  "win.detail_next": "Enter: Next level | Esc: world map",
+  "win.detail_done": "Enter: Back to world map | Esc: world map",
+
+  "stats.enemies_killed": "Enemies killed",
+  "stats.total_time": "Total time",
+  "stats.jumps": "Jumps",
+  "stats.shots": "Shots",
+  "stats.accuracy": "Accuracy",
+  "stats.total_score": "Total score",
+
+  "lose.title": "You lost!",
+  "lose.repeat": "Enter: Retry level",
+  "lose.cancel": "Esc: Cancel and go to world map",
+
+  "about.title": "About",
+  "about.blurb": "Made proudly by Frieder Reinhold with Rust and Bevy.",
+  "about.hint": "Esc: Return",
+
+  "worldmap.no_selection_hint": "Arrow/click: choose planet | Enter: start | Esc: worlds",
+  "worldmap.no_level": "(no levels)",
+  "worldmap.label_format": "World: {world} | Planet: {planet} {level_info} | Enter: Start | Esc: Worlds"
+  ,
+  "pause.title": "Game paused",
+  "pause.hint": "Arrow/mouse: select | Enter: confirm | Esc: close",
+  "pause.restart": "Restart",
+  "pause.back_to_worldmap": "Back to world map",
+  "pause.back_to_mainmenu": "Back to main menu",
+  "pause.cancel": "Cancel"
+  ,
+  "game.view_title": "Game View",
+  "game.overlay_hint": "Press O to toggle overlay | Press L to toggle hitboxes | Press Esc for pause menu"
+}
+
+
+
+

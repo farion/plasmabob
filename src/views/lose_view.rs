@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{AppState, CampaignProgress};
+use crate::i18n::LocalizedText;
 
 pub struct LoseViewPlugin;
 
@@ -35,30 +36,33 @@ fn setup_lose_view(mut commands: Commands) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("Du hast verloren!"),
+                Text::new(""),
                 TextFont {
                     font_size: 56.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
+                LocalizedText { key: "lose.title".to_string() },
                 LoseViewEntity,
             ));
             parent.spawn((
-                Text::new("Enter: Level wiederholen"),
+                Text::new(""),
                 TextFont {
                     font_size: 28.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                LocalizedText { key: "lose.repeat".to_string() },
                 LoseViewEntity,
             ));
             parent.spawn((
-                Text::new("Esc: Abbrechen und zur Weltkarte"),
+                Text::new(""),
                 TextFont {
                     font_size: 24.0,
                     ..default()
                 },
                 TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                LocalizedText { key: "lose.cancel".to_string() },
                 LoseViewEntity,
             ));
         });

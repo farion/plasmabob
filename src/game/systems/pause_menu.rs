@@ -160,21 +160,23 @@ fn spawn_pause_menu(commands: &mut Commands) {
                 ))
                 .with_children(|panel| {
                     panel.spawn((
-                        Text::new("Spiel pausiert"),
+                        Text::new(""),
                         TextFont {
                             font_size: 36.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),
+                        crate::i18n::LocalizedText { key: "pause.title".to_string() },
                         GameViewEntity,
                     ));
                     panel.spawn((
-                        Text::new("Pfeiltasten/Maus: waehlen | Enter: bestaetigen | Esc: schliessen"),
+                        Text::new(""),
                         TextFont {
                             font_size: 21.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.72, 0.72, 0.72)),
+                        crate::i18n::LocalizedText { key: "pause.hint".to_string() },
                         GameViewEntity,
                     ));
 
@@ -204,12 +206,13 @@ fn spawn_pause_menu(commands: &mut Commands) {
                                     ))
                                     .with_children(|button| {
                                         button.spawn((
-                                            Text::new(label),
+                                            Text::new(""),
                                             TextFont {
                                                 font_size: 34.0,
                                                 ..default()
                                             },
                                             TextColor(Color::WHITE),
+                                            crate::i18n::LocalizedText { key: label.to_string() },
                                             GameViewEntity,
                                         ));
                                     });

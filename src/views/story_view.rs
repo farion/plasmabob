@@ -7,6 +7,7 @@ use pulldown_cmark::{Event, Options, Parser, Tag};
 
 use crate::key_bindings::KeyBindings;
 use crate::{AppState, PendingStoryScreen};
+use crate::i18n::{Translations, CurrentLanguage, LocalizedText};
 
 pub struct StoryViewPlugin;
 
@@ -76,12 +77,14 @@ impl Plugin for StoryViewPlugin {
     }
 }
 
-fn setup_story_view(
+    fn setup_story_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut pending_story: ResMut<PendingStoryScreen>,
     mut scroll_state: ResMut<StoryScrollState>,
     mut next_state: ResMut<NextState<AppState>>,
+    translations: Res<Translations>,
+    current: Res<CurrentLanguage>,
 ) {
     scroll_state.offset_px = 0.0;
     scroll_state.target_offset_px = 0.0;
@@ -93,8 +96,8 @@ fn setup_story_view(
         return;
     };
 
-    let story_text = read_asset_text_from_server(&asset_server, &story.text_asset_path)
-        .unwrap_or_else(|error| format!("Story-Text konnte nicht geladen werden: {error}"));
+    let story_text = read_asset_text_from_server(&asset_server, &story.text_asset_path, &translations, &current)
+        .unwrap_or_else(|error| error);
 
     commands.spawn((
         Sprite::from_image(asset_server.load(&story.background_asset_path)),
@@ -179,12 +182,13 @@ fn setup_story_view(
                     });
 
                     panel.spawn((
-                        Text::new("Enter / Schiessen / Springen: Weiter"),
+                        Text::new(""),
                         TextFont {
                             font_size: 24.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.75, 0.75, 0.75)),
+                        LocalizedText { key: "story.hint".to_string() },
                         StoryViewEntity,
                     ));
                 });
@@ -338,10 +342,20 @@ fn cleanup_story_view(mut commands: Commands, entities: Query<Entity, (With<Stor
     }
 }
 
-fn read_asset_text_from_server(asset_server: &AssetServer, asset_path: &str) -> Result<String, String> {
+fn read_asset_text_from_server(
+    asset_server: &AssetServer,
+    asset_path: &str,
+    translations: &Translations,
+    current: &CurrentLanguage,
+) -> Result<String, String> {
     let source = asset_server
         .get_source(AssetSourceId::Default)
-        .map_err(|error| format!("Asset source error: {error}"))?;
+        .map_err(|error| {
+            translations
+                .tr(&current.0, "story.asset_read_error")
+                .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
+                .unwrap_or_else(|| format!("Asset source error: {error}", error = error))
+        })?;
 
     let mut bytes = Vec::new();
     pollster::block_on(async {
@@ -349,18 +363,32 @@ fn read_asset_text_from_server(asset_server: &AssetServer, asset_path: &str) -> 
             .reader()
             .read(asset_path.as_ref())
             .await
-            .map_err(|error| format!("Asset '{asset_path}' konnte nicht gelesen werden: {error}"))?;
+            .map_err(|error| {
+                translations
+                    .tr(&current.0, "story.asset_read_error")
+                    .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
+                    .unwrap_or_else(|| format!("Asset '{asset}' could not be read: {error}", asset = asset_path, error = error))
+            })?;
 
         reader
             .read_to_end(&mut bytes)
             .await
-            .map_err(|error| format!("Asset-Bytes fuer '{asset_path}' konnten nicht gelesen werden: {error}"))?;
+            .map_err(|error| {
+                translations
+                    .tr(&current.0, "story.asset_read_error")
+                    .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
+                    .unwrap_or_else(|| format!("Asset bytes for '{asset}' could not be read: {error}", asset = asset_path, error = error))
+            })?;
 
         Ok::<(), String>(())
     })?;
 
-    let text = String::from_utf8(bytes)
-        .map_err(|error| format!("Asset '{asset_path}' ist kein gueltiges UTF-8: {error}"))?;
+    let text = String::from_utf8(bytes).map_err(|error| {
+        translations
+            .tr(&current.0, "story.asset_utf8_error")
+            .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
+            .unwrap_or_else(|| format!("Asset '{asset}' is not valid UTF-8: {error}", asset = asset_path, error = error))
+    })?;
 
     Ok(text.trim_start_matches('\u{feff}').to_string())
 }

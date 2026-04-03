@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::audio_settings::AudioSettings;
 use crate::key_bindings::{KeyAction, KeyBindings};
 use crate::AppState;
+use crate::i18n::LocalizedText;
 
 pub struct SettingsViewPlugin;
 
@@ -151,45 +152,48 @@ fn setup_settings_view(
             });
 
             parent.spawn((
-                Text::new("Einstellungen"),
+                Text::new(""),
                 TextFont { font_size: 48.0, ..default() },
                 TextColor(Color::WHITE),
+                LocalizedText { key: "settings.title".to_string() },
                 SettingsViewEntity,
             ));
 
-            spawn_section_header(parent, "Lautstaerke");
+            spawn_section_header(parent, "settings.section.volume");
             spawn_volume_row(parent, VolumeSetting::Music, audio_settings.music_volume);
             spawn_volume_row(parent, VolumeSetting::Effects, audio_settings.effects_volume);
             spawn_volume_row(parent, VolumeSetting::Quotes, audio_settings.quotes_volume);
 
-            spawn_section_header(parent, "Tastenbelegung");
+            spawn_section_header(parent, "settings.section.keybindings");
             for action in KeyAction::all() {
                 spawn_key_binding_row(parent, action, key_bindings.get(action));
             }
 
             parent.spawn((
-                Text::new("Hoch/Runter: Auswahl | Links/Rechts: Lautstaerke | Enter/Klick: Taste aendern | Esc: Zurueck"),
+                Text::new(""),
                 TextFont { font_size: 18.0, ..default() },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
+                LocalizedText { key: "settings.hint".to_string() },
                 SettingsViewEntity,
             ));
         });
 }
 
-fn spawn_section_header(parent: &mut ChildBuilder, title: &str) {
+fn spawn_section_header(parent: &mut ChildBuilder, key: &str) {
     parent.spawn((
-        Text::new(title),
+        Text::new(""),
         TextFont { font_size: 20.0, ..default() },
         TextColor(Color::srgb(0.55, 0.75, 1.0)),
+        LocalizedText { key: key.to_string() },
         SettingsViewEntity,
     ));
 }
 
 fn spawn_volume_row(parent: &mut ChildBuilder, setting: VolumeSetting, value: f32) {
-    let label = match setting {
-        VolumeSetting::Music => "Musik",
-        VolumeSetting::Effects => "Effekte",
-        VolumeSetting::Quotes => "Quotes",
+    let label_key = match setting {
+        VolumeSetting::Music => "settings.volume.music",
+        VolumeSetting::Effects => "settings.volume.effects",
+        VolumeSetting::Quotes => "settings.volume.quotes",
     };
     parent
         .spawn((
@@ -206,7 +210,7 @@ fn spawn_volume_row(parent: &mut ChildBuilder, setting: VolumeSetting, value: f3
             SettingsViewEntity,
         ))
         .with_children(|row| {
-            row.spawn((Text::new(label), TextFont { font_size: 28.0, ..default() }, TextColor(Color::WHITE), SettingsViewEntity));
+            row.spawn((Text::new(""), TextFont { font_size: 28.0, ..default() }, TextColor(Color::WHITE), LocalizedText { key: label_key.to_string() }, SettingsViewEntity));
             row.spawn((
                 Button,
                 Node { width: Val::Px(40.0), height: Val::Px(32.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, ..default() },
@@ -241,7 +245,7 @@ fn spawn_key_binding_row(parent: &mut ChildBuilder, action: KeyAction, current_k
             SettingsViewEntity,
         ))
         .with_children(|row| {
-            row.spawn((Text::new(action.label()), TextFont { font_size: 28.0, ..default() }, TextColor(Color::WHITE), SettingsViewEntity));
+            row.spawn((Text::new(""), TextFont { font_size: 28.0, ..default() }, TextColor(Color::WHITE), LocalizedText { key: action.label_key().to_string() }, SettingsViewEntity));
             row.spawn((
                 Button,
                 Node {
@@ -465,9 +469,10 @@ fn spawn_error_message(commands: &mut Commands, _message: &str) {
                 ..default()
             },
             BackgroundColor(Color::srgba(1.0, 0.2, 0.2, 0.95)),
-            Text::new("This key is already bound!"),
+            Text::new(""),
             TextFont { font_size: 24.0, ..default() },
             TextColor(Color::WHITE),
+            LocalizedText { key: "settings.error.key_already_bound".to_string() },
             ErrorMessage {
                 timer: Timer::from_seconds(5.0, TimerMode::Once),
             },
