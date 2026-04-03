@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::{egui, EguiContexts, EguiTextureHandle};
 use egui::TextureId;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -206,7 +206,9 @@ pub(crate) fn entity_type_view_ui(
 ) {
     // If nothing is selected, simply show a small message and return.
     if view_state.selected.is_none() {
-        let ctx = contexts.ctx_mut();
+        let Ok(ctx) = contexts.ctx_mut() else {
+            return;
+        };
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.label("Kein Entity-Type ausgewählt.");
         });
@@ -231,7 +233,9 @@ pub(crate) fn entity_type_view_ui(
         if let Some(et) = doc.entity_types.get(&selected_name) {
             Cow::Borrowed(et)
         } else {
-            let ctx = contexts.ctx_mut();
+            let Ok(ctx) = contexts.ctx_mut() else {
+                return;
+            };
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.label("Entity-Type nicht in der geladenen Dokumentenliste gefunden.");
             });
@@ -242,7 +246,9 @@ pub(crate) fn entity_type_view_ui(
         let assets_dir = crate::io::assets_dir();
         let json_path = assets_dir.join("entity_types").join(format!("{}.json", selected_name));
         if !json_path.exists() {
-            let ctx = contexts.ctx_mut();
+            let Ok(ctx) = contexts.ctx_mut() else {
+                return;
+            };
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.label(format!("Entity-Type JSON nicht gefunden: {}", json_path.display()));
             });
@@ -252,7 +258,9 @@ pub(crate) fn entity_type_view_ui(
         let content = match std::fs::read_to_string(&json_path) {
             Ok(c) => c,
             Err(e) => {
-                let ctx = contexts.ctx_mut();
+                let Ok(ctx) = contexts.ctx_mut() else {
+                    return;
+                };
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.label(format!("Fehler beim Lesen von {}: {}", json_path.display(), e));
                 });
@@ -264,7 +272,9 @@ pub(crate) fn entity_type_view_ui(
         let parsed = match parsed {
             Ok(p) => p,
             Err(e) => {
-                let ctx = contexts.ctx_mut();
+                let Ok(ctx) = contexts.ctx_mut() else {
+                    return;
+                };
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.label(format!("Fehler beim Parsen von {}: {}", json_path.display(), e));
                 });
@@ -274,7 +284,9 @@ pub(crate) fn entity_type_view_ui(
 
         // Basic validation similar to io::validate_entity_type_definition
         if parsed.states.is_empty() || !parsed.states.contains_key("default") {
-            let ctx = contexts.ctx_mut();
+            let Ok(ctx) = contexts.ctx_mut() else {
+                return;
+            };
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.label(format!(
                     "Entity-Type '{}' erfordert ein non-empty 'states' Objekt mit 'default'",
@@ -302,7 +314,7 @@ pub(crate) fn entity_type_view_ui(
     for normalized in all_paths.iter() {
         if !loaded_textures.contains_key(normalized) {
             let handle: Handle<Image> = asset_server.load(normalized);
-            let tex_id = contexts.add_image(handle);
+            let tex_id = contexts.add_image(EguiTextureHandle::Strong(handle));
             loaded_textures.insert(normalized.clone(), tex_id);
         }
 
@@ -317,7 +329,9 @@ pub(crate) fn entity_type_view_ui(
         }
     }
 
-    let ctx = contexts.ctx_mut();
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
 
     if !ctx.input(|input| input.pointer.primary_down()) {
         hitbox_editor.active_drag = None;
@@ -454,6 +468,7 @@ pub(crate) fn entity_type_view_ui(
                                         canvas_rect,
                                         0.0,
                                         egui::Stroke::new(1.0, egui::Color32::from_gray(70)),
+                                        egui::StrokeKind::Inside,
                                     );
                                     ui.painter().image(
                                         texture,
@@ -503,6 +518,7 @@ pub(crate) fn entity_type_view_ui(
                                             screen_hitbox,
                                             0.0,
                                             egui::Stroke::new(2.0, egui::Color32::RED),
+                                            egui::StrokeKind::Inside,
                                         );
 
                                         if response.drag_started() {

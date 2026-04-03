@@ -5,14 +5,14 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
 
 use bevy::asset::AssetPlugin;
+use bevy::ecs::message::MessageReader;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
-use bevy::sprite::Anchor;
 use bevy::window::PrimaryWindow;
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, scan_worlds, LevelEntry, WorldEntry};
 use crate::dashboard;
 use crate::entity_types;
@@ -44,23 +44,23 @@ pub(crate) fn run() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "PlasmaBob Level Editor".to_string(),
-                        resolution: (1600.0, 900.0).into(),
+                        resolution: (1600, 900).into(),
                         ..default()
                     }),
                     ..default()
                 }),
         )
-        .add_plugins(EguiPlugin)
+        .add_plugins(EguiPlugin::default())
         .init_state::<EditorMode>()
         .add_systems(Startup, setup_camera)
         .add_systems(OnEnter(EditorMode::LevelPicker), refresh_level_catalog)
-        .add_systems(Update, level_picker_ui.run_if(in_state(EditorMode::LevelPicker)))
-        .add_systems(Update, entity_types::entity_type_view_ui.run_if(in_state(EditorMode::EntityTypeView)))
+        .add_systems(EguiPrimaryContextPass, level_picker_ui.run_if(in_state(EditorMode::LevelPicker)))
+        .add_systems(EguiPrimaryContextPass, entity_types::entity_type_view_ui.run_if(in_state(EditorMode::EntityTypeView)))
         .add_systems(Update, check_sync_result.run_if(in_state(EditorMode::LevelPicker)))
+        .add_systems(EguiPrimaryContextPass, editing_ui.run_if(in_state(EditorMode::Editing)))
         .add_systems(
             Update,
             (
-                editing_ui,
                 update_pointer_world_position,
                 toggle_add_menu,
                 toggle_z_overlay_mode,
@@ -372,7 +372,9 @@ fn level_picker_ui(
     mut view_state: ResMut<EntityTypeViewState>,
     _toast: ResMut<ToastState>,
 ) {
-    let ctx = contexts.ctx_mut();
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
 
     pointer_state.over_ui = ctx.is_pointer_over_area() || ctx.wants_pointer_input();
 
@@ -457,7 +459,9 @@ fn editing_ui(
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut selection: ResMut<SelectionState>,
 ) {
-    let ctx = contexts.ctx_mut();
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
 
     pointer_state.over_ui = ctx.is_pointer_over_area() || ctx.wants_pointer_input();
 
@@ -650,11 +654,11 @@ fn update_pointer_world_position(
     camera_query: Query<(&Camera, &GlobalTransform), With<EditorCamera>>,
     mut pointer_state: ResMut<PointerState>,
 ) {
-    let Ok(window) = window_query.get_single() else {
+    let Ok(window) = window_query.single() else {
         pointer_state.world_position = None;
         return;
     };
-    let Ok((camera, camera_transform)) = camera_query.get_single() else {
+    let Ok((camera, camera_transform)) = camera_query.single() else {
         pointer_state.world_position = None;
         return;
     };
@@ -676,7 +680,7 @@ fn toggle_add_menu(
 }
 
 fn toggle_keyboard_legend_overlay(
-    mut key_events: EventReader<KeyboardInput>,
+    mut key_events: MessageReader<KeyboardInput>,
     mut ui_state: ResMut<EditorUiState>,
 ) {
     if logical_char_just_pressed(&mut key_events, "l") {
@@ -685,22 +689,20 @@ fn toggle_keyboard_legend_overlay(
 }
 
 fn draw_keyboard_legend_overlay(ctx: &egui::Context, z_overlay_enabled: bool) {
-    let rect = ctx.available_rect();
-    _ = rect;
 
     egui::Area::new("keyboard_legend_overlay".into())
         .order(egui::Order::Foreground)
         .anchor(egui::Align2::LEFT_BOTTOM, [12.0, -12.0])
         .interactable(false)
         .show(ctx, |ui| {
-            egui::Frame::none()
+            egui::Frame::new()
                 .fill(egui::Color32::from_rgba_unmultiplied(20, 24, 30, 170))
                 .stroke(egui::Stroke::new(
                     1.0,
                     egui::Color32::from_rgba_unmultiplied(255, 255, 255, 50),
                 ))
-                .rounding(egui::Rounding::same(6.0))
-                .inner_margin(egui::Margin::same(8.0))
+                .corner_radius(egui::CornerRadius::same(6))
+                .inner_margin(egui::Margin::same(8))
                 .show(ui, |ui| {
                     ui.set_max_width(340.0);
                     ui.label(egui::RichText::new("Steuerung").strong());
@@ -722,7 +724,7 @@ fn draw_keyboard_legend_overlay(ctx: &egui::Context, z_overlay_enabled: bool) {
 }
 
 fn toggle_z_overlay_mode(
-    mut key_events: EventReader<KeyboardInput>,
+    mut key_events: MessageReader<KeyboardInput>,
     keys: Res<ButtonInput<KeyCode>>,
     mut overlay_mode: ResMut<ZOverlayMode>,
     mut scene_dirty: ResMut<SceneDirty>,
@@ -748,7 +750,7 @@ fn toggle_z_overlay_mode(
     toast.expires_at_seconds = time.elapsed_secs_f64() + 1.5;
 }
 
-fn logical_char_just_pressed(key_events: &mut EventReader<KeyboardInput>, target: &str) -> bool {
+fn logical_char_just_pressed(key_events: &mut MessageReader<KeyboardInput>, target: &str) -> bool {
     key_events.read().any(|event| {
         if event.state != ButtonState::Pressed {
             return false;
@@ -769,7 +771,7 @@ fn push_undo_snapshot(history: &mut UndoHistory, level: &LevelFile) {
 }
 
 fn undo_shortcut(
-    mut key_events: EventReader<KeyboardInput>,
+    mut key_events: MessageReader<KeyboardInput>,
     keys: Res<ButtonInput<KeyCode>>,
     mut history: ResMut<UndoHistory>,
     mut capture_state: ResMut<UndoCaptureState>,
@@ -805,7 +807,7 @@ fn undo_shortcut(
 }
 
 fn copy_entity_shortcut(
-    mut key_events: EventReader<KeyboardInput>,
+    mut key_events: MessageReader<KeyboardInput>,
     keys: Res<ButtonInput<KeyCode>>,
     selection: Res<SelectionState>,
     document: Res<EditorDocument>,
@@ -843,7 +845,7 @@ fn copy_entity_shortcut(
 }
 
 fn paste_entity_shortcut(
-    mut key_events: EventReader<KeyboardInput>,
+    mut key_events: MessageReader<KeyboardInput>,
     keys: Res<ButtonInput<KeyCode>>,
     mut document: ResMut<EditorDocument>,
     mut undo_history: ResMut<UndoHistory>,
@@ -1086,25 +1088,35 @@ fn drag_selected_entity(
         capture_state.drag_snapshot_taken = true;
     }
 
-    let Some(entity) = document.level.entities.get_mut(index) else {
-        return;
-    };
+    let entity_type_name = {
+        let Some(entity) = document.level.entities.get_mut(index) else {
+            return;
+        };
 
-    entity.x = new_position.x;
-    entity.y = new_position.y;
+        entity.x = new_position.x;
+        entity.y = new_position.y;
+        entity.entity_type.clone()
+    };
     document.dirty = true;
+
+    let size = document
+        .entity_types
+        .get(&entity_type_name)
+        .map(|entity_type| entity_type.size())
+        .unwrap_or(Vec2::ZERO);
+    let render_position = entity_render_center(new_position, size);
 
     for (rendered, mut transform) in &mut rendered_entities {
         if rendered.index == index {
-            transform.translation.x = new_position.x;
-            transform.translation.y = new_position.y;
+            transform.translation.x = render_position.x;
+            transform.translation.y = render_position.y;
         }
     }
 
     for (rendered, mut transform) in &mut rendered_overlays {
         if rendered.index == index {
-            transform.translation.x = new_position.x;
-            transform.translation.y = new_position.y;
+            transform.translation.x = render_position.x;
+            transform.translation.y = render_position.y;
         }
     }
 }
@@ -1175,35 +1187,49 @@ fn move_selected_entity_with_keyboard(
     };
     document.dirty = true;
 
+    let size = document
+        .level
+        .entities
+        .get(index)
+        .and_then(|entity| document.entity_types.get(&entity.entity_type))
+        .map(|entity_type| entity_type.size())
+        .unwrap_or(Vec2::ZERO);
+    let render_position = entity_render_center(Vec2::new(new_x, new_y), size);
+
     for (rendered, mut transform) in &mut rendered_entities {
         if rendered.index == index {
-            transform.translation.x = new_x;
-            transform.translation.y = new_y;
+            transform.translation.x = render_position.x;
+            transform.translation.y = render_position.y;
         }
     }
 
     for (rendered, mut transform) in &mut rendered_overlays {
         if rendered.index == index {
-            transform.translation.x = new_x;
-            transform.translation.y = new_y;
+            transform.translation.x = render_position.x;
+            transform.translation.y = render_position.y;
         }
     }
 }
 
 fn camera_controls(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
-    mut mouse_motion: EventReader<MouseMotion>,
-    mut mouse_wheel: EventReader<MouseWheel>,
-    mut camera_query: Query<(&mut Transform, &mut OrthographicProjection), With<EditorCamera>>,
+    mut mouse_motion: MessageReader<MouseMotion>,
+    mut mouse_wheel: MessageReader<MouseWheel>,
+    mut camera_query: Query<(&mut Transform, &mut Projection), With<EditorCamera>>,
 ) {
-    let Ok((mut transform, mut projection)) = camera_query.get_single_mut() else {
+    let Ok((mut transform, mut projection)) = camera_query.single_mut() else {
         return;
+    };
+
+    let current_scale = match projection.as_mut() {
+        Projection::Orthographic(orthographic) => orthographic.scale,
+        _ => 1.0,
     };
 
     if mouse_buttons.pressed(MouseButton::Right) {
         let delta = mouse_motion.read().fold(Vec2::ZERO, |acc, event| acc + event.delta);
-        transform.translation.x -= delta.x * projection.scale;
-        transform.translation.y += delta.y * projection.scale;
+        transform.translation.x -= delta.x * current_scale;
+        transform.translation.y += delta.y * current_scale;
     } else {
         mouse_motion.clear();
     }
@@ -1211,7 +1237,9 @@ fn camera_controls(
     let zoom_delta = mouse_wheel.read().fold(0.0, |acc, event| acc + event.y);
     if zoom_delta.abs() > f32::EPSILON {
         let zoom_factor = 1.0 - (zoom_delta * 0.1);
-        projection.scale = (projection.scale * zoom_factor).clamp(0.1, 20.0);
+        if let Projection::Orthographic(orthographic) = projection.as_mut() {
+            orthographic.scale = (orthographic.scale * zoom_factor).clamp(0.1, 20.0);
+        }
     }
 }
 
@@ -1243,7 +1271,7 @@ fn rebuild_scene_if_needed(
     overlay_mode: Res<ZOverlayMode>,
     document: Res<EditorDocument>,
     scene_entities: Query<Entity, With<SceneEntity>>,
-    mut camera_query: Query<(&mut Transform, &mut OrthographicProjection), With<EditorCamera>>,
+    mut camera_query: Query<(&mut Transform, &mut Projection), With<EditorCamera>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
     if !scene_dirty.0 {
@@ -1251,7 +1279,7 @@ fn rebuild_scene_if_needed(
     }
 
     for entity in &scene_entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 
     let document_level_size = level_size(&document.level, &document.entity_types);
@@ -1306,13 +1334,14 @@ fn spawn_background_tiles_when_ready(
 
         for index in 0..tile_count {
             let mut sprite = Sprite::from_image(pending.image.clone());
-            sprite.anchor = Anchor::BottomLeft;
             sprite.custom_size = Some(Vec2::new(tile_width, tile_height));
+            let x = index as f32 * tile_width + tile_width * 0.5;
+            let y = tile_height * 0.5;
 
             commands.spawn((
                 SceneEntity,
                 sprite,
-                Transform::from_xyz(index as f32 * tile_width, 0.0, -10.0),
+                Transform::from_xyz(x, y, -10.0),
             ));
         }
 
@@ -1366,11 +1395,11 @@ fn spawn_level_entities(
 
         let size = entity_type.size();
         let z = entity.z_index.unwrap_or(100.0);
-        let transform = Transform::from_xyz(entity.x, entity.y, z);
+        let render_position = entity_render_center(Vec2::new(entity.x, entity.y), size);
+        let transform = Transform::from_xyz(render_position.x, render_position.y, z);
 
         if let Some(texture_path) = entity_type.default_texture_asset_path() {
             let mut sprite = Sprite::from_image(asset_server.load(texture_path));
-            sprite.anchor = Anchor::BottomLeft;
             sprite.custom_size = Some(size);
             commands.spawn((
                 SceneEntity,
@@ -1379,8 +1408,7 @@ fn spawn_level_entities(
                 transform,
             ));
         } else {
-            let mut sprite = Sprite::from_color(Color::srgba(0.4, 0.6, 1.0, 0.6), size);
-            sprite.anchor = Anchor::BottomLeft;
+            let sprite = Sprite::from_color(Color::srgba(0.4, 0.6, 1.0, 0.6), size);
             commands.spawn((
                 SceneEntity,
                 RenderedLevelEntity { index },
@@ -1390,13 +1418,12 @@ fn spawn_level_entities(
         }
 
         if spawn_z_overlays {
-            let mut overlay_sprite = Sprite::from_color(z_overlay_color_for_value(z), size);
-            overlay_sprite.anchor = Anchor::BottomLeft;
+            let overlay_sprite = Sprite::from_color(z_overlay_color_for_value(z), size);
             commands.spawn((
                 SceneEntity,
                 RenderedZOverlay { index },
                 overlay_sprite,
-                Transform::from_xyz(entity.x, entity.y, z + 0.01),
+                Transform::from_xyz(render_position.x, render_position.y, z + 0.01),
             ));
         }
     }
@@ -1406,12 +1433,12 @@ fn fit_camera_to_level(
     level: &LevelFile,
     entity_types: &HashMap<String, EntityTypeDefinition>,
     window_query: &Query<&Window, With<PrimaryWindow>>,
-    camera_query: &mut Query<(&mut Transform, &mut OrthographicProjection), With<EditorCamera>>,
+    camera_query: &mut Query<(&mut Transform, &mut Projection), With<EditorCamera>>,
 ) {
-    let Ok(window) = window_query.get_single() else {
+    let Ok(window) = window_query.single() else {
         return;
     };
-    let Ok((mut transform, mut projection)) = camera_query.get_single_mut() else {
+    let Ok((mut transform, mut projection)) = camera_query.single_mut() else {
         return;
     };
 
@@ -1421,7 +1448,16 @@ fn fit_camera_to_level(
 
     let scale_x = level_size.x / window.width().max(1.0);
     let scale_y = level_size.y / window.height().max(1.0);
-    projection.scale = scale_x.max(scale_y).max(0.2) * 1.05;
+    if let Projection::Orthographic(orthographic) = projection.as_mut() {
+        orthographic.scale = scale_x.max(scale_y).max(0.2) * 1.05;
+    }
+}
+
+fn entity_render_center(entity_bottom_left: Vec2, size: Vec2) -> Vec2 {
+    Vec2::new(
+        entity_bottom_left.x + size.x * 0.5,
+        entity_bottom_left.y + size.y * 0.5,
+    )
 }
 
 fn level_size(level: &LevelFile, entity_types: &HashMap<String, EntityTypeDefinition>) -> Vec2 {
@@ -1480,8 +1516,8 @@ fn camera_center_world(
     camera_query: &Query<(&Camera, &GlobalTransform), With<EditorCamera>>,
     window_query: &Query<&Window, With<PrimaryWindow>>,
 ) -> Option<Vec2> {
-    let window = window_query.get_single().ok()?;
-    let (camera, camera_transform) = camera_query.get_single().ok()?;
+    let window = window_query.single().ok()?;
+    let (camera, camera_transform) = camera_query.single().ok()?;
     let viewport_center = Vec2::new(window.width() * 0.5, window.height() * 0.5);
     camera.viewport_to_world_2d(camera_transform, viewport_center).ok()
 }
