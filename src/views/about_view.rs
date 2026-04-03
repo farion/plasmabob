@@ -42,7 +42,7 @@ fn setup_about_view(mut commands: Commands, asset_server: Res<AssetServer>) {
                 row_gap: Val::Px(16.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
             AboutViewEntity,
         ))
         .with_children(|parent| {

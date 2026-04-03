@@ -331,7 +331,7 @@ fn setup_main_menu(
                 top: Val::Px(0.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.35)),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
             MainMenuEntity,
         ))
         .with_children(|parent| {

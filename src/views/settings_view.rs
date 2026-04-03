@@ -124,7 +124,7 @@ fn setup_settings_view(
                 row_gap: Val::Px(10.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
             SettingsViewEntity,
         ))
         .with_children(|parent| {
@@ -201,7 +201,7 @@ fn spawn_volume_row(parent: &mut ChildBuilder, setting: VolumeSetting, value: f3
                 padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.6)),
+            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
             VolumeRow { setting },
             SettingsViewEntity,
         ))
@@ -236,7 +236,7 @@ fn spawn_key_binding_row(parent: &mut ChildBuilder, action: KeyAction, current_k
                 padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.6)),
+            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
             KeyBindingRow { action },
             SettingsViewEntity,
         ))
