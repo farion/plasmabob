@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 
 use bevy::asset::AssetPlugin;
 use bevy::input::ButtonState;
@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
-use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, LevelEntry};
+use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, scan_worlds, LevelEntry, WorldEntry};
 use crate::dashboard;
 use crate::entity_types;
 use crate::model::{normalize_asset_reference, EntityDefinition, EntityTypeDefinition, LevelBoundsDefinition, LevelFile};
@@ -96,7 +96,9 @@ pub(crate) enum EditorMode {
 
 #[derive(Resource, Default)]
 pub(crate) struct LevelCatalog {
+    pub(crate) worlds: Vec<WorldEntry>,
     pub(crate) levels: Vec<LevelEntry>,
+    pub(crate) selected_world: Option<String>, // world folder name (e.g. "auralis")
     pub(crate) error: Option<String>,
 }
 
@@ -332,6 +334,15 @@ fn setup_camera(mut commands: Commands) {
 }
 
 fn refresh_level_catalog(mut catalog: ResMut<LevelCatalog>) {
+    match scan_worlds() {
+        Ok(worlds) => {
+            catalog.worlds = worlds;
+        }
+        Err(_) => {
+            catalog.worlds.clear();
+        }
+    }
+
     match scan_levels() {
         Ok(levels) => {
             catalog.levels = levels;

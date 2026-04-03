@@ -16,6 +16,7 @@ pub(crate) struct LevelDefinition {
     pub(crate) music: String,
     pub(crate) quotes: Vec<String>,
     pub(crate) bounds: Option<LevelBoundsDefinition>,
+    pub(crate) story: Option<LevelStoryDefinition>,
     pub(crate) entity_types: HashMap<String, EntityTypeDefinition>,
     pub(crate) entities: Vec<EntityDefinition>,
 }
@@ -56,9 +57,27 @@ struct RawLevelDefinition {
     quotes: Vec<String>,
     #[serde(default)]
     bounds: Option<LevelBoundsDefinition>,
+    #[serde(default)]
+    story: Option<LevelStoryDefinition>,
     #[serde(default = "default_entity_types_path")]
     entity_types_path: String,
     entities: Vec<EntityDefinition>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct StorySlideDefinition {
+    pub(crate) text: String,
+    pub(crate) background: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct LevelStoryDefinition {
+    #[serde(default)]
+    pub(crate) start: Option<StorySlideDefinition>,
+    #[serde(default)]
+    pub(crate) win: Option<StorySlideDefinition>,
+    #[serde(default)]
+    pub(crate) lose: Option<StorySlideDefinition>,
 }
 
 fn default_entity_types_path() -> String {
@@ -322,6 +341,7 @@ pub(crate) fn load_level_from_asset_server(
         music: raw_level.music,
         quotes: raw_level.quotes,
         bounds: raw_level.bounds,
+        story: raw_level.story,
         entity_types,
         entities: raw_level.entities,
     })
@@ -663,6 +683,62 @@ mod tests {
                 let parsed =
                     load_level_from_asset_server(asset_server, "levels/level.json").expect("schema should parse");
                 assert_eq!(parsed.entity_types["dummy"].animation_frame_seconds(), 0.5);
+            });
+        });
+    }
+
+    #[test]
+    fn parses_optional_level_story_sections() {
+        with_temp_asset_root(|root| {
+            write_temp_file(
+                root,
+                "assets/levels/level.json",
+                r#"
+                {
+                    "terrain": { "background": "backgrounds/level1.png" },
+                    "music": "music/level1.ogg",
+                    "story": {
+                        "start": {
+                            "text": "story/level_start.md",
+                            "background": "backgrounds/level1.png"
+                        },
+                        "win": {
+                            "text": "story/level_win.md",
+                            "background": "backgrounds/level1.png"
+                        },
+                        "lose": {
+                            "text": "story/level_lose.md",
+                            "background": "backgrounds/level1.png"
+                        }
+                    },
+                    "entities": [
+                        { "id": "dummy1", "entity_type": "dummy", "x": 0, "y": 0 }
+                    ]
+                }
+                "#,
+            );
+
+            write_temp_file(
+                root,
+                "assets/entity_types/dummy.json",
+                r#"{
+                    "component": ["npc"],
+                    "states": {
+                        "default": { "animation": ["dummy/default.png"] }
+                    },
+                    "width": 16,
+                    "height": 16
+                }"#,
+            );
+
+            with_test_asset_server(root, |asset_server| {
+                let parsed =
+                    load_level_from_asset_server(asset_server, "levels/level.json").expect("schema should parse");
+
+                let story = parsed.story.as_ref().expect("story should exist");
+                assert_eq!(story.start.as_ref().expect("start story").text, "story/level_start.md");
+                assert_eq!(story.win.as_ref().expect("win story").text, "story/level_win.md");
+                assert_eq!(story.lose.as_ref().expect("lose story").text, "story/level_lose.md");
             });
         });
     }

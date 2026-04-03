@@ -24,7 +24,9 @@ use crate::game::components::plasma::{
 };
 use crate::game::components::{LevelEntityType, SpawnedLevelEntity};
 use crate::audio_settings::AudioSettings;
+use crate::game::level::CachedLevelDefinition;
 use crate::AppState;
+use crate::{PendingStoryScreen, StoryScreenRequest};
 
 use super::{CombatSoundEffects, GameViewEntity, LevelQuotes, PLAYER_INVINCIBILITY_SECONDS};
 
@@ -726,6 +728,8 @@ pub(super) fn return_to_main_menu(
 pub(super) fn detect_player_reached_exit(
     player_query: Query<(&CollidingEntities, &Health), With<Player>>,
     exit_query: Query<(), With<Exit>>,
+    cached_level_definition: Option<Res<CachedLevelDefinition>>,
+    mut pending_story: Option<ResMut<PendingStoryScreen>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     for (colliding_entities, health) in &player_query {
@@ -739,6 +743,24 @@ pub(super) fn detect_player_reached_exit(
             .any(|entity| exit_query.contains(*entity))
         {
             info!("Player reached exit - level won.");
+            if let (Some(level), Some(pending_story)) = (cached_level_definition.as_ref(), pending_story.as_mut()) {
+                if let Ok(level_definition) = level.level_definition() {
+                    if let Some(story) = level_definition
+                        .story
+                        .as_ref()
+                        .and_then(|story| story.win.as_ref())
+                    {
+                        pending_story.set(StoryScreenRequest {
+                            text_asset_path: story.text.clone(),
+                            background_asset_path: story.background.clone(),
+                            continue_to: AppState::WinView,
+                        });
+                        next_state.set(AppState::StoryView);
+                        return;
+                    }
+                }
+            }
+
             next_state.set(AppState::WinView);
             return;
         }
@@ -747,11 +769,31 @@ pub(super) fn detect_player_reached_exit(
 
 pub(super) fn detect_player_defeated(
     player_query: Query<&Health, With<Player>>,
+    cached_level_definition: Option<Res<CachedLevelDefinition>>,
+    mut pending_story: Option<ResMut<PendingStoryScreen>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     for health in &player_query {
         if health.is_dead() {
             info!("Player defeated - showing lose view.");
+            if let (Some(level), Some(pending_story)) = (cached_level_definition.as_ref(), pending_story.as_mut()) {
+                if let Ok(level_definition) = level.level_definition() {
+                    if let Some(story) = level_definition
+                        .story
+                        .as_ref()
+                        .and_then(|story| story.lose.as_ref())
+                    {
+                        pending_story.set(StoryScreenRequest {
+                            text_asset_path: story.text.clone(),
+                            background_asset_path: story.background.clone(),
+                            continue_to: AppState::LoseView,
+                        });
+                        next_state.set(AppState::StoryView);
+                        return;
+                    }
+                }
+            }
+
             next_state.set(AppState::LoseView);
             return;
         }

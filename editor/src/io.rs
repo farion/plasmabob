@@ -12,6 +12,12 @@ pub(crate) struct LevelEntry {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct WorldEntry {
+    pub(crate) display_name: String,
+    pub(crate) asset_path: String,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct LoadedLevel {
     pub(crate) level_asset_path: String,
     pub(crate) level_fs_path: PathBuf,
@@ -46,8 +52,8 @@ pub(crate) fn assets_dir() -> PathBuf {
     workspace_root().join("assets")
 }
 
-pub(crate) fn levels_dir() -> PathBuf {
-    assets_dir().join("levels")
+pub(crate) fn worlds_dir() -> PathBuf {
+    assets_dir().join("worlds")
 }
 
 pub(crate) fn asset_path_to_filesystem_path(asset_path: &str) -> PathBuf {
@@ -55,47 +61,154 @@ pub(crate) fn asset_path_to_filesystem_path(asset_path: &str) -> PathBuf {
 }
 
 pub(crate) fn scan_levels() -> Result<Vec<LevelEntry>, String> {
-    scan_levels_in_dir(&levels_dir())
+    scan_levels_in_dir(&worlds_dir())
 }
 
-fn scan_levels_in_dir(levels_dir: &Path) -> Result<Vec<LevelEntry>, String> {
-    let mut levels = Vec::new();
-    let assets_root = levels_dir
+pub(crate) fn scan_worlds() -> Result<Vec<WorldEntry>, String> {
+    let mut worlds = Vec::new();
+    let worlds_dir = worlds_dir();
+    let assets_root = worlds_dir
         .parent()
-        .ok_or_else(|| "levels directory has no parent".to_string())?;
+        .ok_or_else(|| "worlds directory has no parent".to_string())?;
 
-    for entry in std::fs::read_dir(levels_dir).map_err(|error| error.to_string())? {
+    for entry in std::fs::read_dir(&worlds_dir).map_err(|error| error.to_string())? {
         let entry = entry.map_err(|error| error.to_string())?;
         let path = entry.path();
-
-        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+        if !path.is_file() {
             continue;
         }
 
-        let Ok(content) = std::fs::read_to_string(&path) else {
-            continue;
-        };
+        if path.extension().and_then(|ext| ext.to_str()).map(|s| s.eq_ignore_ascii_case("json")).unwrap_or(false) {
+            let Ok(content) = std::fs::read_to_string(&path) else { continue; };
+            // parse minimal JSON to check validity and extract optional name
+            if serde_json::from_str::<Value>(&content).is_err() {
+                continue;
+            }
 
-        if serde_json::from_str::<LevelFile>(&content).is_err() {
-            continue;
+            if let Ok(relative) = path.strip_prefix(assets_root) {
+                let asset_path = relative.to_string_lossy().replace('\\', "/");
+                // prefer `name` field from JSON
+                let display_name = serde_json::from_str::<Value>(&content)
+                    .ok()
+                    .and_then(|v| v.get("name").and_then(Value::as_str).map(|s| s.to_string()))
+                    .or_else(|| path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string()))
+                    .unwrap_or_else(|| asset_path.clone());
+
+                worlds.push(WorldEntry { display_name, asset_path });
+            }
         }
-
-        let Ok(relative) = path.strip_prefix(assets_root) else {
-            continue;
-        };
-
-        levels.push(LevelEntry {
-            display_name: path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("unbekannt")
-                .to_string(),
-            asset_path: relative.to_string_lossy().replace('\\', "/"),
-        });
     }
 
-    levels.sort_by(|left, right| left.display_name.cmp(&right.display_name));
+    worlds.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+    Ok(worlds)
+}
+
+fn scan_levels_in_dir(worlds_dir: &Path) -> Result<Vec<LevelEntry>, String> {
+    let mut levels = Vec::new();
+    let assets_root = worlds_dir
+        .parent()
+        .ok_or_else(|| "worlds directory has no parent".to_string())?;
+
+    for world_entry in std::fs::read_dir(worlds_dir).map_err(|error| error.to_string())? {
+        let world_entry = world_entry.map_err(|error| error.to_string())?;
+        let world_path = world_entry.path();
+        if !world_path.is_dir() {
+            continue;
+        }
+
+        for entry in std::fs::read_dir(&world_path).map_err(|error| error.to_string())? {
+            let entry = entry.map_err(|error| error.to_string())?;
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+
+            if !is_world_level_file_name(&path) {
+                continue;
+            }
+
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+
+            if serde_json::from_str::<LevelFile>(&content).is_err() {
+                continue;
+            }
+
+            let Ok(relative) = path.strip_prefix(assets_root) else {
+                continue;
+            };
+
+            let asset_path = relative.to_string_lossy().replace('\\', "/");
+            levels.push(LevelEntry {
+                display_name: asset_path.clone(),
+                asset_path,
+            });
+        }
+    }
+
+    levels.sort_by(|left, right| {
+        let left_key = level_sort_key(&left.display_name);
+        let right_key = level_sort_key(&right.display_name);
+        left_key
+            .cmp(&right_key)
+            .then_with(|| left.display_name.cmp(&right.display_name))
+    });
     Ok(levels)
+}
+
+fn level_sort_key(display_name: &str) -> (String, String, Option<u32>) {
+    let path = Path::new(display_name);
+    let world_dir = path
+        .parent()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+
+    let stem = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+
+    let (prefix, number) = split_level_prefix_and_number(&stem);
+    (world_dir, prefix, number)
+}
+
+fn split_level_prefix_and_number(stem: &str) -> (String, Option<u32>) {
+    let Some(level_index) = stem.find("level") else {
+        return (stem.to_string(), None);
+    };
+
+    let prefix = stem[..level_index + "level".len()].to_string();
+    let digits: String = stem[level_index + "level".len()..]
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect();
+
+    let level_number = if digits.is_empty() {
+        None
+    } else {
+        digits.parse::<u32>().ok()
+    };
+
+    (prefix, level_number)
+}
+
+fn is_world_level_file_name(path: &Path) -> bool {
+    let is_json = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("json"))
+        .unwrap_or(false);
+    if !is_json {
+        return false;
+    }
+
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_ascii_lowercase().contains("level"))
+        .unwrap_or(false)
 }
 
 pub(crate) fn load_level(level_asset_path: &str) -> Result<LoadedLevel, String> {
@@ -822,11 +935,11 @@ mod tests {
     #[test]
     fn scan_levels_skips_non_level_json_files() {
         let root = unique_temp_root();
-        let levels_path = root.join("assets/levels");
+        let worlds_path = root.join("assets/worlds");
 
         write_file(
             &root,
-            "assets/levels/level1.json",
+            "assets/worlds/auralis/aqueon_level1.json",
             r#"{
                 "terrain": { "background": "assets/backgrounds/level1.png" },
                 "music": "assets/music/level1.ogg",
@@ -836,13 +949,47 @@ mod tests {
         );
         write_file(
             &root,
-            "assets/levels/not_a_level.json",
+            "assets/worlds/auralis/not_a_level.json",
             r#"{ "bob": { "component": ["player"], "states": { "default": { "animation": [] } }, "width": 1, "height": 1 } }"#,
         );
+        write_file(
+            &root,
+            "assets/worlds/auralis/intro.json",
+            r#"{}"#,
+        );
 
-        let levels = scan_levels_in_dir(&levels_path).expect("scan should succeed");
+        let levels = scan_levels_in_dir(&worlds_path).expect("scan should succeed");
         assert_eq!(levels.len(), 1);
-        assert_eq!(levels[0].display_name, "level1.json");
+        assert_eq!(levels[0].display_name, "worlds/auralis/aqueon_level1.json");
+    }
+
+    #[test]
+    fn scan_levels_sorts_level_numbers_numerically() {
+        let root = unique_temp_root();
+        let worlds_path = root.join("assets/worlds");
+
+        let valid_level = r#"{
+                "terrain": { "background": "assets/backgrounds/level1.png" },
+                "music": "assets/music/level1.ogg",
+                "entity_types_path": "entity_types",
+                "entities": []
+            }"#;
+
+        write_file(&root, "assets/worlds/auralis/aqueon_level10.json", valid_level);
+        write_file(&root, "assets/worlds/auralis/aqueon_level2.json", valid_level);
+        write_file(&root, "assets/worlds/auralis/aqueon_level1.json", valid_level);
+
+        let levels = scan_levels_in_dir(&worlds_path).expect("scan should succeed");
+        let names: Vec<String> = levels.into_iter().map(|entry| entry.display_name).collect();
+
+        assert_eq!(
+            names,
+            vec![
+                "worlds/auralis/aqueon_level1.json".to_string(),
+                "worlds/auralis/aqueon_level2.json".to_string(),
+                "worlds/auralis/aqueon_level10.json".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -873,7 +1020,7 @@ mod tests {
     #[test]
     fn resolves_entity_type_dir_candidates_with_fallbacks() {
         let root = unique_temp_root();
-        let level_path = root.join("assets/levels/level1.json");
+        let level_path = root.join("assets/worlds/auralis/aqueon_level1.json");
         let level_asset = level_path
             .strip_prefix(root.join("assets"))
             .expect("path should be below assets")

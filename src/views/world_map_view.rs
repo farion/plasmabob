@@ -4,7 +4,10 @@ use std::f32::consts::TAU;
 
 use crate::game::world::WorldCatalog;
 use crate::game::world::find_directional_neighbor;
-use crate::{AppState, CampaignProgress, LevelSelection, MainCamera, WorldMapSelection};
+use crate::{
+    AppState, CampaignProgress, LevelSelection, MainCamera, PendingStoryScreen, StoryScreenRequest,
+    WorldMapSelection,
+};
 
 pub struct WorldMapViewPlugin;
 
@@ -61,7 +64,9 @@ fn setup_world_map_view(
     mut images: ResMut<Assets<Image>>,
     world_catalog: Res<WorldCatalog>,
     mut selection: ResMut<WorldMapSelection>,
-    progress: Res<CampaignProgress>,
+    mut progress: ResMut<CampaignProgress>,
+    mut pending_story: ResMut<PendingStoryScreen>,
+    mut next_state: ResMut<NextState<AppState>>,
 ) {
     let Some(world_index) = progress.world_index else {
         return;
@@ -70,6 +75,26 @@ fn setup_world_map_view(
     let Some(world_entry) = world_catalog.world(world_index) else {
         return;
     };
+
+    if !progress.world_start_story_seen {
+        if let Some(story_start) = world_entry
+            .definition
+            .story
+            .as_ref()
+            .and_then(|story| story.start.as_ref())
+        {
+            progress.world_start_story_seen = true;
+            pending_story.set(StoryScreenRequest {
+                text_asset_path: story_start.text.clone(),
+                background_asset_path: story_start.background.clone(),
+                continue_to: AppState::WorldMapView,
+            });
+            next_state.set(AppState::StoryView);
+            return;
+        }
+
+        progress.world_start_story_seen = true;
+    }
 
     if world_entry.definition.planets.is_empty() {
         return;

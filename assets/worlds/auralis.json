@@ -3,42 +3,291 @@
   "width": 320,
   "height": 180,
   "background": "worlds/auralis.png",
+  "story": {
+    "start": {
+      "text": "worlds/auralis/story/auralis_start.md",
+      "background": "worlds/auralis.png"
+    },
+    "win": {
+      "text": "worlds/auralis/story/auralis_win.md",
+      "background": "worlds/auralis.png"
+    }
+  },
   "planets": [
     {
       "name": "Viridara",
-      "position": [ 44, 138 ],
+      "position": [
+        44,
+        138
+      ],
       "radius": 35,
-      "color": [ 40, 56, 11 ],
+      "color": [
+        40,
+        56,
+        11
+      ],
       "levels": [
         {
           "name": "Viridara Level 1",
           "json": "worlds/auralis/viridara_level1.json"
+        },
+        {
+          "name": "Viridara Level 2",
+          "json": "worlds/auralis/viridara_level2.json"
+        },
+        {
+          "name": "Viridara Level 3",
+          "json": "worlds/auralis/viridara_level3.json"
+        },
+        {
+          "name": "Viridara Level 4",
+          "json": "worlds/auralis/viridara_level4.json"
+        },
+        {
+          "name": "Viridara Level 5",
+          "json": "worlds/auralis/viridara_level5.json"
+        },
+        {
+          "name": "Viridara Level 6",
+          "json": "worlds/auralis/viridara_level6.json"
+        },
+        {
+          "name": "Viridara Level 7",
+          "json": "worlds/auralis/viridara_level7.json"
+        },
+        {
+          "name": "Viridara Level 8",
+          "json": "worlds/auralis/viridara_level8.json"
+        },
+        {
+          "name": "Viridara Level 9",
+          "json": "worlds/auralis/viridara_level9.json"
+        },
+        {
+          "name": "Viridara Level 10",
+          "json": "worlds/auralis/viridara_level10.json"
         }
       ]
     },
     {
       "name": "Tharok",
-      "position": [ 105, 75 ],
-      "color": [ 61, 67, 66 ],
-      "radius": 35
+      "position": [
+        105,
+        75
+      ],
+      "radius": 35,
+      "color": [
+        61,
+        67,
+        66
+      ],
+      "levels": [
+        {
+          "name": "Tharok Level 1",
+          "json": "worlds/auralis/tharok_level1.json"
+        },
+        {
+          "name": "Tharok Level 2",
+          "json": "worlds/auralis/tharok_level2.json"
+        },
+        {
+          "name": "Tharok Level 3",
+          "json": "worlds/auralis/tharok_level3.json"
+        },
+        {
+          "name": "Tharok Level 4",
+          "json": "worlds/auralis/tharok_level4.json"
+        },
+        {
+          "name": "Tharok Level 5",
+          "json": "worlds/auralis/tharok_level5.json"
+        },
+        {
+          "name": "Tharok Level 6",
+          "json": "worlds/auralis/tharok_level6.json"
+        },
+        {
+          "name": "Tharok Level 7",
+          "json": "worlds/auralis/tharok_level7.json"
+        },
+        {
+          "name": "Tharok Level 8",
+          "json": "worlds/auralis/tharok_level8.json"
+        },
+        {
+          "name": "Tharok Level 9",
+          "json": "worlds/auralis/tharok_level9.json"
+        },
+        {
+          "name": "Tharok Level 10",
+          "json": "worlds/auralis/tharok_level10.json"
+        }
+      ]
     },
     {
       "name": "Aqueon",
-      "position": [ 202, 138 ],
-      "color": [ 31, 69, 82 ],
-      "radius": 35
+      "position": [
+        202,
+        138
+      ],
+      "radius": 35,
+      "color": [
+        31,
+        69,
+        82
+      ],
+      "levels": [
+        {
+          "name": "Aqueon Level 1",
+          "json": "worlds/auralis/aqueon_level1.json"
+        },
+        {
+          "name": "Aqueon Level 2",
+          "json": "worlds/auralis/aqueon_level2.json"
+        },
+        {
+          "name": "Aqueon Level 3",
+          "json": "worlds/auralis/aqueon_level3.json"
+        },
+        {
+          "name": "Aqueon Level 4",
+          "json": "worlds/auralis/aqueon_level4.json"
+        },
+        {
+          "name": "Aqueon Level 5",
+          "json": "worlds/auralis/aqueon_level5.json"
+        },
+        {
+          "name": "Aqueon Level 6",
+          "json": "worlds/auralis/aqueon_level6.json"
+        },
+        {
+          "name": "Aqueon Level 7",
+          "json": "worlds/auralis/aqueon_level7.json"
+        },
+        {
+          "name": "Aqueon Level 8",
+          "json": "worlds/auralis/aqueon_level8.json"
+        },
+        {
+          "name": "Aqueon Level 9",
+          "json": "worlds/auralis/aqueon_level9.json"
+        },
+        {
+          "name": "Aqueon Level 10",
+          "json": "worlds/auralis/aqueon_level10.json"
+        }
+      ]
     },
     {
       "name": "Zephyria",
-      "position": [ 192, 30 ],
-      "color": [ 77, 44, 63 ],
-      "radius": 35
+      "position": [
+        192,
+        30
+      ],
+      "radius": 35,
+      "color": [
+        77,
+        44,
+        63
+      ],
+      "levels": [
+        {
+          "name": "Zephyria Level 1",
+          "json": "worlds/auralis/zephyria_level1.json"
+        },
+        {
+          "name": "Zephyria Level 2",
+          "json": "worlds/auralis/zephyria_level2.json"
+        },
+        {
+          "name": "Zephyria Level 3",
+          "json": "worlds/auralis/zephyria_level3.json"
+        },
+        {
+          "name": "Zephyria Level 4",
+          "json": "worlds/auralis/zephyria_level4.json"
+        },
+        {
+          "name": "Zephyria Level 5",
+          "json": "worlds/auralis/zephyria_level5.json"
+        },
+        {
+          "name": "Zephyria Level 6",
+          "json": "worlds/auralis/zephyria_level6.json"
+        },
+        {
+          "name": "Zephyria Level 7",
+          "json": "worlds/auralis/zephyria_level7.json"
+        },
+        {
+          "name": "Zephyria Level 8",
+          "json": "worlds/auralis/zephyria_level8.json"
+        },
+        {
+          "name": "Zephyria Level 9",
+          "json": "worlds/auralis/zephyria_level9.json"
+        },
+        {
+          "name": "Zephyria Level 10",
+          "json": "worlds/auralis/zephyria_level10.json"
+        }
+      ]
     },
     {
       "name": "Solkhar",
-      "position": [ 274, 76 ],
-      "color": [ 83, 44, 25 ],
-      "radius": 35
+      "position": [
+        274,
+        76
+      ],
+      "radius": 35,
+      "color": [
+        83,
+        44,
+        25
+      ],
+      "levels": [
+        {
+          "name": "Solkhar Level 1",
+          "json": "worlds/auralis/solkhar_level1.json"
+        },
+        {
+          "name": "Solkhar Level 2",
+          "json": "worlds/auralis/solkhar_level2.json"
+        },
+        {
+          "name": "Solkhar Level 3",
+          "json": "worlds/auralis/solkhar_level3.json"
+        },
+        {
+          "name": "Solkhar Level 4",
+          "json": "worlds/auralis/solkhar_level4.json"
+        },
+        {
+          "name": "Solkhar Level 5",
+          "json": "worlds/auralis/solkhar_level5.json"
+        },
+        {
+          "name": "Solkhar Level 6",
+          "json": "worlds/auralis/solkhar_level6.json"
+        },
+        {
+          "name": "Solkhar Level 7",
+          "json": "worlds/auralis/solkhar_level7.json"
+        },
+        {
+          "name": "Solkhar Level 8",
+          "json": "worlds/auralis/solkhar_level8.json"
+        },
+        {
+          "name": "Solkhar Level 9",
+          "json": "worlds/auralis/solkhar_level9.json"
+        },
+        {
+          "name": "Solkhar Level 10",
+          "json": "worlds/auralis/solkhar_level10.json"
+        }
+      ]
     }
   ],
   "paths": [
@@ -48,11 +297,11 @@
     },
     {
       "start": "Tharok",
-      "end": "Zephyria"
+      "end": "Aqueon"
     },
     {
       "start": "Tharok",
-      "end": "Aqueon"
+      "end": "Zephyria"
     },
     {
       "start": "Aqueon",
@@ -64,3 +313,4 @@
     }
   ]
 }
+

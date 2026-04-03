@@ -13,6 +13,8 @@ pub(crate) struct WorldDefinition {
     pub(crate) height: f32,
     pub(crate) background: String,
     #[serde(default)]
+    pub(crate) story: Option<WorldStoryDefinition>,
+    #[serde(default)]
     pub(crate) planets: Vec<PlanetDefinition>,
 }
 
@@ -20,6 +22,21 @@ impl WorldDefinition {
     pub(crate) fn virtual_size(&self) -> Vec2 {
         Vec2::new(self.width.max(1.0), self.height.max(1.0))
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct WorldStorySlideDefinition {
+    pub(crate) text: String,
+    pub(crate) background: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct WorldStoryDefinition {
+    #[serde(default)]
+    pub(crate) start: Option<WorldStorySlideDefinition>,
+    #[allow(dead_code)]
+    #[serde(default)]
+    pub(crate) win: Option<WorldStorySlideDefinition>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -353,6 +370,34 @@ mod tests {
 
         let result = serde_json::from_str::<WorldDefinition>(json);
         assert!(result.is_err(), "planet color must be required");
+    }
+
+    #[test]
+    fn deserializes_optional_world_story() {
+        let json = r#"
+        {
+            "name": "Auralis",
+            "width": 320,
+            "height": 239,
+            "background": "worlds/auralis.png",
+            "story": {
+                "start": {
+                    "text": "story/world_start.md",
+                    "background": "worlds/auralis.png"
+                },
+                "win": {
+                    "text": "story/world_win.md",
+                    "background": "worlds/auralis.png"
+                }
+            },
+            "planets": []
+        }
+        "#;
+
+        let world: WorldDefinition = serde_json::from_str(json).expect("world json should parse");
+        let story = world.story.as_ref().expect("story should be present");
+        assert_eq!(story.start.as_ref().expect("start story").text, "story/world_start.md");
+        assert_eq!(story.win.as_ref().expect("win story").text, "story/world_win.md");
     }
 }
 

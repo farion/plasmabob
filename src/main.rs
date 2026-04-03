@@ -25,6 +25,7 @@ pub(crate) enum AppState {
     #[default]
     MainMenu,
     StartView,
+    StoryView,
     WorldMapView,
     GameView,
     LoseView,
@@ -62,12 +63,35 @@ pub(crate) struct CampaignProgress {
     pub(crate) world_index: Option<usize>,
     pub(crate) planet_index: Option<usize>,
     pub(crate) level_index: usize,
+    pub(crate) world_start_story_seen: bool,
 }
 
 impl CampaignProgress {
     pub(crate) fn clear_planet_progress(&mut self) {
         self.planet_index = None;
         self.level_index = 0;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct StoryScreenRequest {
+    pub(crate) text_asset_path: String,
+    pub(crate) background_asset_path: String,
+    pub(crate) continue_to: AppState,
+}
+
+#[derive(Resource, Debug, Default, Clone)]
+pub(crate) struct PendingStoryScreen {
+    current: Option<StoryScreenRequest>,
+}
+
+impl PendingStoryScreen {
+    pub(crate) fn set(&mut self, request: StoryScreenRequest) {
+        self.current = Some(request);
+    }
+
+    pub(crate) fn take(&mut self) -> Option<StoryScreenRequest> {
+        self.current.take()
     }
 }
 
@@ -156,6 +180,7 @@ fn main() {
         .init_resource::<WorldListSelection>()
         .init_resource::<WorldMapSelection>()
         .init_resource::<CampaignProgress>()
+        .init_resource::<PendingStoryScreen>()
         .insert_resource(level_selection)
         .insert_resource(WorldCatalog::default())
         .insert_resource(cached_level_definition)

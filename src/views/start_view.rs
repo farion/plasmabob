@@ -149,6 +149,7 @@ fn activate_selected_world(
 
     progress.world_index = Some(selection.index);
     progress.clear_planet_progress();
+    progress.world_start_story_seen = false;
     next_state.set(AppState::WorldMapView);
 }
 

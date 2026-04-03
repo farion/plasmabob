@@ -1,0 +1,56 @@
+{
+    "terrain":  {
+                    "background":  "worlds/auralis/backgrounds/level1.png"
+                },
+    "music":  "music/level1.ogg",
+    "bounds":  {
+                   "width":  4096,
+                   "height":  1024
+               },
+    "entity_types_path":  "entity_types",
+    "story":  {
+                  "start":  {
+                                "text":  "worlds/auralis/story/viridara_level2_start.md",
+                                "background":  "worlds/auralis/story/viridara_level1.jpg"
+                            },
+                  "win":  {
+                              "text":  "worlds/auralis/story/viridara_level2_win.md",
+                              "background":  "worlds/auralis/story/viridara_level1.jpg"
+                          },
+                  "lose":  {
+                               "text":  "worlds/auralis/story/viridara_level2_lose.md",
+                               "background":  "worlds/auralis/story/viridara_level1.jpg"
+                           }
+              },
+    "entities":  [
+                     {
+                         "id":  "street",
+                         "entity_type":  "street",
+                         "x":  0,
+                         "y":  0,
+                         "z_index":  98
+                     },
+                     {
+                         "id":  "player",
+                         "entity_type":  "bob",
+                         "x":  10,
+                         "y":  181,
+                         "z_index":  101
+                     },
+                     {
+                         "id":  "enemy",
+                         "entity_type":  "cockroach",
+                         "x":  720,
+                         "y":  181,
+                         "z_index":  100
+                     },
+                     {
+                         "id":  "exit",
+                         "entity_type":  "exit",
+                         "x":  3800,
+                         "y":  181,
+                         "z_index":  100
+                     }
+                 ]
+}
+

@@ -20,13 +20,36 @@ pub(crate) fn render_level_picker_columns(
         columns[0].vertical(|ui| {
             ui.heading("Worlds");
             ui.add_space(8.0);
-            ui.add_enabled(false, egui::Button::new("Force Reread"));
+            if ui.button("Force Reread").clicked() {
+                if let Ok(worlds) = crate::io::scan_worlds() {
+                    catalog.worlds = worlds;
+                }
+                if let Ok(levels) = crate::io::scan_levels() {
+                    catalog.levels = levels;
+                    catalog.error = None;
+                }
+            }
             ui.add_space(8.0);
 
             let list_height = ui.available_height();
             ui.push_id("worlds_scroll_area", |ui| {
                 egui::ScrollArea::vertical().max_height(list_height).show(ui, |ui| {
-                    ui.label("Noch keine Worlds vorhanden.");
+                    if catalog.worlds.is_empty() {
+                        ui.label("Noch keine Worlds vorhanden.");
+                    } else {
+                        for world in &catalog.worlds {
+                            ui.push_id(format!("world_item:{}", world.asset_path), |ui| {
+                                if ui.button(&world.display_name).clicked() {
+                                    // set selected world to the folder name (stem of json file)
+                                    let folder = std::path::Path::new(&world.asset_path)
+                                        .file_stem()
+                                        .and_then(|s| s.to_str())
+                                        .map(|s| s.to_string());
+                                    catalog.selected_world = folder;
+                                }
+                            });
+                        }
+                    }
                 });
             });
         });
@@ -53,10 +76,32 @@ pub(crate) fn render_level_picker_columns(
                 egui::ScrollArea::vertical().max_height(list_height).show(ui, |ui| {
                     if let Some(error) = &catalog.error {
                         ui.colored_label(egui::Color32::RED, error);
-                    } else if catalog.levels.is_empty() {
-                        ui.label("Keine gültigen Level-Dateien gefunden.");
+                        return;
+                    }
+
+                    if catalog.worlds.is_empty() {
+                        ui.label("Keine Worlds gefunden. Bitte Force Reread drücken.");
+                        return;
+                    }
+
+                    let selected_world = catalog.selected_world.as_deref();
+                    if selected_world.is_none() {
+                        ui.label("Keine Welt ausgewählt.");
+                        return;
+                    }
+
+                    let folder = selected_world.unwrap();
+                    let prefix = format!("worlds/{}/", folder);
+                    let filtered: Vec<&crate::io::LevelEntry> = catalog
+                        .levels
+                        .iter()
+                        .filter(|lvl| lvl.asset_path.starts_with(&prefix))
+                        .collect();
+
+                    if filtered.is_empty() {
+                        ui.label("Keine gültigen Level-Dateien für diese Welt gefunden.");
                     } else {
-                        for level in &catalog.levels {
+                        for level in filtered {
                             ui.push_id(format!("levels_item:{}", level.asset_path), |ui| {
                                 if ui.button(&level.display_name).clicked() {
                                     *open_asset_path = Some(level.asset_path.clone());

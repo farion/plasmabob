@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::level::CachedLevelDefinition;
-use crate::{AppState, CampaignProgress, LevelSelection};
+use crate::{AppState, CampaignProgress, LevelSelection, PendingStoryScreen, StoryScreenRequest};
 
 pub struct LoadViewPlugin;
 
@@ -26,11 +26,26 @@ fn load_level_for_game_view(
     asset_server: Res<AssetServer>,
     mut cached_level_definition: ResMut<CachedLevelDefinition>,
     level_selection: Res<LevelSelection>,
+    mut pending_story: ResMut<PendingStoryScreen>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     cached_level_definition.refresh(&asset_server, level_selection.asset_path());
 
-    if cached_level_definition.level_definition().is_ok() {
+    if let Ok(level_definition) = cached_level_definition.level_definition() {
+        if let Some(story) = level_definition
+            .story
+            .as_ref()
+            .and_then(|story| story.start.as_ref())
+        {
+            pending_story.set(StoryScreenRequest {
+                text_asset_path: story.text.clone(),
+                background_asset_path: story.background.clone(),
+                continue_to: AppState::GameView,
+            });
+            next_state.set(AppState::StoryView);
+            return;
+        }
+
         next_state.set(AppState::GameView);
     }
 }
