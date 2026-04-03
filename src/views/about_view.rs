@@ -18,10 +18,22 @@ impl Plugin for AboutViewPlugin {
     }
 }
 
-fn setup_about_view(mut commands: Commands) {
+fn setup_about_view(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Use the same background image as the main menu for visual consistency.
+    commands.spawn((
+        Sprite::from_image(asset_server.load("start.png")),
+        Transform::from_xyz(0.0, 0.0, -1.0),
+        crate::StartScreenBackground,
+        AboutViewEntity,
+    ));
+
+    // Make the root UI cover the whole viewport so the view scales to the window
     commands
         .spawn((
             Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
@@ -30,7 +42,7 @@ fn setup_about_view(mut commands: Commands) {
                 row_gap: Val::Px(16.0),
                 ..default()
             },
-            BackgroundColor(Color::BLACK),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
             AboutViewEntity,
         ))
         .with_children(|parent| {

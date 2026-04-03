@@ -38,6 +38,10 @@ pub(super) fn update_pause_menu(
     }
 
     if !pause_menu_state.is_open {
+        if pause_menu_state.suppress_enter_until_release && !is_enter_pressed(&keys) {
+            pause_menu_state.suppress_enter_until_release = false;
+        }
+
         virtual_time.unpause();
         for entity in &roots {
             commands.entity(entity).despawn_recursive();
@@ -82,7 +86,12 @@ pub(super) fn update_pause_menu(
         }
     }
 
-    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter) {
+    if pause_menu_state.suppress_enter_until_release {
+        if !is_enter_pressed(&keys) {
+            pause_menu_state.suppress_enter_until_release = false;
+        }
+    } else if is_enter_just_pressed(&keys) {
+        pause_menu_state.suppress_enter_until_release = true;
         let (_, action) = PAUSE_MENU_ITEMS[pause_menu_state.selection];
         execute_action(
             action,
@@ -107,6 +116,14 @@ pub(super) fn update_pause_menu(
             }
         }
     }
+}
+
+fn is_enter_pressed(keys: &ButtonInput<KeyCode>) -> bool {
+    keys.pressed(KeyCode::Enter) || keys.pressed(KeyCode::NumpadEnter)
+}
+
+fn is_enter_just_pressed(keys: &ButtonInput<KeyCode>) -> bool {
+    keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter)
 }
 
 fn spawn_pause_menu(commands: &mut Commands) {

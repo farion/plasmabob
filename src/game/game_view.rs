@@ -98,6 +98,7 @@ enum PauseMenuAction {
 struct PauseMenuState {
     is_open: bool,
     selection: usize,
+    suppress_enter_until_release: bool,
 }
 
 impl Default for QuoteCooldown {
@@ -211,7 +212,7 @@ impl Plugin for GameViewPlugin {
 }
 
 fn gameplay_active(modal_state: Res<PauseMenuState>) -> bool {
-    !modal_state.is_open
+    !modal_state.is_open && !modal_state.suppress_enter_until_release
 }
 
 

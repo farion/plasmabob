@@ -97,13 +97,25 @@ fn setup_settings_view(
     mut commands: Commands,
     audio_settings: Res<AudioSettings>,
     key_bindings: Res<KeyBindings>,
+    asset_server: Res<AssetServer>,
 ) {
+    // Background same as main menu
+    commands.spawn((
+        Sprite::from_image(asset_server.load("start.png")),
+        Transform::from_xyz(0.0, 0.0, -1.0),
+        crate::StartScreenBackground,
+        SettingsViewEntity,
+    ));
     commands.init_resource::<SettingsSelection>();
     commands.init_resource::<BindingCapture>();
 
+    // Root container should fill the whole viewport so the settings view scales to the window.
     commands
         .spawn((
             Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
@@ -112,7 +124,7 @@ fn setup_settings_view(
                 row_gap: Val::Px(10.0),
                 ..default()
             },
-            BackgroundColor(Color::BLACK),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
             SettingsViewEntity,
         ))
         .with_children(|parent| {

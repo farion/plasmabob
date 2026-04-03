@@ -25,6 +25,7 @@ pub(super) fn cleanup_game_view(
     virtual_time.unpause();
     pause_menu_state.is_open = false;
     pause_menu_state.selection = 0;
+    pause_menu_state.suppress_enter_until_release = false;
 
     if let Ok(mut camera_transform) = cameras.get_single_mut() {
         camera_transform.translation.x = 0.0;

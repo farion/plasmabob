@@ -228,6 +228,8 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "PlasmaBob".into(),
+                // Start in borderless fullscreen by default
+                mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
                 ..default()
             }),
             ..default()
@@ -237,6 +239,9 @@ fn main() {
         .init_state::<AppState>()
         .add_systems(Startup, setup_camera)
         .add_systems(Update, toggle_fullscreen)
+        // Always keep background sprites fitted to the current window size so views
+        // that also spawn `StartScreenBackground` (About/Settings) are handled.
+        .add_systems(Update, fit_background_to_window)
         .add_plugins(views::ViewsPlugin)
         .add_systems(OnEnter(AppState::MainMenu), setup_main_menu)
         .add_systems(OnEnter(AppState::StartView), stop_menu_music)
@@ -244,7 +249,6 @@ fn main() {
         .add_systems(
             Update,
             (
-                fit_background_to_window,
                 open_or_close_exit_modal_with_escape,
                 menu_keyboard_navigation,
                 menu_pointer_input,
@@ -780,7 +784,7 @@ fn fit_background_to_window(
 
     let window_size = Vec2::new(window.width(), window.height());
 
-    for (sprite, mut transform) in &mut backgrounds {
+        for (sprite, mut transform) in &mut backgrounds {
         let Some(image) = images.get(&sprite.image) else {
             continue;
         };
@@ -794,9 +798,14 @@ fn fit_background_to_window(
             continue;
         }
 
-        // Use "contain" scaling to avoid distortion and show black bars when needed.
-        let scale = (window_size.x / image_size.x).min(window_size.y / image_size.y);
+        // Use "cover" scaling so the background always fills the viewport.
+        // This may crop the image on one axis but guarantees no black bars.
+        let scale = (window_size.x / image_size.x).max(window_size.y / image_size.y);
         transform.scale = Vec3::splat(scale);
+
+        // Ensure the sprite is centred on the camera so it aligns with the viewport.
+        transform.translation.x = 0.0;
+        transform.translation.y = 0.0;
     }
 }
 
