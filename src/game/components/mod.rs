@@ -95,7 +95,31 @@ pub(crate) fn spawn_entity(
                 collectible::insert(&mut entity_commands)
             }
             "effect_heal" => {
-                let amount = entity_type.heal.unwrap_or(0);
+                // Prefer per-entity override `effect_heal.heal` from the level JSON when present.
+                let overridden_amount = entity_definition
+                    .overrides
+                    .get("effect_heal.heal")
+                    .and_then(|v| {
+                        if let Some(i) = v.as_i64() {
+                            Some(i as i32)
+                        } else if let Some(u) = v.as_u64() {
+                            Some(u as i32)
+                        } else if let Some(f) = v.as_f64() {
+                            Some(f.round() as i32)
+                        } else {
+                            None
+                        }
+                    });
+
+                // Prefer per-entity override; otherwise prefer nested entity type effect_heal.heal if present,
+                // then fall back to the top-level `heal` field if present, else 0.
+                let amount = overridden_amount.unwrap_or_else(|| {
+                    entity_type
+                        .effect_heal
+                        .as_ref()
+                        .and_then(|e| e.heal)
+                        .unwrap_or(0)
+                });
                 effect_heal::insert(&mut entity_commands, amount)
             }
             "player" => {

@@ -399,6 +399,7 @@ mod tests {
             health: None,
             damage: None,
             attack_range: None,
+            effect_heal: None
         }
     }
 
@@ -411,6 +412,7 @@ mod tests {
             x: 0.0,
             y: 0.0,
             z_index: Some(7.0),
+            overrides: Default::default(),
         };
         let entity_type = entity_type_with_components(&["doodad"]);
 
@@ -427,6 +429,7 @@ mod tests {
             x: 0.0,
             y: 0.0,
             z_index: None,
+            overrides: Default::default(),
         };
         let npc_definition = EntityDefinition {
             id: "roach".to_string(),
@@ -434,6 +437,7 @@ mod tests {
             x: 0.0,
             y: 0.0,
             z_index: None,
+            overrides: Default::default(),
         };
         let doodad_definition = EntityDefinition {
             id: "crate1".to_string(),
@@ -441,6 +445,7 @@ mod tests {
             x: 0.0,
             y: 0.0,
             z_index: None,
+            overrides: Default::default(),
         };
 
         let player_z = resolve_entity_z_index(&player_definition, &entity_type_with_components(&["player"]), true);

@@ -46,3 +46,7 @@ hitbox for each state.
 - Rust
 - Bevy
 - In contrast to the game the editor is using bevy_egui for the UI
+
+## Internationalization (i18n)
+
+There is no i18n support in the editor. All text is in english and this must stay that way.

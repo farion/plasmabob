@@ -35,7 +35,7 @@ pub(crate) fn render_level_picker_columns(
             ui.push_id("worlds_scroll_area", |ui| {
                 egui::ScrollArea::vertical().max_height(list_height).show(ui, |ui| {
                     if catalog.worlds.is_empty() {
-                        ui.label("Noch keine Worlds vorhanden.");
+                        ui.label("No worlds present yet.");
                     } else {
                         for world in &catalog.worlds {
                             ui.push_id(format!("world_item:{}", world.asset_path), |ui| {
@@ -80,13 +80,13 @@ pub(crate) fn render_level_picker_columns(
                     }
 
                     if catalog.worlds.is_empty() {
-                        ui.label("Keine Worlds gefunden. Bitte Force Reread drücken.");
+                        ui.label("No worlds found. Please press Force Reread.");
                         return;
                     }
 
                     let selected_world = catalog.selected_world.as_deref();
                     if selected_world.is_none() {
-                        ui.label("Keine Welt ausgewählt.");
+                        ui.label("No world selected.");
                         return;
                     }
 
@@ -99,7 +99,7 @@ pub(crate) fn render_level_picker_columns(
                         .collect();
 
                     if filtered.is_empty() {
-                        ui.label("Keine gültigen Level-Dateien für diese Welt gefunden.");
+                        ui.label("No valid level files found for this world.");
                     } else {
                         for level in filtered {
                             ui.push_id(format!("levels_item:{}", level.asset_path), |ui| {
@@ -133,9 +133,9 @@ pub(crate) fn render_level_picker_columns(
             }
 
             // Show running indicator while sync is in progress
-            if sync_state.running.load(std::sync::atomic::Ordering::SeqCst) {
+                if sync_state.running.load(std::sync::atomic::Ordering::SeqCst) {
                 ui.horizontal(|ui| {
-                    ui.label("Update läuft...");
+                    ui.label("Update running...");
                     ui.spinner();
                 });
             }
@@ -147,7 +147,7 @@ pub(crate) fn render_level_picker_columns(
                     if let Some(error) = &entity_type_error {
                         ui.colored_label(egui::Color32::RED, error);
                     } else if entity_type_files.is_empty() {
-                        ui.label("Keine Entity-Type JSON-Dateien gefunden.");
+                        ui.label("No entity-type JSON files found.");
                     } else {
                         for file_name in entity_type_files {
                             ui.push_id(format!("entity_type:{}", file_name), |ui| {

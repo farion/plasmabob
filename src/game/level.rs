@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use serde_json::Value;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
@@ -145,10 +146,16 @@ pub(crate) struct EntityTypeDefinition {
     #[serde(default)]
     pub(crate) damage: Option<i32>,
     #[serde(default)]
-    pub(crate) heal: Option<i32>,
+    pub(crate) effect_heal: Option<EffectHealDefinition>,
     /// Maximum range of the plasma beam (player only). Enables the PlasmaAttack component.
     #[serde(default)]
     pub(crate) attack_range: Option<f32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct EffectHealDefinition {
+    #[serde(default)]
+    pub(crate) heal: Option<i32>,
 }
 
 impl EntityTypeDefinition {
@@ -297,6 +304,10 @@ pub(crate) struct EntityDefinition {
     /// Per-instance z-index for draw order. When omitted, setup code falls back to component heuristics.
     #[serde(default)]
     pub(crate) z_index: Option<f32>,
+    /// Per-instance override attributes. Keys use the pattern `<component>.<attribute>`,
+    /// for example `effect_heal.heal`.
+    #[serde(flatten)]
+    pub(crate) overrides: HashMap<String, Value>,
 }
 
 #[derive(Debug)]

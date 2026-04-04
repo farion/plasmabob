@@ -13,6 +13,7 @@ use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
+use serde::Deserialize;
 use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, scan_worlds, LevelEntry, WorldEntry};
 use crate::dashboard;
 use crate::entity_types;
@@ -34,6 +35,7 @@ pub(crate) fn run() {
         .init_resource::<UndoCaptureState>()
             .init_resource::<EntityTypeViewState>()
         .init_resource::<ClipboardEntity>()
+        .init_resource::<ComponentValueMapping>()
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
@@ -53,6 +55,7 @@ pub(crate) fn run() {
         .add_plugins(EguiPlugin::default())
         .init_state::<EditorMode>()
         .add_systems(Startup, setup_camera)
+        .add_systems(Startup, setup_component_value_mapping)
         .add_systems(OnEnter(EditorMode::LevelPicker), refresh_level_catalog)
         .add_systems(EguiPrimaryContextPass, level_picker_ui.run_if(in_state(EditorMode::LevelPicker)))
         .add_systems(EguiPrimaryContextPass, entity_types::entity_type_view_ui.run_if(in_state(EditorMode::EntityTypeView)))
@@ -162,13 +165,13 @@ fn check_sync_result(
             match res {
                 Ok(report) => {
                     toast.message = Some(format!(
-                        "Entity-Types synchronisiert: {} erstellt, {} aktualisiert, {} gelöscht",
+                        "Entity types synchronized: {} created, {} updated, {} deleted",
                         report.created, report.updated, report.deleted
                     ));
                     toast.expires_at_seconds = time.elapsed_secs_f64() + 3.0;
                 }
                 Err(e) => {
-                    toast.message = Some(format!("Entity-Types synchronisieren fehlgeschlagen: {}", e));
+                    toast.message = Some(format!("Entity types sync failed: {}", e));
                     toast.expires_at_seconds = time.elapsed_secs_f64() + 5.0;
                 }
             }
@@ -211,6 +214,41 @@ pub(crate) struct EntityTypeViewState {
 
 const UNDO_LIMIT: usize = 100;
 
+// ---------------------------------------------------------------------------
+// Component value mapping — loaded from editor/assets/component_value_mapping.json
+// ---------------------------------------------------------------------------
+
+/// Definition for a single overrideable attribute of a gameplay component.
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ComponentAttributeDefinition {
+    #[serde(rename = "type")]
+    pub(crate) attr_type: String,
+    pub(crate) default: serde_json::Value,
+    #[serde(default)]
+    pub(crate) options: Vec<String>,
+}
+
+/// Mapping of component names → attribute names → attribute definition.
+/// Loaded at startup from `editor/assets/component_value_mapping.json`.
+#[derive(Debug, Clone, Deserialize, Default, Resource)]
+pub(crate) struct ComponentValueMapping {
+    #[serde(default)]
+    pub(crate) components: HashMap<String, HashMap<String, ComponentAttributeDefinition>>,
+}
+
+fn load_component_value_mapping_from_disk() -> ComponentValueMapping {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets/component_value_mapping.json");
+    match std::fs::read_to_string(&path) {
+        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+        Err(_) => ComponentValueMapping::default(),
+    }
+}
+
+fn setup_component_value_mapping(mut commands: Commands) {
+    commands.insert_resource(load_component_value_mapping_from_disk());
+}
+
 #[derive(Resource, Clone)]
 pub(crate) struct EditorDocument {
     pub(crate) level_asset_path: String,
@@ -245,20 +283,23 @@ struct PendingBackgroundTiles {
 #[derive(Component)]
 struct BackgroundTilesReady;
 
-const Z_LAYER_PRESETS: [(&str, f32, [u8; 3]); 6] = [
-    ("Foreground FX", 150.0, [230, 80, 80]),
-    ("Vordergrund", 120.0, [245, 158, 66]),
-    ("Standard", 100.0, [245, 214, 110]),
-    ("Gameplay", 60.0, [92, 186, 103]),
-    ("Player-nah", 20.0, [70, 155, 230]),
-    ("Hintergrund", 0.0, [85, 100, 130]),
+// Updated Z-layer presets and colors per user request:
+// 150 - Foreground -> red
+// 100 - Gameplay -> green
+// 50  - Near Player Background -> orange
+// 0   - Background -> blue
+const Z_LAYER_PRESETS: [(&str, f32, [u8; 3]); 4] = [
+    ("Foreground", 150.0, [255, 0, 0]),
+    ("Gameplay", 100.0, [0, 255, 0]),
+    ("Near Player Background", 50.0, [255, 165, 0]),
+    ("Background", 0.0, [0, 0, 255]),
 ];
 
 fn draw_z_layer_legend(ui: &mut egui::Ui, z: &mut f32) -> bool {
     let mut changed = false;
 
     ui.group(|ui| {
-        ui.label("Z-Layer Legende");
+        ui.label("Z-Layer Legend");
 
         // Farbige Layer-Liste mit Preset-Buttons fuer schnelles Einsortieren.
         for (label, value, [r, g, b]) in Z_LAYER_PRESETS {
@@ -287,7 +328,7 @@ fn draw_z_layer_legend(ui: &mut egui::Ui, z: &mut f32) -> bool {
         ui.add_space(4.0);
         ui.label("Z-Index between 75 and 125 are game relevant and not included in the parallax effect.");
         ui.add_space(4.0);
-        ui.label(format!("Aktuell: {:.0}", *z));
+        ui.label(format!("Current: {:.0}", *z));
     });
 
     changed
@@ -398,8 +439,8 @@ fn level_picker_ui(
                 }
                 entity_type_files.sort();
             }
-            Err(_) => {
-                entity_type_error = Some("Entity-Type Verzeichnis nicht gefunden: assets/entity_types".to_string());
+                Err(_) => {
+                entity_type_error = Some("Entity-types directory not found: assets/entity_types".to_string());
             }
         }
 
@@ -458,6 +499,7 @@ fn editing_ui(
     camera_query: Query<(&Camera, &GlobalTransform), With<EditorCamera>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut selection: ResMut<SelectionState>,
+    mapping: Res<ComponentValueMapping>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
@@ -470,11 +512,11 @@ fn editing_ui(
             let dirty_marker = if document.dirty { " *" } else { "" };
             ui.heading(format!("{}{}", document.level_asset_path, dirty_marker));
             ui.separator();
-            if ui.button("Level wechseln").clicked() {
+            if ui.button("Change Level").clicked() {
                 next_state.set(EditorMode::LevelPicker);
             }
             ui.separator();
-            if ui.button("Entity hinzufügen (A)").clicked() {
+            if ui.button("Add Entity (A)").clicked() {
                 ui_state.show_add_menu = !ui_state.show_add_menu;
             }
         });
@@ -482,9 +524,12 @@ fn editing_ui(
 
     egui::SidePanel::right("editor_sidebar")
         .resizable(false)
-        .default_width(280.0)
+        .default_width(400.0)
         .show(ctx, |ui| {
-            ui.heading("Auswahl");
+            // Enforce fixed inner width so all child widgets layout to fit 400px
+            ui.set_min_width(400.0);
+            ui.set_max_width(400.0);
+            ui.heading("Selection");
 
             if let Some(index) = selection.selected_index {
                 if let Some(entity) = document.level.entities.get(index) {
@@ -495,11 +540,14 @@ fn editing_ui(
                     let mut y = entity.y;
                     let mut z = current_z;
                     let mut changed = false;
+                    // Clone override state so we don't hold a borrow into document below.
+                    let current_overrides = entity.overrides.clone();
+                    let entity_type_def = document.entity_types.get(&entity_type_name).cloned();
 
                     ui.label(format!("ID: {}", id));
-                    ui.label(format!("Typ: {}", entity_type_name));
+                    ui.label(format!("Type: {}", entity_type_name));
                     ui.label(format!("Z-Index: {}", current_z));
-                    ui.label("PgUp/PgDown: +/-1, mit Shift: +/-10, Home: 150, End: 0");
+                    ui.label("PgUp/PgDown: +/-1, with Shift: +/-10, Home: 150, End: 0");
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
                         ui.label("x:");
@@ -514,22 +562,182 @@ fn editing_ui(
                         changed |= ui.add(egui::DragValue::new(&mut z).speed(1.0)).changed();
                     });
                     ui.add_space(6.0);
+
+                    // --- Component Overrides ---
+                    let mut override_updates: HashMap<String, serde_json::Value> = HashMap::new();
+                    let mut override_removals: std::collections::HashSet<String> = Default::default();
+                    let mut overrides_changed = false;
+
+                    if let Some(et) = &entity_type_def {
+                        let has_overrideable = et.components.iter()
+                            .any(|comp| mapping.components.contains_key(comp.as_str()));
+
+                        if has_overrideable {
+                            ui.separator();
+                            ui.label(egui::RichText::new("Overrides").strong());
+                            ui.add_space(4.0);
+
+                            for comp_name in &et.components {
+                                let Some(attrs) = mapping.components.get(comp_name.as_str()) else {
+                                    continue;
+                                };
+                                let mut sorted_attrs: Vec<(&String, &ComponentAttributeDefinition)> =
+                                    attrs.iter().collect();
+                                sorted_attrs.sort_by_key(|(k, _)| k.as_str());
+
+                                for (attr_name, attr_def) in sorted_attrs {
+                                    let key = format!("{comp_name}.{attr_name}");
+
+                                    // Resolve entity-type default: prefer nested component data in
+                                    // the entity-type JSON (e.g. `"effect_heal": {"heal": 30}`),
+                                    // fall back to the generic mapping default.
+                                    let entity_type_default: serde_json::Value = et.extra
+                                        .get(comp_name.as_str())
+                                        .and_then(|v| v.as_object())
+                                        .and_then(|obj| obj.get(attr_name.as_str()))
+                                        .cloned()
+                                        .unwrap_or_else(|| attr_def.default.clone());
+
+                                    let is_overridden = current_overrides.contains_key(&key);
+                                    let mut enable_override = is_overridden;
+
+                                    match attr_def.attr_type.as_str() {
+                                        "number" => {
+                                            let default_num = entity_type_default
+                                                .as_f64()
+                                                .unwrap_or_else(|| attr_def.default.as_f64().unwrap_or(0.0))
+                                                as f32;
+
+                                            ui.horizontal(|ui| {
+                                                let cb = ui.checkbox(
+                                                    &mut enable_override,
+                                                    format!("{key}:"),
+                                                );
+                                                if cb.changed() {
+                                                    if enable_override {
+                                                        // Seed with entity-type default on activation.
+                                                        if let Some(n) = serde_json::Number::from_f64(default_num as f64) {
+                                                            override_updates.insert(key.clone(), serde_json::Value::Number(n));
+                                                        }
+                                                    } else {
+                                                        override_removals.insert(key.clone());
+                                                    }
+                                                    overrides_changed = true;
+                                                }
+
+                                                if enable_override {
+                                                    let mut value = current_overrides
+                                                        .get(&key)
+                                                        .and_then(|v| v.as_f64())
+                                                        .map(|v| v as f32)
+                                                        .unwrap_or(default_num);
+                                                    let before = value;
+                                                    if ui.add(egui::DragValue::new(&mut value).speed(1.0)).changed()
+                                                        && (value - before).abs() > f32::EPSILON
+                                                    {
+                                                        if let Some(n) = serde_json::Number::from_f64(value as f64) {
+                                                            override_updates.insert(key, serde_json::Value::Number(n));
+                                                            overrides_changed = true;
+                                                        }
+                                                    }
+                                                } else {
+                                                    ui.label(
+                                                        egui::RichText::new(format!("Type default: {default_num}"))
+                                                            .weak()
+                                                            .italics(),
+                                                    );
+                                                }
+                                            });
+                                        }
+                                        "enum" => {
+                                            let default_str = entity_type_default
+                                                .as_str()
+                                                .unwrap_or_else(|| attr_def.default.as_str().unwrap_or(""))
+                                                .to_string();
+
+                                            ui.horizontal(|ui| {
+                                                let cb = ui.checkbox(
+                                                    &mut enable_override,
+                                                    format!("{key}:"),
+                                                );
+                                                if cb.changed() {
+                                                    if enable_override {
+                                                        override_updates.insert(
+                                                            key.clone(),
+                                                            serde_json::Value::String(default_str.clone()),
+                                                        );
+                                                    } else {
+                                                        override_removals.insert(key.clone());
+                                                    }
+                                                    overrides_changed = true;
+                                                }
+
+                                                if enable_override {
+                                                    let mut current_str = current_overrides
+                                                        .get(&key)
+                                                        .and_then(|v| v.as_str())
+                                                        .unwrap_or(default_str.as_str())
+                                                        .to_string();
+                                                    let before_str = current_str.clone();
+                                                    egui::ComboBox::from_id_salt(format!(
+                                                        "override_{comp_name}_{attr_name}"
+                                                    ))
+                                                    .selected_text(&current_str)
+                                                    .show_ui(ui, |ui| {
+                                                        for option in &attr_def.options {
+                                                            ui.selectable_value(
+                                                                &mut current_str,
+                                                                option.clone(),
+                                                                option,
+                                                            );
+                                                        }
+                                                    });
+                                                    if current_str != before_str {
+                                                        override_updates.insert(
+                                                            key,
+                                                            serde_json::Value::String(current_str),
+                                                        );
+                                                        overrides_changed = true;
+                                                    }
+                                                } else {
+                                                    ui.label(
+                                                        egui::RichText::new(format!("Type default: {default_str}"))
+                                                            .weak()
+                                                            .italics(),
+                                                    );
+                                                }
+                                            });
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            ui.add_space(4.0);
+                        }
+                    }
+
                     changed |= draw_z_layer_legend(ui, &mut z);
 
-                    if changed {
+                    if changed || overrides_changed {
                         push_undo_snapshot(&mut undo_history, &document.level);
                         if let Some(entity) = document.level.entities.get_mut(index) {
                             entity.x = x;
                             entity.y = y;
                             entity.z_index = Some(z);
+                            for k in &override_removals {
+                                entity.overrides.remove(k);
+                            }
+                            for (k, v) in override_updates {
+                                entity.overrides.insert(k, v);
+                            }
                         }
                         document.dirty = true;
                         scene_dirty.0 = true;
                     }
                 }
             } else if selection.bounds_selected {
-                ui.label("Level-Hintergrund / Bounds ausgewählt");
-                ui.label("Ursprung: (0, 0) — fix");
+                ui.label("Level background / Bounds selected");
+                ui.label("Origin: (0, 0) — fixed");
                 ui.add_space(8.0);
 
                 let bounds = document.level.bounds.get_or_insert(
@@ -540,11 +748,11 @@ fn editing_ui(
                 let mut bounds_changed = false;
 
                 ui.horizontal(|ui| {
-                    ui.label("Breite:");
+                    ui.label("Width:");
                     bounds_changed |= ui.add(egui::DragValue::new(&mut width).speed(1.0).range(1.0..=50000.0)).changed();
                 });
                 ui.horizontal(|ui| {
-                    ui.label("Höhe:");
+                    ui.label("Height:");
                     bounds_changed |= ui.add(egui::DragValue::new(&mut height).speed(1.0).range(1.0..=50000.0)).changed();
                 });
 
@@ -558,8 +766,8 @@ fn editing_ui(
                     scene_dirty.0 = true;
                 }
             } else {
-                ui.label("Keine Auswahl.");
-                ui.label("Klick auf Entity oder Hintergrund.");
+                ui.label("No selection.");
+                ui.label("Click on entity or background.");
             }
 
         });
@@ -570,11 +778,11 @@ fn editing_ui(
 
     if ui_state.show_add_menu {
         let mut open = ui_state.show_add_menu;
-        egui::Window::new("Entity-Type hinzufügen")
+        egui::Window::new("Add Entity-Type")
             .open(&mut open)
             .default_size([320.0, 420.0])
             .show(ctx, |ui| {
-                ui.label("Wähle einen Entity-Type aus:");
+                ui.label("Choose an entity type:");
                 ui.separator();
 
                 let mut entity_type_names: Vec<_> = document.entity_types.keys().cloned().collect();
@@ -613,7 +821,7 @@ fn editing_ui(
                     });
 
                     if player_already_exists {
-                        toast.message = Some("Es kann nur einen Spieler (Bob) geben!".to_string());
+                        toast.message = Some("There can only be one player (Bob)!".to_string());
                         toast.expires_at_seconds = time.elapsed_secs_f64() + 3.0;
                     } else {
                         push_undo_snapshot(&mut undo_history, &document.level);
@@ -624,6 +832,7 @@ fn editing_ui(
                             x: spawn_position.x,
                             y: spawn_position.y,
                             z_index: Some(100.0),
+                            overrides: HashMap::new(),
                         };
                         document.level.entities.push(new_entity);
                         selection.selected_index = Some(document.level.entities.len() - 1);
@@ -647,6 +856,12 @@ fn editing_ui(
                 });
         }
     }
+
+    // Update pointer_state after constructing the UI so that clicks inside egui
+    // panels (SidePanel, Windows, etc.) are considered "over_ui" for the rest
+    // of this frame. This prevents clicks from "falling through" the sidebar
+    // into the level viewport below.
+    pointer_state.over_ui = ctx.is_pointer_over_area() || ctx.wants_pointer_input();
 }
 
 fn update_pointer_world_position(
@@ -705,20 +920,20 @@ fn draw_keyboard_legend_overlay(ctx: &egui::Context, z_overlay_enabled: bool) {
                 .inner_margin(egui::Margin::same(8))
                 .show(ui, |ui| {
                     ui.set_max_width(340.0);
-                    ui.label(egui::RichText::new("Steuerung").strong());
-                    ui.label("Linksklick: auswählen / ziehen");
-                    ui.label("A: Entity hinzufügen");
-                    ui.label("D: Entity entfernen");
-                    ui.label("Pfeile: bewegen (Shift schnell, Alt fein)");
-                    ui.label("PgUp/PgDown: Z +/-1, mit Shift +/-10");
+                    ui.label(egui::RichText::new("Controls").strong());
+                    ui.label("Left click: select / drag");
+                    ui.label("A: Add entity");
+                    ui.label("D: Remove entity");
+                    ui.label("Arrows: move (Shift fast, Alt fine)");
+                    ui.label("PgUp/PgDown: Z +/-1, with Shift +/-10");
                     ui.label("Home: Z=150, End: Z=0");
-                    ui.label("Ctrl+C: Entity kopieren");
-                    ui.label("Ctrl+V: Entity einfügen");
-                    ui.label("Ctrl+S: speichern");
-                    ui.label("Mausrad: zoom, rechte Maustaste: Kamera verschieben");
-                    let overlay_state = if z_overlay_enabled { "an" } else { "aus" };
+                    ui.label("Ctrl+C: copy entity");
+                    ui.label("Ctrl+V: paste entity");
+                    ui.label("Ctrl+S: save");
+                    ui.label("Mouse wheel: zoom, right mouse button: pan camera");
+                    let overlay_state = if z_overlay_enabled { "on" } else { "off" };
                     ui.label(format!("Z: Z-Overlay ({overlay_state})"));
-                    ui.label("L: Legende ein/aus");
+                    ui.label("L: Toggle legend");
                 });
         });
 }
@@ -743,9 +958,9 @@ fn toggle_z_overlay_mode(
     overlay_mode.enabled = !overlay_mode.enabled;
     scene_dirty.0 = true;
     toast.message = Some(if overlay_mode.enabled {
-        "Z-Overlay: an".to_string()
+        "Z-Overlay: on".to_string()
     } else {
-        "Z-Overlay: aus".to_string()
+        "Z-Overlay: off".to_string()
     });
     toast.expires_at_seconds = time.elapsed_secs_f64() + 1.5;
 }
@@ -787,7 +1002,7 @@ fn undo_shortcut(
     }
 
     let Some(previous_level) = history.states.pop_back() else {
-        toast.message = Some("Nichts zum Rückgängigmachen".to_string());
+        toast.message = Some("Nothing to undo".to_string());
         toast.expires_at_seconds = time.elapsed_secs_f64() + 1.5;
         return;
     };
@@ -802,7 +1017,7 @@ fn undo_shortcut(
     capture_state.drag_snapshot_taken = false;
     capture_state.keyboard_move_active = false;
 
-    toast.message = Some("Rückgängig".to_string());
+    toast.message = Some("Undone".to_string());
     toast.expires_at_seconds = time.elapsed_secs_f64() + 1.5;
 }
 
@@ -835,11 +1050,11 @@ fn copy_entity_shortcut(
         .unwrap_or(false);
 
     if is_player {
-        toast.message = Some("Spieler kann nicht kopiert werden!".to_string());
+        toast.message = Some("Player cannot be copied!".to_string());
         toast.expires_at_seconds = time.elapsed_secs_f64() + 2.0;
     } else {
         clipboard.entity = Some(entity.clone());
-        toast.message = Some(format!("Entity '{}' kopiert", entity.id));
+        toast.message = Some(format!("Entity '{}' copied", entity.id));
         toast.expires_at_seconds = time.elapsed_secs_f64() + 1.5;
     }
 }
@@ -861,7 +1076,7 @@ fn paste_entity_shortcut(
     }
 
     let Some(original_entity) = &clipboard.entity else {
-        toast.message = Some("Nichts zum Einfügen".to_string());
+        toast.message = Some("Nothing to paste".to_string());
         toast.expires_at_seconds = time.elapsed_secs_f64() + 1.5;
         return;
     };
@@ -878,7 +1093,7 @@ fn paste_entity_shortcut(
     document.dirty = true;
     scene_dirty.0 = true;
 
-    toast.message = Some("Entity eingefügt".to_string());
+    toast.message = Some("Entity inserted".to_string());
     toast.expires_at_seconds = time.elapsed_secs_f64() + 1.5;
 }
 
@@ -896,11 +1111,11 @@ fn save_shortcut(
     match save_level(&document.level_fs_path, &document.level) {
         Ok(()) => {
             document.dirty = false;
-            toast.message = Some("Gespeichert".to_string());
+            toast.message = Some("Saved".to_string());
             toast.expires_at_seconds = time.elapsed_secs_f64() + 2.0;
         }
         Err(error) => {
-            toast.message = Some(format!("Speichern fehlgeschlagen: {error}"));
+            toast.message = Some(format!("Save failed: {error}"));
             toast.expires_at_seconds = time.elapsed_secs_f64() + 4.0;
         }
     }

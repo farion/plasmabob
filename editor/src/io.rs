@@ -241,7 +241,7 @@ fn find_entity_types_dir(level_asset_path: &str, configured_path: &str) -> Resul
         .map(|path| path.to_string_lossy().to_string())
         .collect();
     Err(format!(
-        "Entity-Type-Verzeichnis nicht gefunden. Geprüft: {}",
+        "Entity types directory not found. Checked: {}",
         checked.join(", ")
     ))
 }
@@ -498,9 +498,9 @@ fn scan_entity_type_jsons(entity_types_dir: &Path) -> Result<HashMap<String, Pat
 pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, existing_root: Value) -> Result<Value, String> {
     let mut root = match existing_root {
         Value::Object(object) => object,
-        _ => {
+            _ => {
             return Err(format!(
-                "Entity-Type-Datei für '{entity_name}' muss ein JSON-Objekt enthalten"
+                "Entity type file for '{entity_name}' must contain a JSON object"
             ))
         }
     };
@@ -919,6 +919,7 @@ mod tests {
                 x: 0.0,
                 y: 0.0,
                 z_index: None,
+                overrides: Default::default(),
             },
             EntityDefinition {
                 id: "cockroach9".to_string(),
@@ -926,6 +927,7 @@ mod tests {
                 x: 0.0,
                 y: 0.0,
                 z_index: None,
+                overrides: Default::default(),
             },
         ];
 

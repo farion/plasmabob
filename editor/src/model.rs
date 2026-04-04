@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bevy::prelude::Vec2;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 const DEFAULT_ENTITY_TYPES_PATH: &str = "entity_types";
 
@@ -65,6 +66,11 @@ pub(crate) struct EntityTypeDefinition {
     pub(crate) damage: Option<i32>,
     #[serde(default)]
     pub(crate) attack_range: Option<f32>,
+    /// Catch-all for any additional top-level fields in the entity-type JSON,
+    /// e.g. `"effect_heal": { "heal": 30 }`. Used by the editor to show
+    /// per-entity-type defaults next to override controls.
+    #[serde(flatten)]
+    pub(crate) extra: HashMap<String, Value>,
 }
 
 impl EntityTypeDefinition {
@@ -95,6 +101,10 @@ pub(crate) struct EntityDefinition {
     pub(crate) y: f32,
     #[serde(default)]
     pub(crate) z_index: Option<f32>,
+    /// Per-level attribute overrides for components (e.g. `"effect_heal.heal": 50`).
+    /// Keys use the pattern `<component>.<attribute>`.
+    #[serde(flatten)]
+    pub(crate) overrides: HashMap<String, Value>,
 }
 
 pub(crate) fn normalize_asset_reference(reference: &str) -> String {
@@ -129,6 +139,7 @@ mod tests {
             health: None,
             damage: None,
             attack_range: None,
+            extra: Default::default(),
         };
 
         assert_eq!(

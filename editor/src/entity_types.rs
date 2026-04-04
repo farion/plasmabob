@@ -210,7 +210,7 @@ pub(crate) fn entity_type_view_ui(
             return;
         };
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Kein Entity-Type ausgewählt.");
+            ui.label("No entity type selected.");
         });
         return;
     }
@@ -237,7 +237,7 @@ pub(crate) fn entity_type_view_ui(
                 return;
             };
             egui::CentralPanel::default().show(ctx, |ui| {
-                ui.label("Entity-Type nicht in der geladenen Dokumentenliste gefunden.");
+                ui.label("Entity type not found in loaded document list.");
             });
             return;
         }
@@ -250,7 +250,7 @@ pub(crate) fn entity_type_view_ui(
                 return;
             };
             egui::CentralPanel::default().show(ctx, |ui| {
-                ui.label(format!("Entity-Type JSON nicht gefunden: {}", json_path.display()));
+                ui.label(format!("Entity type JSON not found: {}", json_path.display()));
             });
             return;
         }
@@ -262,7 +262,7 @@ pub(crate) fn entity_type_view_ui(
                     return;
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    ui.label(format!("Fehler beim Lesen von {}: {}", json_path.display(), e));
+                    ui.label(format!("Error reading {}: {}", json_path.display(), e));
                 });
                 return;
             }
@@ -276,7 +276,7 @@ pub(crate) fn entity_type_view_ui(
                     return;
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    ui.label(format!("Fehler beim Parsen von {}: {}", json_path.display(), e));
+                    ui.label(format!("Error parsing {}: {}", json_path.display(), e));
                 });
                 return;
             }
@@ -289,7 +289,7 @@ pub(crate) fn entity_type_view_ui(
             };
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.label(format!(
-                    "Entity-Type '{}' erfordert ein non-empty 'states' Objekt mit 'default'",
+                    "Entity type '{}' requires a non-empty 'states' object with 'default'",
                     selected_name
                 ));
             });
@@ -343,7 +343,7 @@ pub(crate) fn entity_type_view_ui(
 
     if ctx.input(|input| input.modifiers.ctrl && input.key_pressed(egui::Key::S)) {
         if hitbox_editor.dirty_states.is_empty() {
-            hitbox_editor.status_message = Some("Keine Hitbox-Änderungen zum Speichern.".to_string());
+            hitbox_editor.status_message = Some("No hitbox changes to save.".to_string());
         } else {
             let mut save_map: HashMap<String, [[f32; 2]; 4]> = HashMap::new();
             for state_key in &hitbox_editor.dirty_states {
@@ -355,10 +355,10 @@ pub(crate) fn entity_type_view_ui(
             match crate::io::save_entity_type_hitboxes(&selected_name, &save_map) {
                 Ok(()) => {
                     hitbox_editor.dirty_states.clear();
-                    hitbox_editor.status_message = Some("Hitbox gespeichert.".to_string());
+                    hitbox_editor.status_message = Some("Hitbox saved.".to_string());
                 }
                 Err(error) => {
-                    hitbox_editor.status_message = Some(format!("Speichern fehlgeschlagen: {error}"));
+                    hitbox_editor.status_message = Some(format!("Save failed: {error}"));
                 }
             }
         }
@@ -368,20 +368,20 @@ pub(crate) fn entity_type_view_ui(
         // Make the entire central content scrollable
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.horizontal(|ui| {
-                if ui.button("Zurück zum Dashboard").clicked() {
+                if ui.button("Back to Dashboard").clicked() {
                     next_state.set(crate::editor::EditorMode::LevelPicker);
                 }
                 ui.add_space(6.0);
-                ui.heading("Entity-Type Vorschau");
+                ui.heading("Entity Type Preview");
             });
             ui.add_space(6.0);
 
-            ui.label("L: Hitbox anzeigen/verstecken | Kante ziehen: Hitbox anpassen | Ctrl+S: speichern");
+            ui.label("L: toggle hitboxes | Drag edge: adjust hitbox | Ctrl+S: save");
             if let Some(message) = &hitbox_editor.status_message {
                 ui.label(message);
             }
 
-            ui.label(format!("Ausgewählt: {}", selected_name));
+            ui.label(format!("Selected: {}", selected_name));
             ui.separator();
 
             // Components
@@ -417,7 +417,7 @@ pub(crate) fn entity_type_view_ui(
                 if let Some(state_def) = et_ref.states.get(&state_key) {
                     egui::CollapsingHeader::new(state_key.clone()).default_open(true).show(ui, |ui| {
                         if state_def.animation.is_empty() {
-                            ui.label("(keine Animation / keine Bilder)");
+                            ui.label("(no animation / no images)");
                             return;
                         }
 
@@ -432,9 +432,9 @@ pub(crate) fn entity_type_view_ui(
                                 // borrows. If missing, show a placeholder label.
                                 let texture = if let Some(&th) = loaded_textures.get(&normalized) {
                                     th
-                                } else {
+                                    } else {
                                     ui.vertical(|ui| {
-                                        ui.label("(Vorschau nicht geladen)");
+                                        ui.label("(preview not loaded)");
                                         ui.label(normalized.clone());
                                     });
                                     continue;

@@ -14,7 +14,14 @@ All mentioned dependencies are compatible with bevy 0.18.1.
 cargo run             # debug binary with hot reload
 cargo build --release # optimised binary
 ```
-Dev profile already sets `opt-level = 1` and `lto = "thin"` for fast iteration.
+Dev profile already sets `opt-level = 1` for faster incremental builds and disables LTO to keep build iterations quick (see `Cargo.toml`).
+
+You can pass a level asset path as a CLI argument. The executable normalizes paths so you may provide either a `levels/` path or a `worlds/...` path. Examples:
+
+```bash
+cargo run -- levels/level1.json
+cargo run -- worlds/auralis/aqueon_level1.json
+```
 
 ## Architecture Overview
 
@@ -28,6 +35,14 @@ src/game/          ← Everything related to the game itself running a level
   systems/common/  ← Reusable helper methods for systems
 ```
 
+Note: there is also a separate editor executable in `editor/` (see `editor/AGENTS.md`). The editor is built with Bevy and `bevy_egui` and operates on the same JSON assets in `assets/` but does not run game logic.
+
+Cross-cutting helpers and global modules live at the crate root and are important for agents to know about:
+- `src/i18n.rs` — loads localized strings from `assets/i18n/*.json` and provides `i18n::LocalizedText` usage throughout UI code.
+- `src/key_bindings.rs` — persists and loads key bindings; see `KeyBindings::load_from_disk()` usage in `src/main.rs`.
+- `src/fonts.rs` — replaces Bevy's default fonts and registers the project's SpaceMono family via a `FontsPlugin`.
+- `src/audio_settings.rs` — audio settings persistence used when spawning music (see `MenuMusicEntity` in `src/main.rs`).
+
 ## JSON Assets
 - All game data is loaded from JSON files in the `assets/` directory
 - This includes world definitions, level layouts, entity types, and story text
@@ -39,6 +54,7 @@ src/game/          ← Everything related to the game itself running a level
 
 ## Level Format 
 `assets/worlds/{worldname}/{levelname}_level{number}.json`
+Example: `assets/worlds/auralis/aqueon_level1.json` (see `assets/worlds/auralis/`).
 
 ## Entity Types Format
 `assets/entity_types/*.json`
@@ -66,6 +82,15 @@ the other states as well.
 ## Animation
 
 ## Hitbox Polygons
+
+## Internationalization (i18n)
+
+Texts in the game must be localized. The `i18n` module loads localized strings from JSON files in `assets/i18n/`. The
+keys translated in those files must be used to bring texts in the game.
+
+## Commenting
+
+All commenting must happen in english.
 
 ## Best Practices
 
