@@ -12,15 +12,15 @@ const PARALLAX_NO_EFFECT_LOWER_Z: f32 = 75.0;
 const PARALLAX_NO_EFFECT_UPPER_Z: f32 = 125.0;
 
 #[derive(Component)]
-pub(super) struct BackgroundParallax;
+pub(crate) struct BackgroundParallax;
 
 #[derive(Component)]
-pub(super) struct ParallaxAnchor {
+pub(crate) struct ParallaxAnchor {
     base_x: f32,
     speed: f32,
 }
 
-pub(super) fn attach_parallax_anchors(
+pub(crate) fn attach_parallax_anchors(
     mut commands: Commands,
     cameras: Query<&Transform, (With<Camera>, With<MainCamera>)>,
     // Consider newly spawned level entities: we only want to attach anchors to
@@ -63,7 +63,7 @@ pub(super) fn attach_parallax_anchors(
     }
 }
 
-pub(super) fn apply_parallax_from_camera(
+pub(crate) fn apply_parallax_from_camera(
     cameras: Query<&Transform, (With<Camera>, With<MainCamera>)>,
     mut entities: Query<(&ParallaxAnchor, &mut Transform), Without<MainCamera>>,
 ) {

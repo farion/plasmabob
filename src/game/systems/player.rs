@@ -13,7 +13,8 @@ use crate::game::components::player::Player;
 use crate::key_bindings::KeyBindings;
 use crate::LevelStats;
 
-use super::{GameViewEntity, Grounded, PLAYER_JUMP_SPEED, PLAYER_MOVE_SPEED};
+use crate::game::view_api::{GameViewEntity, Grounded, PLAYER_JUMP_SPEED, PLAYER_MOVE_SPEED};
+use crate::game::systems::common::combat_helpers::{hash_to_unit, create_round_particle_image};
 
 const JUMP_DUST_COUNT: usize = 8;
 const LAND_DUST_COUNT: usize = 12;
@@ -21,13 +22,13 @@ const DUST_LIFETIME_SECS: f32 = 0.28;
 const DUST_Z: f32 = 9.0;
 
 #[derive(Component)]
-pub(super) struct DustParticle {
+pub(crate) struct DustParticle {
     velocity: Vec2,
     lifetime: Timer,
     start_size: f32,
 }
 
-pub(super) fn configure_player_controller(
+pub(crate) fn configure_player_controller(
     mut commands: Commands,
     mut players: Query<(Entity, &PrecomputedPlayerHitbox), (With<Player>, Without<ShapeCaster>)>,
 ) {
@@ -44,7 +45,7 @@ pub(super) fn configure_player_controller(
     }
 }
 
-pub(super) fn update_grounded(
+pub(crate) fn update_grounded(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
     mut dust_particle_image: Local<Option<Handle<Image>>>,
@@ -74,7 +75,7 @@ pub(super) fn update_grounded(
     }
 }
 
-pub(super) fn control_player(
+pub(crate) fn control_player(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
     mut dust_particle_image: Local<Option<Handle<Image>>>,
@@ -163,7 +164,7 @@ pub(super) fn control_player(
     }
 }
 
-pub(super) fn update_dust_particles(
+pub(crate) fn update_dust_particles(
     mut commands: Commands,
     time: Res<Time>,
     mut particles: Query<(Entity, &mut DustParticle, &mut Transform, &mut Sprite)>,
@@ -189,7 +190,7 @@ pub(super) fn update_dust_particles(
     }
 }
 
-pub(super) fn sync_player_hitbox_orientation(
+pub(crate) fn sync_player_hitbox_orientation(
     mut players: Query<
         (&Sprite, &PrecomputedPlayerHitbox, &mut Collider, Option<&mut ShapeCaster>),
         (Or<(With<Player>, With<Moving>)>, Changed<Sprite>),
@@ -325,13 +326,6 @@ fn is_airborne_side_blocked(
     false
 }
 
-fn hash_to_unit(seed: u32) -> f32 {
-    let mut value = seed.wrapping_mul(747_796_405).wrapping_add(2_891_336_453);
-    value = (value >> ((value >> 28) + 4)) ^ value;
-    value = value.wrapping_mul(277_803_737);
-    (((value >> 22) ^ value) as f32) / (u32::MAX as f32)
-}
-
 fn ensure_dust_particle_image(
     local_handle: &mut Option<Handle<Image>>,
     images: &mut Assets<Image>,
@@ -345,39 +339,6 @@ fn ensure_dust_particle_image(
     handle
 }
 
-fn create_round_particle_image(size: u32) -> Image {
-    let mut data = vec![0u8; (size * size * 4) as usize];
-    let center = (size as f32 - 1.0) * 0.5;
-    let radius = center.max(1.0);
-
-    for y in 0..size {
-        for x in 0..size {
-            let dx = x as f32 - center;
-            let dy = y as f32 - center;
-            let distance = (dx * dx + dy * dy).sqrt() / radius;
-            let softness = (1.0 - distance).clamp(0.0, 1.0);
-            let alpha = (softness * softness * 255.0) as u8;
-
-            let index = ((y * size + x) * 4) as usize;
-            data[index] = 255;
-            data[index + 1] = 255;
-            data[index + 2] = 255;
-            data[index + 3] = alpha;
-        }
-    }
-
-    Image::new(
-        Extent3d {
-            width: size,
-            height: size,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
-    )
-}
 
 #[cfg(test)]
 mod tests {

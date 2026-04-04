@@ -69,7 +69,7 @@ pub(crate) fn spawn_on_health_change(
             BoldText,
             Transform::from_xyz(transform.translation.x, above, 500.0),
             FloatingHealthText::new(0.9),
-            super::GameViewEntity,
+             crate::game::view_api::GameViewEntity,
         ));
 
         // Remove the marker component so it only triggers once.

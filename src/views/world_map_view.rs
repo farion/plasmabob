@@ -10,6 +10,7 @@ use crate::{
     WorldMapSelection,
 };
 use crate::i18n::{Translations, CurrentLanguage};
+use crate::game::systems::common::combat_helpers::create_round_particle_image;
 
 pub struct WorldMapViewPlugin;
 
@@ -278,40 +279,7 @@ fn rotate_vec2(value: Vec2, angle: f32) -> Vec2 {
 fn ensure_world_map_particle_image(images: &mut Assets<Image>) -> Handle<Image> {
     images.add(create_round_particle_image(32))
 }
-
-fn create_round_particle_image(size: u32) -> Image {
-    let mut data = vec![0u8; (size * size * 4) as usize];
-    let center = (size as f32 - 1.0) * 0.5;
-    let radius = center.max(1.0);
-
-    for y in 0..size {
-        for x in 0..size {
-            let dx = x as f32 - center;
-            let dy = y as f32 - center;
-            let distance = (dx * dx + dy * dy).sqrt() / radius;
-            let softness = (1.0 - distance).clamp(0.0, 1.0);
-            let alpha = (softness * softness * 255.0) as u8;
-
-            let index = ((y * size + x) * 4) as usize;
-            data[index] = 255;
-            data[index + 1] = 255;
-            data[index + 2] = 255;
-            data[index + 3] = alpha;
-        }
-    }
-
-    Image::new(
-        bevy::render::render_resource::Extent3d {
-            width: size,
-            height: size,
-            depth_or_array_layers: 1,
-        },
-        bevy::render::render_resource::TextureDimension::D2,
-        data,
-        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
-    )
-}
+// create_round_particle_image moved to `src/game/systems/common/combat_helpers.rs`
 
 fn select_planet_by_keyboard(
     keys: Res<ButtonInput<KeyCode>>,

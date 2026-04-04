@@ -7,9 +7,9 @@ use crate::game::components::player::PlasmaAttack;
 use crate::game::components::SpawnedLevelEntity;
 use crate::DebugRenderSettings;
 
-use super::{DebugOverlayRoot, DebugStatsLabel, GameViewEntity};
+use crate::game::view_api::{DebugOverlayRoot, DebugStatsLabel, GameViewEntity};
 
-pub(super) fn toggle_hitbox_debug_lines(
+pub(crate) fn toggle_hitbox_debug_lines(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut debug_settings: ResMut<DebugRenderSettings>,
@@ -64,7 +64,7 @@ fn toggle_hitbox_lines(debug_settings: &mut DebugRenderSettings) {
 }
 
 /// Keeps stats labels positioned above their target entity and refreshes the text (e.g. current HP).
-pub(super) fn update_debug_stats_labels(
+pub(crate) fn update_debug_stats_labels(
     mut commands: Commands,
     debug_settings: Res<DebugRenderSettings>,
     mut labels: Query<(Entity, &DebugStatsLabel, &mut Transform, &mut Text2d)>,
@@ -124,7 +124,7 @@ fn build_stats_text(
     parts.join("\n")
 }
 
-pub(super) fn toggle_debug_overlay(
+pub(crate) fn toggle_debug_overlay(
     keys: Res<ButtonInput<KeyCode>>,
     mut debug_settings: ResMut<DebugRenderSettings>,
     mut overlay: Query<&mut Visibility, With<DebugOverlayRoot>>,
@@ -144,7 +144,7 @@ pub(super) fn toggle_debug_overlay(
     }
 }
 
-pub(super) fn draw_hitbox_debug_lines(
+pub(crate) fn draw_hitbox_debug_lines(
     debug_settings: Res<DebugRenderSettings>,
     mut gizmos: Gizmos,
     hitboxes: Query<(&GlobalTransform, &PolygonHitbox, Option<&Sprite>), With<SpawnedLevelEntity>>,
@@ -214,8 +214,3 @@ mod tests {
         assert!(text.contains("STATE walk"));
     }
 }
-
-
-
-
-

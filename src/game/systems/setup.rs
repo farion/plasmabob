@@ -11,12 +11,12 @@ use crate::game::level::{
 use crate::helper::audio_settings::AudioSettings;
 use crate::{LevelSelection, LevelStats};
 
-use super::{
+use crate::game::view_api::{
     ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LEVEL_BOUNDARY_THICKNESS, LevelQuotes,
     TerrainBackgroundConfig, TerrainBackgroundReady, QuoteCooldown,
 };
 
-pub(super) fn setup_game_view(
+pub(crate) fn setup_game_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     audio_settings: Res<AudioSettings>,
@@ -248,7 +248,7 @@ fn spawn_level_boundaries(commands: &mut Commands, level_bounds: ActiveLevelBoun
     }
 }
 
-pub(super) fn spawn_terrain_background_tiles(
+    pub(crate) fn spawn_terrain_background_tiles(
     mut commands: Commands,
     windows: Query<&Window, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
@@ -328,8 +328,8 @@ fn spawn_overlay(
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.35)),
             Visibility::Hidden,
-            super::DebugOverlayRoot,
-            GameViewEntity,
+            crate::game::view_api::DebugOverlayRoot,
+            crate::game::view_api::GameViewEntity,
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -456,6 +456,5 @@ mod tests {
         assert_eq!(doodad_z, 0.0);
     }
 }
-
 
 

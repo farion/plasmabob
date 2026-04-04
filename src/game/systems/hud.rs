@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::game::components::health::Health;
 use crate::game::components::player::{PlasmaAttack, Player};
 
-use super::GameViewEntity;
+use crate::game::view_api::GameViewEntity;
 
 const PLAYER_HEALTH_BAR_WIDTH: f32 = 260.0;
 const HUD_BAR_HEIGHT: f32 = 24.0;
@@ -13,24 +13,24 @@ const HUD_BAR_INNER_HEIGHT: f32 = HUD_BAR_HEIGHT - HUD_BAR_BORDER_WIDTH * 2.0;
 const HUD_TEXT_WIDTH: f32 = 56.0;
 
 #[derive(Component)]
-pub(super) struct PlayerHealthBarFill;
+pub(crate) struct PlayerHealthBarFill;
 
 #[derive(Component)]
-pub(super) struct PlayerHealthPercentText;
+pub(crate) struct PlayerHealthPercentText;
 
 #[derive(Component)] 
-pub(super) struct PlayerPlasmaCooldownBarFill;
+pub(crate) struct PlayerPlasmaCooldownBarFill;
 
 #[derive(Component)]
-pub(super) struct PlayerPlasmaCooldownPercentText;
+pub(crate) struct PlayerPlasmaCooldownPercentText;
 
 #[derive(Component)]
-pub(super) struct LevelTimeText;
+pub(crate) struct LevelTimeText;
 
 #[derive(Component)]
-pub(super) struct LevelKillsText;
+pub(crate) struct LevelKillsText;
 
-pub(super) fn spawn_player_health_hud(mut commands: Commands) {
+pub(crate) fn spawn_player_health_hud(mut commands: Commands) {
     commands
         .spawn((
             Node {
@@ -197,7 +197,7 @@ pub(super) fn spawn_player_health_hud(mut commands: Commands) {
         });
 }
 
-pub(super) fn spawn_level_hud(mut commands: Commands) {
+pub(crate) fn spawn_level_hud(mut commands: Commands) {
     // Top-center: level time
     commands.spawn((
         Node {
@@ -245,7 +245,7 @@ pub(super) fn spawn_level_hud(mut commands: Commands) {
     });
 }
 #[derive(Resource)]
-pub(super) struct LevelTimer(pub Timer);
+pub(crate) struct LevelTimer(pub Timer);
 
 impl Default for LevelTimer {
     fn default() -> Self {
@@ -253,7 +253,7 @@ impl Default for LevelTimer {
     }
 }
 
-pub(super) fn tick_level_time(
+pub(crate) fn tick_level_time(
     time: Res<Time>,
     mut stats: ResMut<crate::LevelStats>,
     _cached_level: Option<Res<crate::game::level::CachedLevelDefinition>>,
@@ -279,7 +279,7 @@ pub(super) fn tick_level_time(
     }
 }
 
-pub(super) fn update_level_hud(
+pub(crate) fn update_level_hud(
     stats: Res<crate::LevelStats>,
     cached_level: Option<Res<crate::game::level::CachedLevelDefinition>>,
     mut kills_query: Query<&mut Text, (With<LevelKillsText>, Without<LevelTimeText>, Without<PlayerHealthPercentText>, Without<PlayerPlasmaCooldownPercentText>)>,
@@ -305,7 +305,7 @@ pub(super) fn update_level_hud(
     }
 }
 
-pub(super) fn update_player_health_hud(
+pub(crate) fn update_player_health_hud(
     player_query: Query<(&Health, &PlasmaAttack), With<Player>>,
     // Beide Füllbalken tragen unterschiedliche Marker und dürfen nie dieselbe UI-Entity matchen.
     mut bar_fill_query: Query<

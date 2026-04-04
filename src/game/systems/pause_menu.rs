@@ -4,18 +4,18 @@ use bevy::ui::FocusPolicy;
 
 use crate::{AppState, CampaignProgress};
 
-use super::{GameViewEntity, PauseMenuAction, PauseMenuState, PAUSE_MENU_ITEMS};
+use crate::game::view_api::{GameViewEntity, PauseMenuAction, PauseMenuState, PAUSE_MENU_ITEMS};
 
 #[derive(Component)]
-pub(super) struct PauseMenuRoot;
+pub(crate) struct PauseMenuRoot;
 
 #[derive(Component)]
-pub(super) struct PauseMenuButton {
+pub(crate) struct PauseMenuButton {
     index: usize,
     action: PauseMenuAction,
 }
 
-pub(super) fn update_pause_menu(
+pub(crate) fn update_pause_menu(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     interactions: Query<(&Interaction, &PauseMenuButton), (Changed<Interaction>, With<Button>)>,

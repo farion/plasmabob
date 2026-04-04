@@ -1,136 +1,42 @@
 use bevy::prelude::*;
-use bevy::audio::AudioSource;
 
-#[path = "systems/camera.rs"]
-mod camera;
-#[path = "systems/cleanup.rs"]
-mod cleanup;
-#[path = "systems/combat.rs"]
-mod combat;
-#[path = "systems/hud.rs"]
-mod hud;
-#[path = "systems/debug.rs"]
-mod debug;
-#[path = "systems/animation.rs"]
-mod animation;
-#[path = "systems/npc.rs"]
-mod npc;
-#[path = "systems/player.rs"]
-mod player;
-#[path = "systems/parallax.rs"]
-mod parallax;
-#[path = "systems/setup.rs"]
-mod setup;
-#[path = "systems/pause_menu.rs"]
-mod pause_menu;
-#[path = "systems/health_floating.rs"]
-mod health_floating;
+use crate::game::systems::snap_camera_to_player;
+use crate::game::systems::follow_player_with_camera;
+use crate::game::systems::cleanup_game_view;
+use crate::game::systems::tick_invincibility_timers;
+use crate::game::systems::apply_hostile_contact_damage;
+use crate::game::systems::set_hostile_fight_state_on_player_contact;
+use crate::game::systems::shoot_plasma;
+use crate::game::systems::update_plasma_beams;
+use crate::game::systems::update_plasma_impact_particles;
+use crate::game::systems::maintain_player_fight_state;
+use crate::game::systems::disable_dead_npc_collisions;
+use crate::game::systems::play_hostile_death_quotes;
+use crate::game::systems::count_hostile_deaths;
+use crate::game::systems::despawn_dead_entities;
+use crate::game::systems::detect_player_defeated;
+use crate::game::systems::detect_player_collectibles;
+use crate::game::systems::detect_player_reached_exit;
+use crate::game::systems::hud;
+use crate::game::systems::debug;
+use crate::game::systems::npc;
+use crate::game::systems::player;
+use crate::game::systems::sync_death_state_from_health;
+use crate::game::systems::tick_hit_state_timers;
+use crate::game::systems::tick_fight_state_timers;
+use crate::game::systems::apply_state_animation;
+use crate::game::systems::sync_state_hitboxes;
+use crate::game::systems::parallax;
+use crate::game::systems::setup;
+use crate::game::systems::pause_menu;
+use crate::game::systems::health_floating;
+
+use crate::game::view_api::{PauseMenuState, QuoteCooldown};
 
 pub struct GameViewPlugin;
 
-const PLAYER_MOVE_SPEED: f32 = 320.0;
-const PLAYER_JUMP_SPEED: f32 = 900.0;
-const MOVING_NPC_MAX_DISTANCE_FROM_ORIGIN: f32 = 500.0;
-const LEVEL_BOUNDARY_THICKNESS: f32 = 64.0;
-const PLAYER_SCREEN_X_ANCHOR: f32 = 0.4;
-const PLAYER_INVINCIBILITY_SECONDS: f32 = 1.0;
-
 // ...existing code...
 
-#[derive(Component)]
-struct GameViewEntity;
-
-#[derive(Component)]
-struct DebugOverlayRoot;
-
-#[derive(Component)]
-struct TerrainBackgroundConfig {
-    image: Handle<Image>,
-}
-
-#[derive(Component)]
-struct TerrainBackgroundReady;
-
-#[derive(Component, Default)]
-struct Grounded;
-
-/// Attached to a `Text2d` entity that displays stats above a level entity in debug mode.
-#[derive(Component)]
-struct DebugStatsLabel {
-    target: Entity,
-}
-
-#[derive(Resource, Debug, Clone, Copy)]
-struct ActiveLevelBounds {
-    left: f32,
-    right: f32,
-    bottom: f32,
-    top: f32,
-}
-
-#[derive(Resource, Default, Clone)]
-struct LevelQuotes {
-    clips: Vec<Handle<AudioSource>>,
-}
-
-#[derive(Resource, Clone)]
-struct CombatSoundEffects {
-    plasma_shot: Handle<AudioSource>,
-    plasma_hit: Handle<AudioSource>,
-    cockroach_die: Handle<AudioSource>,
-}
-
-#[derive(Resource)]
-struct QuoteCooldown(Timer);
-
-const PAUSE_MENU_ITEMS: [(&str, PauseMenuAction); 4] = [
-    ("pause.restart", PauseMenuAction::Restart),
-    ("pause.back_to_worldmap", PauseMenuAction::BackToWorldMap),
-    ("pause.back_to_mainmenu", PauseMenuAction::BackToMainMenu),
-    ("pause.cancel", PauseMenuAction::Cancel),
-];
-
-#[derive(Clone, Copy)]
-enum PauseMenuAction {
-    Restart,
-    BackToWorldMap,
-    BackToMainMenu,
-    Cancel,
-}
-
-#[derive(Resource, Default)]
-struct PauseMenuState {
-    is_open: bool,
-    selection: usize,
-    suppress_enter_until_release: bool,
-}
-
-impl Default for QuoteCooldown {
-    fn default() -> Self {
-        let mut timer = Timer::from_seconds(8.0, TimerMode::Once);
-        // Start already finished so the first quote can play immediately.
-        timer.tick(std::time::Duration::from_secs(8));
-        Self(timer)
-    }
-}
-
-impl ActiveLevelBounds {
-    fn from_window_and_level_size(window_size: Vec2, level_size: Vec2) -> Self {
-        let left = -(window_size.x * 0.5);
-        let bottom = -(window_size.y * 0.5);
-
-        Self {
-            left,
-            right: left + level_size.x,
-            bottom,
-            top: bottom + level_size.y,
-        }
-    }
-
-    fn center_x(self) -> f32 {
-        (self.left + self.right) * 0.5
-    }
-}
 
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
@@ -138,7 +44,7 @@ impl Plugin for GameViewPlugin {
             OnEnter(crate::AppState::GameView),
             (
                 setup::setup_game_view,
-                camera::snap_camera_to_player,
+                snap_camera_to_player::snap_camera_to_player,
                 player::configure_player_controller,
                 hud::spawn_player_health_hud,
                 hud::spawn_level_hud,
@@ -163,31 +69,31 @@ impl Plugin for GameViewPlugin {
                 player::update_dust_particles,
                 (player::control_player, player::sync_player_hitbox_orientation)
                     .chain()
-                    .before(combat::shoot_plasma),
+                    .before(shoot_plasma::shoot_plasma),
                 npc::control_moving_entities,
-                combat::tick_invincibility_timers,
-                combat::apply_hostile_contact_damage,
-                combat::set_hostile_fight_state_on_player_contact,
+                tick_invincibility_timers::tick_invincibility_timers,
+                apply_hostile_contact_damage::apply_hostile_contact_damage,
+                set_hostile_fight_state_on_player_contact::set_hostile_fight_state_on_player_contact,
                 (
-                    combat::shoot_plasma,
-                    combat::update_plasma_beams,
-                    combat::update_plasma_impact_particles,
-                    combat::maintain_player_fight_state,
+                    shoot_plasma::shoot_plasma,
+                    update_plasma_beams::update_plasma_beams,
+                    update_plasma_impact_particles::update_plasma_impact_particles,
+                    maintain_player_fight_state::maintain_player_fight_state,
                 )
                     .chain()
-                    .before(animation::tick_hit_state_timers)
-                    .before(animation::apply_state_animation),
+                    .before(tick_hit_state_timers::tick_hit_state_timers)
+                    .before(apply_state_animation::apply_state_animation),
                 (
-                    animation::sync_death_state_from_health,
-                    combat::disable_dead_npc_collisions,
-                    combat::play_hostile_death_quotes,
+                    sync_death_state_from_health::sync_death_state_from_health,
+                    disable_dead_npc_collisions::disable_dead_npc_collisions,
+                    play_hostile_death_quotes::play_hostile_death_quotes,
                     // Count deaths for level stats before we despawn the entities.
-                    combat::count_hostile_deaths,
-                    animation::tick_hit_state_timers,
-                    animation::tick_fight_state_timers,
-                    animation::sync_state_hitboxes,
-                    animation::apply_state_animation,
-                    combat::despawn_dead_entities,
+                    count_hostile_deaths::count_hostile_deaths,
+                    tick_hit_state_timers::tick_hit_state_timers,
+                    tick_fight_state_timers::tick_fight_state_timers,
+                    sync_state_hitboxes::sync_state_hitboxes,
+                    apply_state_animation::apply_state_animation,
+                    despawn_dead_entities::despawn_dead_entities,
                 ),
                 debug::toggle_hitbox_debug_lines,
                 debug::update_debug_stats_labels,
@@ -197,9 +103,9 @@ impl Plugin for GameViewPlugin {
                 hud::update_level_hud,
                 hud::update_player_health_hud,
                 (
-                    combat::detect_player_defeated,
-                    combat::detect_player_collectibles,
-                    combat::detect_player_reached_exit,
+                    detect_player_defeated::detect_player_defeated,
+                    detect_player_collectibles::detect_player_collectibles,
+                    detect_player_reached_exit::detect_player_reached_exit,
                 ),
             )
                 .run_if(gameplay_active)
@@ -208,7 +114,7 @@ impl Plugin for GameViewPlugin {
         .add_systems(
             PostUpdate,
             (
-                camera::follow_player_with_camera,
+                follow_player_with_camera::follow_player_with_camera,
                 parallax::apply_parallax_from_camera,
             )
                 .chain()
@@ -223,7 +129,7 @@ impl Plugin for GameViewPlugin {
             )
                 .run_if(in_state(crate::AppState::GameView)),
         )
-        .add_systems(OnExit(crate::AppState::GameView), cleanup::cleanup_game_view);
+        .add_systems(OnExit(crate::AppState::GameView), cleanup_game_view::cleanup_game_view);
     }
 }
 

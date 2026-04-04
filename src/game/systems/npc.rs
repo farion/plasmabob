@@ -7,9 +7,9 @@ use crate::game::components::health::Health;
 use crate::game::components::moving::Moving;
 use crate::game::components::npc::Npc;
 
-use super::MOVING_NPC_MAX_DISTANCE_FROM_ORIGIN;
+use crate::game::view_api::MOVING_NPC_MAX_DISTANCE_FROM_ORIGIN;
 
-pub(super) fn control_moving_entities(
+pub(crate) fn control_moving_entities(
 	time: Res<Time>,
 	spatial_query: SpatialQuery,
 	mut entities: Query<
