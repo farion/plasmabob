@@ -3,8 +3,6 @@ use bevy::math::Dir2;
 use bevy::prelude::*;
 
 use crate::game::components::moving::Moving;
-use crate::game::components::hitbox::PolygonHitbox;
-use crate::game::components::SpawnedLevelEntity;
 
 /// Checks 60px ahead for a platform edge. If no ground is found,
 /// reverses direction immediately and resets the direction timer.
