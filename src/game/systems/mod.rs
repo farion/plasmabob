@@ -35,7 +35,7 @@ pub mod apply_state_animation;
 pub mod sync_state_hitboxes;
 pub mod snap_camera_to_player;
 pub mod follow_player_with_camera;
-pub mod npc;
+pub mod control_moving_entities;
 pub mod player;
 pub mod parallax;
 pub mod setup;
