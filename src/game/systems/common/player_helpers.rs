@@ -33,7 +33,7 @@ pub(crate) fn spawn_dust_burst(
                 ..default()
             },
             Transform::from_xyz(origin.x, origin.y, 9.0),
-            crate::game::systems::player::DustParticle {
+            crate::game::systems::player_types::DustParticle {
                 velocity: Vec2::new(horizontal, upward),
                 lifetime: Timer::from_seconds(0.28, TimerMode::Once),
                 start_size: size,

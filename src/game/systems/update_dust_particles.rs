@@ -3,7 +3,7 @@ use bevy::prelude::*;
 pub(crate) fn update_dust_particles(
     mut commands: Commands,
     time: Res<Time>,
-    mut particles: Query<(Entity, &mut crate::game::systems::player::DustParticle, &mut Transform, &mut Sprite)>,
+    mut particles: Query<(Entity, &mut crate::game::systems::player_types::DustParticle, &mut Transform, &mut Sprite)>,
 ) {
     for (entity, mut particle, mut transform, mut sprite) in &mut particles {
         transform.translation.x += particle.velocity.x * time.delta_secs();

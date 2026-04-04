@@ -17,17 +17,23 @@ use crate::game::systems::despawn_dead_entities;
 use crate::game::systems::detect_player_defeated;
 use crate::game::systems::detect_player_collectibles;
 use crate::game::systems::detect_player_reached_exit;
-use crate::game::systems::hud;
-use crate::game::systems::debug;
-use crate::game::systems::npc;
-use crate::game::systems::player;
 use crate::game::systems::sync_death_state_from_health;
 use crate::game::systems::tick_hit_state_timers;
 use crate::game::systems::tick_fight_state_timers;
 use crate::game::systems::apply_state_animation;
 use crate::game::systems::sync_state_hitboxes;
-use crate::game::systems::parallax;
-use crate::game::systems::setup;
+use crate::game::systems::attach_parallax_anchors;
+use crate::game::systems::apply_parallax_from_camera;
+use crate::game::systems::setup_game_view;
+use crate::game::systems::spawn_terrain_background_tiles;
+use crate::game::systems::configure_player_controller;
+use crate::game::systems::spawn_player_health_hud;
+use crate::game::systems::spawn_level_hud;
+use crate::game::systems::update_grounded;
+use crate::game::systems::update_dust_particles;
+use crate::game::systems::control_player;
+use crate::game::systems::sync_player_hitbox_orientation;
+use crate::game::systems::control_moving_entities;
 use crate::game::systems::pause_menu;
 use crate::game::systems::health_floating;
 
@@ -43,11 +49,11 @@ impl Plugin for GameViewPlugin {
         app.add_systems(
             OnEnter(crate::AppState::GameView),
             (
-                setup::setup_game_view,
+                setup_game_view::setup_game_view,
                 snap_camera_to_player::snap_camera_to_player,
-                player::configure_player_controller,
-                hud::spawn_player_health_hud,
-                hud::spawn_level_hud,
+                configure_player_controller::configure_player_controller,
+                spawn_player_health_hud::spawn_player_health_hud,
+                spawn_level_hud::spawn_level_hud,
             )
                 .chain(),
         )
@@ -63,14 +69,14 @@ impl Plugin for GameViewPlugin {
         .add_systems(
             Update,
             (
-                setup::spawn_terrain_background_tiles,
-                parallax::attach_parallax_anchors,
-                player::update_grounded,
-                player::update_dust_particles,
-                (player::control_player, player::sync_player_hitbox_orientation)
+                spawn_terrain_background_tiles::spawn_terrain_background_tiles,
+                attach_parallax_anchors::attach_parallax_anchors,
+                update_grounded::update_grounded,
+                update_dust_particles::update_dust_particles,
+                (control_player::control_player, sync_player_hitbox_orientation::sync_player_hitbox_orientation)
                     .chain()
                     .before(shoot_plasma::shoot_plasma),
-                npc::control_moving_entities,
+                control_moving_entities::control_moving_entities,
                 tick_invincibility_timers::tick_invincibility_timers,
                 apply_hostile_contact_damage::apply_hostile_contact_damage,
                 set_hostile_fight_state_on_player_contact::set_hostile_fight_state_on_player_contact,
@@ -95,13 +101,13 @@ impl Plugin for GameViewPlugin {
                     apply_state_animation::apply_state_animation,
                     despawn_dead_entities::despawn_dead_entities,
                 ),
-                debug::toggle_hitbox_debug_lines,
-                debug::update_debug_stats_labels,
-                debug::toggle_debug_overlay,
-                debug::draw_hitbox_debug_lines,
-                hud::tick_level_time,
-                hud::update_level_hud,
-                hud::update_player_health_hud,
+                toggle_hitbox_debug_lines::toggle_hitbox_debug_lines,
+                update_debug_stats_labels::update_debug_stats_labels,
+                toggle_debug_overlay::toggle_debug_overlay,
+                draw_hitbox_debug_lines::draw_hitbox_debug_lines,
+                tick_level_time::tick_level_time,
+                update_level_hud::update_level_hud,
+                update_player_health_hud::update_player_health_hud,
                 (
                     detect_player_defeated::detect_player_defeated,
                     detect_player_collectibles::detect_player_collectibles,
@@ -115,7 +121,7 @@ impl Plugin for GameViewPlugin {
             PostUpdate,
             (
                 follow_player_with_camera::follow_player_with_camera,
-                parallax::apply_parallax_from_camera,
+                apply_parallax_from_camera::apply_parallax_from_camera,
             )
                 .chain()
                 .run_if(in_state(crate::AppState::GameView)),

@@ -36,7 +36,6 @@ pub mod sync_state_hitboxes;
 pub mod snap_camera_to_player;
 pub mod follow_player_with_camera;
 pub mod control_moving_entities;
-pub mod player;
 pub mod parallax_types;
 pub mod attach_parallax_anchors;
 pub mod apply_parallax_from_camera;
@@ -50,7 +49,6 @@ pub mod update_grounded;
 pub mod control_player;
 pub mod update_dust_particles;
 pub mod sync_player_hitbox_orientation;
-pub mod setup;
 pub mod pause_menu;
 pub mod health_floating;
 
