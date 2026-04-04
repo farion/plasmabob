@@ -4,15 +4,15 @@ use bevy::ui::FocusPolicy;
 use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
 use avian2d::{math::Vector, prelude::{Gravity, PhysicsPlugins}};
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
-use crate::audio_settings::AudioSettings;
+use crate::helper::audio_settings::AudioSettings;
 use crate::game::world::WorldCatalog;
+use crate::helper::key_bindings as key_bindings;
+use crate::helper::i18n as i18n;
+use crate::helper::fonts as fonts;
 
-mod audio_settings;
-mod fonts;
+mod helper;
 mod game;
-mod key_bindings;
 mod views;
-mod i18n;
 
 const SHOW_HITBOX_DEBUG_LINES: bool = false;
 
@@ -224,7 +224,7 @@ fn main() {
         .init_resource::<LevelStats>()
         .init_resource::<PendingStoryScreen>()
         .init_resource::<i18n::Translations>()
-        .init_resource::<i18n::CurrentLanguage>()
+        .insert_resource(i18n::CurrentLanguage::load_from_disk())
         .insert_resource(level_selection)
         .insert_resource(WorldCatalog::default())
         .insert_resource(cached_level_definition)
@@ -299,31 +299,46 @@ fn setup_main_menu(
     mut selection: ResMut<MenuSelection>,
     mut modal_state: ResMut<ExitConfirmModalState>,
     mut world_catalog: ResMut<WorldCatalog>,
+    menu_music_entities: Query<Entity, With<MenuMusicEntity>>,
 ) {
     selection.index = 0;
     modal_state.is_open = false;
     modal_state.selection = 1;
     modal_state.suppress_enter_until_release = false;
 
-    // Refresh world catalog early so the main menu can make decisions
-    // (e.g. skip the StartView when only one world is present).
+    // Refresh world catalog early so the main menu can make decisions.
     world_catalog.refresh(&asset_server);
 
-    commands.spawn((
-        AudioPlayer::new(asset_server.load("music/start.ogg")),
-        PlaybackSettings {
-            mode: bevy::audio::PlaybackMode::Loop,
-            volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
-            ..default()
-        },
-        MenuMusicEntity,
-    ));
+    if menu_music_entities.iter().next().is_none() {
+        commands.spawn((
+            AudioPlayer::new(asset_server.load("music/start.ogg")),
+            PlaybackSettings {
+                mode: bevy::audio::PlaybackMode::Loop,
+                volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
+                ..default()
+            },
+            MenuMusicEntity,
+        ));
+    }
 
     commands.spawn((
         Sprite::from_image(asset_server.load("start.png")),
         Transform::from_xyz(0.0, 0.0, -1.0),
         MainMenuEntity,
         StartScreenBackground,
+    ));
+
+    commands.spawn((
+        Node {
+            width: Val::Px(400.0),
+            height: Val::Auto,
+            position_type: PositionType::Absolute,
+            top: Val::Px(80.0),
+            left: Val::Px(50.0),
+            ..default()
+        },
+        ImageNode::new(asset_server.load("logo.png")),
+        MainMenuEntity,
     ));
 
     commands
@@ -372,6 +387,30 @@ fn setup_main_menu(
                     });
             }
         });
+
+    // Small footer text at the bottom-right of the main view. Keep this
+    // separate from the background so existing background resize logic
+    // remains untouched.
+    commands.spawn((
+        Node {
+            width: Val::Auto,
+            height: Val::Auto,
+            position_type: PositionType::Absolute,
+            right: Val::Percent(5.0),
+            bottom: Val::Percent(5.0),
+            ..default()
+        },
+        // Use a simple Text node for the footer string.
+        // The project uses a custom `TextFont` component elsewhere; reuse it
+        // so the font is consistent with the UI.
+        Text::new("Beinhaltet Sarkasmus und Klischees"),
+        TextFont {
+            font_size: 18.0,
+            ..default()
+        },
+        TextColor(Color::srgb(0.72, 0.72, 0.72)),
+        MainMenuEntity,
+    ));
 }
 
 fn cleanup_main_menu(mut commands: Commands, entities: Query<Entity, (With<MainMenuEntity>, Without<ChildOf>)>) {
@@ -815,7 +854,6 @@ fn fit_background_to_window(
         }
 
         // Use "cover" scaling so the background always fills the viewport.
-        // This may crop the image on one axis but guarantees no black bars.
         let scale = (window_size.x / image_size.x).max(window_size.y / image_size.y);
         transform.scale = Vec3::splat(scale);
 
@@ -824,4 +862,5 @@ fn fit_background_to_window(
         transform.translation.y = 0.0;
     }
 }
+
 

@@ -440,15 +440,15 @@ fn update_planet_label(
 
     let Some(planet) = world.planets.get(selection.index) else {
         label.0 = translations
-            .tr(&current.0, "worldmap.no_selection_hint")
+            .tr(&current.effective(&translations), "worldmap.no_selection_hint")
             .map(|s| s.to_string())
             .unwrap_or_else(|| "Arrow/click: choose planet | Enter: start | Esc: worlds".to_string());
         return;
     };
 
-    let level_info = if planet.levels.is_empty() {
+        let level_info = if planet.levels.is_empty() {
         translations
-            .tr(&current.0, "worldmap.no_level")
+            .tr(&current.effective(&translations), "worldmap.no_level")
             .map(|s| s.to_string())
             .unwrap_or_else(|| "(no levels)".to_string())
     } else {
@@ -456,7 +456,7 @@ fn update_planet_label(
         format!("{} Level (Start: {})", planet.levels.len(), first_level.name)
     };
 
-    if let Some(fmt) = translations.tr(&current.0, "worldmap.label_format") {
+    if let Some(fmt) = translations.tr(&current.effective(&translations), "worldmap.label_format") {
         label.0 = fmt.replace("{world}", &world.name).replace("{planet}", &planet.name).replace("{level_info}", &level_info);
     } else {
         label.0 = format!(

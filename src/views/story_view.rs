@@ -3,7 +3,7 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use futures_lite::AsyncReadExt;
-use pulldown_cmark::{Event, Options, Parser, Tag};
+use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 
 use crate::key_bindings::KeyBindings;
 use crate::{AppState, PendingStoryScreen};
@@ -352,7 +352,7 @@ fn read_asset_text_from_server(
         .get_source(AssetSourceId::Default)
         .map_err(|error| {
             translations
-                .tr(&current.0, "story.asset_read_error")
+                .tr(&current.effective(&translations), "story.asset_read_error")
                 .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
                 .unwrap_or_else(|| format!("Asset source error: {error}", error = error))
         })?;
@@ -363,9 +363,9 @@ fn read_asset_text_from_server(
             .reader()
             .read(asset_path.as_ref())
             .await
-            .map_err(|error| {
+                .map_err(|error| {
                 translations
-                    .tr(&current.0, "story.asset_read_error")
+                    .tr(&current.effective(&translations), "story.asset_read_error")
                     .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
                     .unwrap_or_else(|| format!("Asset '{asset}' could not be read: {error}", asset = asset_path, error = error))
             })?;
@@ -375,7 +375,7 @@ fn read_asset_text_from_server(
             .await
             .map_err(|error| {
                 translations
-                    .tr(&current.0, "story.asset_read_error")
+                    .tr(&current.effective(&translations), "story.asset_read_error")
                     .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
                     .unwrap_or_else(|| format!("Asset bytes for '{asset}' could not be read: {error}", asset = asset_path, error = error))
             })?;
@@ -385,7 +385,7 @@ fn read_asset_text_from_server(
 
     let text = String::from_utf8(bytes).map_err(|error| {
         translations
-            .tr(&current.0, "story.asset_utf8_error")
+            .tr(&current.effective(&translations), "story.asset_utf8_error")
             .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
             .unwrap_or_else(|| format!("Asset '{asset}' is not valid UTF-8: {error}", asset = asset_path, error = error))
     })?;
@@ -418,7 +418,7 @@ fn render_markdown_blocks(md: &str) -> Vec<MarkdownBlock> {
     for event in parser {
         match event {
             Event::Start(tag) => match tag {
-                Tag::Heading(level, _, _) => {
+                Tag::Heading { level, .. } => {
                     flush_current(&mut blocks, &mut current_kind, &mut current_text);
                     let heading_level = match level {
                         pulldown_cmark::HeadingLevel::H1 => 1,
@@ -448,19 +448,19 @@ fn render_markdown_blocks(md: &str) -> Vec<MarkdownBlock> {
                 _ => {}
             },
             Event::End(tag) => match tag {
-                Tag::Heading(_, _, _) => {
+                TagEnd::Heading { .. } => {
                     flush_current(&mut blocks, &mut current_kind, &mut current_text);
                 }
-                Tag::List(_) => {
+                TagEnd::List(_) => {
                     list_stack.pop();
                 }
-                Tag::Item => {
+                TagEnd::Item => {
                     flush_current(&mut blocks, &mut current_kind, &mut current_text);
                     if let Some(Some(index)) = list_stack.last_mut() {
                         *index += 1;
                     }
                 }
-                Tag::Paragraph => {
+                TagEnd::Paragraph => {
                     flush_current(&mut blocks, &mut current_kind, &mut current_text);
                 }
                 _ => {}

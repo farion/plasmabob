@@ -35,4 +35,10 @@ impl InvincibilityTimer {
     }
 }
 
+/// Helper used by `spawn_entity` to insert a `Health` component with the
+/// provided hp value.
+pub(crate) fn insert(entity: &mut EntityCommands, hp: i32) {
+    entity.insert(Health::new(hp));
+}
+
 

@@ -223,7 +223,6 @@ const UNDO_LIMIT: usize = 100;
 pub(crate) struct ComponentAttributeDefinition {
     #[serde(rename = "type")]
     pub(crate) attr_type: String,
-    pub(crate) default: serde_json::Value,
     #[serde(default)]
     pub(crate) options: Vec<String>,
 }
@@ -596,7 +595,7 @@ fn editing_ui(
                                         .and_then(|v| v.as_object())
                                         .and_then(|obj| obj.get(attr_name.as_str()))
                                         .cloned()
-                                        .unwrap_or_else(|| attr_def.default.clone());
+                                        .unwrap();
 
                                     let is_overridden = current_overrides.contains_key(&key);
                                     let mut enable_override = is_overridden;
@@ -605,7 +604,7 @@ fn editing_ui(
                                         "number" => {
                                             let default_num = entity_type_default
                                                 .as_f64()
-                                                .unwrap_or_else(|| attr_def.default.as_f64().unwrap_or(0.0))
+                                                .unwrap_or(0.0)
                                                 as f32;
 
                                             ui.horizontal(|ui| {
@@ -652,7 +651,7 @@ fn editing_ui(
                                         "enum" => {
                                             let default_str = entity_type_default
                                                 .as_str()
-                                                .unwrap_or_else(|| attr_def.default.as_str().unwrap_or(""))
+                                                .unwrap_or("")
                                                 .to_string();
 
                                             ui.horizontal(|ui| {

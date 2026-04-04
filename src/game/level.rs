@@ -134,15 +134,13 @@ pub(crate) struct EntityTypeStateDefinition {
 pub(crate) struct EntityTypeDefinition {
     #[serde(rename = "component")]
     pub(crate) components: Vec<String>,
-    #[allow(dead_code)]
-    #[serde(default)]
-    pub(crate) disposition: Option<String>,
+
     #[serde(default)]
     pub(crate) states: HashMap<String, EntityTypeStateDefinition>,
     pub(crate) width: f32,
     pub(crate) height: f32,
     #[serde(default)]
-    pub(crate) health: Option<i32>,
+    pub(crate) health: Option<HealthDefinition>,
     #[serde(default)]
     pub(crate) damage: Option<i32>,
     #[serde(default)]
@@ -156,6 +154,14 @@ pub(crate) struct EntityTypeDefinition {
 pub(crate) struct EffectHealDefinition {
     #[serde(default)]
     pub(crate) heal: Option<i32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct HealthDefinition {
+    /// The hp value for this entity type when present. Kept optional to allow
+    /// per-entity overrides via the `<component>.<attribute>` override map.
+    #[serde(default)]
+    pub(crate) health: Option<i32>,
 }
 
 impl EntityTypeDefinition {
@@ -654,7 +660,9 @@ mod tests {
                 assert_eq!(parsed.music_asset_path(), "music/level1.ogg");
                 assert!(parsed.quote_asset_paths().is_empty());
                 assert_eq!(parsed.entity_types["dirt"].components, vec!["floor"]);
-                assert_eq!(parsed.entity_types["cockroach"].disposition.as_deref(), Some("hostile"));
+                // `disposition` field is removed; ensure the cockroach type still parsed and
+                // that it includes the "hostile" component in its components list.
+                assert!(parsed.entity_types["cockroach"].components.iter().any(|c| c == "hostile"));
                 assert_eq!(parsed.entity_types["bob"].width, 100.0);
                 assert_eq!(parsed.entity_types["bob"].animation_frame_seconds_for_state("default"), 0.25);
                 assert_eq!(parsed.entities[1].z_index, Some(20.0));

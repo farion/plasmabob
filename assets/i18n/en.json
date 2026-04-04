@@ -18,10 +18,15 @@
   "settings.hint": "Up/Down: select | Left/Right: volume | Enter/Click: change key | Esc: back",
   "settings.section.volume": "Volume",
   "settings.section.keybindings": "Key bindings",
+  "settings.section.language": "Language",
   "settings.volume.music": "Music",
   "settings.volume.effects": "Effects",
   "settings.volume.quotes": "Quotes",
   "settings.error.key_already_bound": "This key is already bound!",
+
+  "settings.language.label": "Language",
+  "settings.language.auto": "Auto",
+  "settings.language.name": "English",
 
   "action.move_left": "Move left",
   "action.move_right": "Move right",

@@ -69,7 +69,7 @@ impl Plugin for FontsPlugin {
         load_internal_binary_asset!(
             app,
             TextFont::default().font,
-            "../assets/fonts/spacemono/SpaceMono-Regular.ttf",
+            "../../assets/fonts/spacemono/SpaceMono-Regular.ttf",
             |bytes: &[u8], _path: String| {
                 Font::try_from_bytes(bytes.to_vec()).unwrap()
             }
@@ -78,7 +78,7 @@ impl Plugin for FontsPlugin {
         load_internal_binary_asset!(
             app,
             FONT_BOLD_HANDLE,
-            "../assets/fonts/spacemono/SpaceMono-Bold.ttf",
+            "../../assets/fonts/spacemono/SpaceMono-Bold.ttf",
             |bytes: &[u8], _path: String| {
                 Font::try_from_bytes(bytes.to_vec()).unwrap()
             }
@@ -87,7 +87,7 @@ impl Plugin for FontsPlugin {
         load_internal_binary_asset!(
             app,
             FONT_ITALIC_HANDLE,
-            "../assets/fonts/spacemono/SpaceMono-Italic.ttf",
+            "../../assets/fonts/spacemono/SpaceMono-Italic.ttf",
             |bytes: &[u8], _path: String| {
                 Font::try_from_bytes(bytes.to_vec()).unwrap()
             }
@@ -96,7 +96,7 @@ impl Plugin for FontsPlugin {
         load_internal_binary_asset!(
             app,
             FONT_BOLD_ITALIC_HANDLE,
-            "../assets/fonts/spacemono/SpaceMono-BoldItalic.ttf",
+            "../../assets/fonts/spacemono/SpaceMono-BoldItalic.ttf",
             |bytes: &[u8], _path: String| {
                 Font::try_from_bytes(bytes.to_vec()).unwrap()
             }
@@ -130,5 +130,6 @@ fn apply_font_variants(
         };
     }
 }
+
 
 

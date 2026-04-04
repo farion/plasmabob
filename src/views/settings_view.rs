@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::audio_settings::AudioSettings;
+use crate::helper::audio_settings::AudioSettings;
 use crate::key_bindings::{KeyAction, KeyBindings};
 use crate::AppState;
 use crate::i18n::LocalizedText;
@@ -20,9 +20,10 @@ enum VolumeSetting {
 enum SettingsItem {
     Volume(VolumeSetting),
     Key(KeyAction),
+    Language,
 }
 
-const ALL_ITEMS: [SettingsItem; 8] = [
+const ALL_ITEMS: [SettingsItem; 9] = [
     SettingsItem::Volume(VolumeSetting::Music),
     SettingsItem::Volume(VolumeSetting::Effects),
     SettingsItem::Volume(VolumeSetting::Quotes),
@@ -31,6 +32,7 @@ const ALL_ITEMS: [SettingsItem; 8] = [
     SettingsItem::Key(KeyAction::Jump),
     SettingsItem::Key(KeyAction::Shoot),
     SettingsItem::Key(KeyAction::Fullscreen),
+    SettingsItem::Language,
 ];
 
 #[derive(Component)]
@@ -55,6 +57,37 @@ struct KeyBindingValueText { action: KeyAction }
 struct KeyBindingButton { action: KeyAction }
 
 #[derive(Component)]
+struct LanguageButton {
+    /// None == Auto, Some(code) == explicit language code like "en"
+    code: Option<String>,
+    index: usize,
+}
+
+#[derive(Component)]
+struct LanguageToggleButton;
+
+#[derive(Component)]
+struct LanguageDropdownRoot;
+
+#[derive(Component)]
+struct LanguageToggleText;
+
+#[derive(Component)]
+struct LanguageRow;
+
+#[derive(Resource, Default)]
+struct LanguageDropdownState {
+    is_open: bool,
+    index: usize, // 0 == Auto, 1.. == languages
+}
+
+#[derive(Resource)]
+struct LanguageOptions {
+    /// ordered options: None == Auto, Some(code) == explicit language code
+    options: Vec<Option<String>>,
+}
+
+#[derive(Component)]
 struct ErrorMessage {
     timer: Timer,
 }
@@ -74,23 +107,17 @@ struct BindingCapture(Option<KeyAction>);
 
 impl Plugin for SettingsViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::SettingsView), setup_settings_view)
-            .add_systems(
-                Update,
-                (
-                    keyboard_controls,
-                    mouse_controls,
-                    refresh_settings_ui,
-                    update_error_messages,
-                    save_settings_on_change,
-                    return_to_main_menu,
-                )
-                    .run_if(in_state(AppState::SettingsView)),
-            )
-            .add_systems(
-                OnExit(AppState::SettingsView),
-                (save_settings_on_exit, cleanup_settings_view),
-            );
+        app.add_systems(OnEnter(AppState::SettingsView), setup_settings_view);
+        app.add_systems(Update, keyboard_controls.run_if(in_state(AppState::SettingsView)));
+        app.add_systems(Update, language_keyboard_controls.run_if(in_state(AppState::SettingsView)));
+        app.add_systems(Update, mouse_controls.run_if(in_state(AppState::SettingsView)));
+        app.add_systems(Update, language_pointer_input.run_if(in_state(AppState::SettingsView)));
+        app.add_systems(Update, refresh_settings_ui.run_if(in_state(AppState::SettingsView)));
+        app.add_systems(Update, language_row_highlight.run_if(in_state(AppState::SettingsView)));
+        app.add_systems(Update, update_error_messages.run_if(in_state(AppState::SettingsView)));
+        app.add_systems(Update, save_settings_on_change.run_if(in_state(AppState::SettingsView)));
+        app.add_systems(Update, return_to_main_menu.run_if(in_state(AppState::SettingsView)));
+        app.add_systems(OnExit(AppState::SettingsView), (save_settings_on_exit, cleanup_settings_view));
     }
 }
 
@@ -99,7 +126,17 @@ fn setup_settings_view(
     audio_settings: Res<AudioSettings>,
     key_bindings: Res<KeyBindings>,
     asset_server: Res<AssetServer>,
+    translations: Res<crate::i18n::Translations>,
+    current: Res<crate::i18n::CurrentLanguage>,
 ) {
+    // prepare language options resource before building UI to avoid borrowing `commands` inside UI spawn closure
+    let mut codes = crate::i18n::available_language_codes(&translations);
+    codes.sort();
+    let mut opts: Vec<Option<String>> = Vec::with_capacity(codes.len() + 1);
+    opts.push(None); // Auto
+    for c in codes.iter() { opts.push(Some(c.clone())); }
+    commands.init_resource::<LanguageDropdownState>();
+    commands.insert_resource(LanguageOptions { options: opts.clone() });
     // Background same as main menu
     commands.spawn((
         Sprite::from_image(asset_server.load("start.png")),
@@ -169,13 +206,9 @@ fn setup_settings_view(
                 spawn_key_binding_row(parent, action, key_bindings.get(action));
             }
 
-            parent.spawn((
-                Text::new(""),
-                TextFont { font_size: 18.0, ..default() },
-                TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                LocalizedText { key: "settings.hint".to_string() },
-                SettingsViewEntity,
-            ));
+            spawn_section_header(parent, "settings.section.language");
+            // Spawn the pulldown in the same order as other settings rows so it is reachable by keyboard navigation
+            spawn_language_row(parent, &translations, &current, &opts);
         });
 }
 
@@ -271,6 +304,95 @@ fn spawn_key_binding_row(parent: &mut ChildSpawnerCommands, action: KeyAction, c
         });
 }
 
+fn spawn_language_row(parent: &mut ChildSpawnerCommands, translations: &crate::i18n::Translations, current: &crate::i18n::CurrentLanguage, options: &Vec<Option<String>>) {
+    // Build list: first option is Auto, then all detected language codes
+    parent
+        .spawn((
+            Node {
+                width: Val::Px(540.0),
+                height: Val::Px(50.0),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
+            LanguageRow,
+            SettingsViewEntity,
+        ))
+        .with_children(|row| {
+            row.spawn((Text::new(""), TextFont { font_size: 28.0, ..default() }, TextColor(Color::WHITE), LocalizedText { key: "settings.language.label".to_string() }, SettingsViewEntity));
+
+            // Options container (toggle + dropdown panel)
+            row.spawn((
+                Node { width: Val::Auto, height: Val::Percent(100.0), flex_direction: FlexDirection::Column, ..default() },
+                SettingsViewEntity,
+            ))
+            .with_children(|opts| {
+                // Main toggle button showing current selection
+                let display_text = if let Some(code) = &current.0 {
+                    // Try to show the language's own name (e.g. "Deutsch" for de)
+                    translations
+                        .tr(code, "settings.language.name")
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| code.to_uppercase())
+                } else {
+                    translations
+                        .tr(&current.effective(&translations), "settings.language.auto")
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| "Auto".to_string())
+                };
+
+                // Use the same button sizing/layout as key binding buttons so heights match
+                // Use the exact same button node shape as key binding buttons so heights match
+                opts.spawn((
+                    Button,
+                    Node {
+                        min_width: Val::Px(150.0),
+                        height: Val::Px(36.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.9)),
+                    LanguageToggleButton,
+                    SettingsViewEntity,
+                )).with_children(|b| {
+                    // match key binding value text size for consistent visual height
+                    b.spawn((Text::new(display_text), TextFont { font_size: 28.0, ..default() }, TextColor(Color::WHITE), LanguageToggleText, SettingsViewEntity));
+                });
+
+                // Dropdown panel (initially hidden)
+                opts.spawn((
+                    Node { width: Val::Px(200.0), flex_direction: FlexDirection::Column, row_gap: Val::Px(4.0), padding: UiRect::all(Val::Px(6.0)), ..default() },
+                    BackgroundColor(Color::srgba(0.06, 0.06, 0.08, 1.0)),
+                    LanguageDropdownRoot,
+                    Visibility::Hidden,
+                    SettingsViewEntity,
+                ))
+                .with_children(|panel| {
+                    // Options from provided ordered list (first is None == Auto)
+                    for (i, opt) in options.iter().enumerate() {
+                        let label = match opt {
+                            None => translations.tr(&current.effective(&translations), "settings.language.auto").map(|s| s.to_string()).unwrap_or_else(|| "Auto".to_string()),
+                            Some(code) => translations.tr(code, "settings.language.name").map(|s| s.to_string()).unwrap_or_else(|| code.to_uppercase()),
+                        };
+                        panel.spawn((
+                            Button,
+                            Node { min_width: Val::Px(180.0), height: Val::Px(28.0), justify_content: JustifyContent::Center, align_items: AlignItems::Center, ..default() },
+                            BackgroundColor(Color::NONE),
+                            LanguageButton { code: opt.clone(), index: i },
+                            SettingsViewEntity,
+                        )).with_children(|b| {
+                            b.spawn((Text::new(label), TextFont { font_size: 18.0, ..default() }, TextColor(Color::WHITE), SettingsViewEntity));
+                        });
+                    }
+                });
+            });
+        });
+}
+
 fn keyboard_controls(
     keys: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
@@ -278,6 +400,7 @@ fn keyboard_controls(
     mut audio_settings: ResMut<AudioSettings>,
     mut key_bindings: ResMut<KeyBindings>,
     mut capture: ResMut<BindingCapture>,
+    lang_state: Res<LanguageDropdownState>,
 ) {
     // Im Capture-Modus: nächste gültige Taste wird als Belegung übernommen
     if let Some(action) = capture.0 {
@@ -301,6 +424,12 @@ fn keyboard_controls(
     }
 
     // Navigation
+    // If the language dropdown is open, the arrow keys should control the dropdown
+    // and must not change the settings selection. Early-return in that case.
+    if selection.item == SettingsItem::Language && lang_state.is_open {
+        return;
+    }
+
     let nav = if keys.just_pressed(KeyCode::ArrowDown) { 1i32 }
                else if keys.just_pressed(KeyCode::ArrowUp) { -1i32 }
                else { 0 };
@@ -329,6 +458,8 @@ fn mouse_controls(
     mut capture: ResMut<BindingCapture>,
     volume_interactions: Query<(&Interaction, &VolumeAdjustButton), (Changed<Interaction>, With<Button>)>,
     binding_interactions: Query<(&Interaction, &KeyBindingButton), (Changed<Interaction>, With<Button>)>,
+    lang_interactions: Query<(&Interaction, &LanguageButton), (Changed<Interaction>, With<Button>)>,
+    toggle_interactions: Query<(&Interaction, &LanguageToggleButton), (Changed<Interaction>, With<Button>)>,
 ) {
     for (interaction, button) in &binding_interactions {
         match *interaction {
@@ -353,6 +484,80 @@ fn mouse_controls(
             Interaction::None => {}
         }
     }
+
+    // Visual selection on hover for languages (also make the language row selectable)
+    for (interaction, _button) in &lang_interactions {
+        match *interaction {
+            Interaction::Hovered => { selection.item = SettingsItem::Language; }
+            Interaction::Pressed => { selection.item = SettingsItem::Language; }
+            Interaction::None => {}
+        }
+    }
+
+    // Also handle hovering/pressing the toggle button
+    for (interaction, _toggle) in &toggle_interactions {
+        match *interaction {
+            Interaction::Hovered => { selection.item = SettingsItem::Language; }
+            Interaction::Pressed => { selection.item = SettingsItem::Language; }
+            Interaction::None => {}
+        }
+    }
+}
+
+fn language_keyboard_controls(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut lang_state: ResMut<LanguageDropdownState>,
+    options: Res<LanguageOptions>,
+    mut dropdown_vis: Query<&mut Visibility, With<LanguageDropdownRoot>>,
+    mut current: ResMut<crate::i18n::CurrentLanguage>,
+    selection: Res<SettingsSelection>,
+) {
+    // Only act when the language row is selected
+    if selection.item != SettingsItem::Language { return; }
+    // Open the dropdown with Enter/Space when closed. When open, Enter confirms the
+    // currently focused option (NumpadEnter also works). Space should only open/close,
+    // not confirm.
+    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) || keys.just_pressed(KeyCode::NumpadEnter) {
+        if !lang_state.is_open {
+            // open -> set initial focus to the currently selected language
+            lang_state.is_open = true;
+            for mut vis in &mut dropdown_vis {
+                *vis = Visibility::Visible;
+            }
+            // Try to focus the currently saved language in the options list
+            lang_state.index = options.options.iter().position(|o| o == &current.0).unwrap_or(0);
+            return;
+        }
+
+        // If the dropdown is already open, Enter/NumpadEnter confirms selection.
+        if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter) {
+            if let Some(opt) = options.options.get(lang_state.index) {
+                current.0 = opt.clone();
+                if let Err(e) = current.save_to_disk() { warn!("Failed to save language selection: {e}"); }
+            }
+            // close
+            lang_state.is_open = false;
+            for mut vis in &mut dropdown_vis { *vis = Visibility::Hidden; }
+            return;
+        }
+        // If it was Space while open, ignore (do not confirm) so user can use arrows first.
+    }
+
+    if !lang_state.is_open { return; }
+
+    // Navigate options while open
+    if keys.just_pressed(KeyCode::ArrowDown) {
+        lang_state.index = (lang_state.index + 1).min(options.options.len().saturating_sub(1));
+    }
+    if keys.just_pressed(KeyCode::ArrowUp) {
+        if lang_state.index == 0 { lang_state.index = 0; } else { lang_state.index -= 1; }
+    }
+
+    // Escape closes
+    if keys.just_pressed(KeyCode::Escape) {
+        lang_state.is_open = false;
+        for mut vis in &mut dropdown_vis { *vis = Visibility::Hidden; }
+    }
 }
 
 fn refresh_settings_ui(
@@ -360,14 +565,21 @@ fn refresh_settings_ui(
     key_bindings: Res<KeyBindings>,
     selection: Res<SettingsSelection>,
     capture: Res<BindingCapture>,
-    mut volume_rows: Query<(&VolumeRow, &mut BackgroundColor)>,
-    mut key_rows: Query<(&KeyBindingRow, &mut BackgroundColor), Without<VolumeRow>>,
-    mut volume_texts: Query<(&VolumeValueText, &mut Text)>,
-    mut binding_texts: Query<(&KeyBindingValueText, &mut Text), Without<VolumeValueText>>,
-    mut binding_buttons: Query<(&KeyBindingButton, &mut BackgroundColor), (Without<VolumeRow>, Without<KeyBindingRow>)>,
+    translations: Res<crate::i18n::Translations>,
+    mut volume_rows: Query<(&VolumeRow, &mut BackgroundColor), (Without<KeyBindingRow>, Without<LanguageButton>)>,
+    mut key_rows: Query<(&KeyBindingRow, &mut BackgroundColor), (Without<VolumeRow>, Without<LanguageButton>)>,
+    mut volume_texts: Query<(&VolumeValueText, &mut Text), (Without<KeyBindingValueText>, Without<LanguageToggleText>)>,
+    mut binding_texts: Query<(&KeyBindingValueText, &mut Text), (Without<VolumeValueText>, Without<LanguageToggleText>)>,
+    mut binding_buttons: Query<(&KeyBindingButton, &mut BackgroundColor), (Without<VolumeRow>, Without<KeyBindingRow>, Without<LanguageButton>)>,
+    current: Res<crate::i18n::CurrentLanguage>,
+    lang_state: Res<LanguageDropdownState>,
+    mut lang_buttons: Query<(&LanguageButton, &Children, &mut BackgroundColor), (With<Button>, Without<KeyBindingButton>, Without<VolumeRow>)>,
+    mut toggle_texts: Query<&mut Text, (With<LanguageToggleText>, Without<VolumeValueText>, Without<KeyBindingValueText>)>,
+    mut dropdown_vis: Query<&mut Visibility, With<LanguageDropdownRoot>>,
+    mut text_colors: Query<&mut TextColor>,
 ) {
     if !audio_settings.is_changed() && !key_bindings.is_changed()
-        && !selection.is_changed() && !capture.is_changed()
+        && !selection.is_changed() && !capture.is_changed() && !current.is_changed() && !lang_state.is_changed()
     {
         return;
     }
@@ -414,29 +626,100 @@ fn refresh_settings_ui(
             Color::srgba(0.2, 0.2, 0.2, 0.9)
         });
     }
+
+
+
+    // Update language button visuals based on current selection
+    for (button, children, mut bg) in &mut lang_buttons {
+        // Determine visual state: either the persistent current selection, or the temporary keyboard focus
+        // Only highlight the option that currently has keyboard focus. Do NOT
+        // highlight the persistently saved language value — the toggle shows it
+        // in text but the dropdown list highlights only the focused item.
+        let is_focused = lang_state.is_open && button.index == lang_state.index;
+        *bg = BackgroundColor(if is_focused { Color::srgba(0.2, 0.35, 0.7, 0.7) } else { Color::srgba(0.2, 0.2, 0.2, 0.9) });
+        for child in children.iter() {
+            if let Ok(mut tc) = text_colors.get_mut(child) {
+                *tc = if is_focused { TextColor(Color::srgb(0.3, 0.6, 1.0)) } else { TextColor(Color::WHITE) };
+            }
+        }
+    }
+
+    // Update toggle text to reflect current selection using localized names when available
+    for mut text in &mut toggle_texts {
+        let new = if let Some(code) = &current.0 {
+            translations
+                .tr(code, "settings.language.name")
+                .map(|s| s.clone())
+                .unwrap_or_else(|| code.to_uppercase())
+        } else {
+            translations
+                .tr(&current.effective(&translations), "settings.language.auto")
+                .map(|s| s.clone())
+                .unwrap_or_else(|| "Auto".to_string())
+        };
+        *text = Text::new(new);
+    }
+
+    // Keep dropdown panels hidden/visible as needed — no-op here, toggled by input system.
+    for mut v in &mut dropdown_vis { let _ = &mut v; }
 }
 
-fn save_settings_on_change(audio_settings: Res<AudioSettings>, key_bindings: Res<KeyBindings>) {
+// Highlight the language row when it is selected so keyboard navigation shows the same
+// visual cue as for other rows.
+fn language_row_highlight(
+    selection: Res<SettingsSelection>,
+    mut language_rows: Query<&mut BackgroundColor, With<LanguageRow>>,
+) {
+    if !selection.is_changed() { return; }
+    for mut bg in &mut language_rows {
+        *bg = BackgroundColor(if selection.item == SettingsItem::Language {
+            Color::srgba(0.2, 0.35, 0.7, 0.7)
+        } else {
+            Color::srgba(0.1, 0.1, 0.1, 0.6)
+        });
+    }
+}
+
+fn save_settings_on_change(
+    audio_settings: Res<AudioSettings>,
+    key_bindings: Res<KeyBindings>,
+    current: Res<crate::i18n::CurrentLanguage>,
+) {
     if audio_settings.is_changed() {
         if let Err(e) = audio_settings.save_to_disk() { warn!("Could not save audio settings: {e}"); }
     }
     if key_bindings.is_changed() {
         if let Err(e) = key_bindings.save_to_disk() { warn!("Could not save key bindings: {e}"); }
     }
+    if current.is_changed() {
+        if let Err(e) = current.save_to_disk() { warn!("Could not save language selection: {e}"); }
+    }
 }
 
-fn save_settings_on_exit(audio_settings: Res<AudioSettings>, key_bindings: Res<KeyBindings>) {
+fn save_settings_on_exit(audio_settings: Res<AudioSettings>, key_bindings: Res<KeyBindings>, current: Res<crate::i18n::CurrentLanguage>) {
     if let Err(e) = audio_settings.save_to_disk() { warn!("Could not save audio settings on exit: {e}"); }
     if let Err(e) = key_bindings.save_to_disk() { warn!("Could not save key bindings on exit: {e}"); }
+    if let Err(e) = current.save_to_disk() { warn!("Could not save language selection on exit: {e}"); }
 }
 
 fn return_to_main_menu(
     keys: Res<ButtonInput<KeyCode>>,
     capture: Res<BindingCapture>,
+    mut lang_state: ResMut<LanguageDropdownState>,
+    mut dropdown_vis: Query<&mut Visibility, With<LanguageDropdownRoot>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
+    // If we're currently capturing a key for rebinding, ignore ESC here.
     if capture.0.is_some() { return; }
+
     if keys.just_pressed(KeyCode::Escape) {
+        // If the language dropdown is open, close it instead of leaving the view.
+        if lang_state.is_open {
+            lang_state.is_open = false;
+            for mut vis in &mut dropdown_vis { *vis = Visibility::Hidden; }
+            return;
+        }
+        // Otherwise, return to main menu as before.
         next_state.set(AppState::MainMenu);
     }
 }
@@ -500,3 +783,51 @@ fn cleanup_settings_view(mut commands: Commands, entities: Query<Entity, (With<S
         commands.entity(entity).despawn();
     }
 }
+
+fn language_pointer_input(
+    interactions: Query<(&Interaction, &LanguageButton, &ChildOf), (Changed<Interaction>, With<Button>)>,
+    toggle_interactions: Query<(&Interaction, &LanguageToggleButton, &ChildOf), (Changed<Interaction>, With<Button>)>,
+    mut dropdown_vis: Query<&mut Visibility, With<LanguageDropdownRoot>>,
+    mut current: ResMut<crate::i18n::CurrentLanguage>,
+    mut lang_state: ResMut<LanguageDropdownState>,
+    options: Res<LanguageOptions>,
+) {
+    // Handle language option presses
+    for (interaction, button, _parent) in &interactions {
+        match *interaction {
+            Interaction::Pressed => {
+                current.0 = button.code.clone();
+                if let Err(e) = current.save_to_disk() {
+                    warn!("Failed to save language selection: {e}");
+                }
+                // Hide all dropdown panels
+                for mut vis in &mut dropdown_vis {
+                    *vis = Visibility::Hidden;
+                }
+            }
+            Interaction::Hovered | Interaction::None => {}
+        }
+    }
+
+    // Handle toggle presses (show/hide dropdown)
+    for (interaction, _toggle, _parent) in &toggle_interactions {
+        if *interaction != Interaction::Pressed { continue; }
+        // Toggle all dropdown panels (there is typically only one)
+        for mut vis in &mut dropdown_vis {
+            match *vis {
+                Visibility::Hidden => {
+                    *vis = Visibility::Visible;
+                    lang_state.is_open = true;
+                    // focus the currently selected language when opening via pointer
+                    lang_state.index = options.options.iter().position(|o| o == &current.0).unwrap_or(0);
+                }
+                Visibility::Visible => {
+                    *vis = Visibility::Hidden;
+                    lang_state.is_open = false;
+                }
+                _ => {*vis = Visibility::Hidden; lang_state.is_open = false;}
+            }
+        }
+    }
+}
+

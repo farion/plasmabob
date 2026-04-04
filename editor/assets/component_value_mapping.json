@@ -2,23 +2,24 @@
   "components": {
     "effect_heal": {
       "heal": {
-        "type": "number",
-        "default": 0
+        "type": "number"
+      }
+    },
+    "health": {
+      "health": {
+        "type": "number"
       }
     },
     "moving_platform": {
       "direction": {
         "type": "enum",
-        "default": "right",
         "options": [ "right", "left", "up", "down" ]
       },
       "speed": {
-        "type": "number",
-        "default": 0
+        "type": "number"
       },
       "distance": {
-        "type": "number",
-        "default": 0
+        "type": "number"
       }
     }
   }

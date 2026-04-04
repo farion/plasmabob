@@ -1,8 +1,9 @@
 {
-  "component": ["collision", "npc", "hostile", "moving"],
+  "component": ["collision", "npc", "hostile", "moving", "health"],
   "damage": 10,
-  "disposition": "hostile",
-  "health": 30,
+  "health": {
+    "health": 30
+  },
   "height": 128,
   "states": {
     "default": {

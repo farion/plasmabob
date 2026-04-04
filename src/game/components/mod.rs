@@ -122,6 +122,34 @@ pub(crate) fn spawn_entity(
                 });
                 effect_heal::insert(&mut entity_commands, amount)
             }
+            "health" => {
+                // Prefer per-entity override `health.health` from the level JSON when present.
+                let overridden_amount = entity_definition
+                    .overrides
+                    .get("health.health")
+                    .and_then(|v| {
+                        if let Some(i) = v.as_i64() {
+                            Some(i as i32)
+                        } else if let Some(u) = v.as_u64() {
+                            Some(u as i32)
+                        } else if let Some(f) = v.as_f64() {
+                            Some(f.round() as i32)
+                        } else {
+                            None
+                        }
+                    });
+
+                // Prefer per-entity override; otherwise prefer nested entity type health.health if present,
+                // then fall back to 0.
+                let amount = overridden_amount.unwrap_or_else(|| {
+                    entity_type
+                        .health
+                        .as_ref()
+                        .and_then(|h| h.health)
+                        .unwrap_or(0)
+                });
+                health::insert(&mut entity_commands, amount)
+            }
             "player" => {
                 has_player = true;
                 player::insert(&mut entity_commands)
@@ -133,9 +161,8 @@ pub(crate) fn spawn_entity(
         }
     }
 
-    if let Some(hp) = entity_type.health {
-        entity_commands.insert(health::Health::new(hp));
-    }
+    // `Health` is now inserted only when the entity type lists the "health" component
+    // in its `components` array. See the match arm above.
 
     if let Some(dmg) = entity_type.damage {
         entity_commands.insert(health::Damage(dmg));

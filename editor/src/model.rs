@@ -55,8 +55,6 @@ pub(crate) struct EntityTypeDefinition {
     #[serde(rename = "component")]
     pub(crate) components: Vec<String>,
     #[serde(default)]
-    pub(crate) disposition: Option<String>,
-    #[serde(default)]
     pub(crate) states: HashMap<String, EntityTypeStateDefinition>,
     pub(crate) width: f32,
     pub(crate) height: f32,
@@ -125,7 +123,6 @@ mod tests {
     fn uses_default_animation_as_primary_preview_texture() {
         let entity_type = EntityTypeDefinition {
             components: vec!["player".to_string()],
-            disposition: None,
             states: HashMap::from([(
                 "default".to_string(),
                 EntityTypeStateDefinition {

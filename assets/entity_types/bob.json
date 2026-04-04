@@ -1,8 +1,10 @@
 {
   "attack_range": 500,
-  "component": ["collision", "player"],
+  "component": ["collision", "player", "health"],
+  "health": {
+    "health": 100
+  },
   "damage": 25,
-  "health": 100,
   "height": 128,
   "states": {
     "default": {

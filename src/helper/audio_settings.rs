@@ -111,3 +111,4 @@ fn settings_file_path() -> PathBuf {
         None => PathBuf::from(SETTINGS_FILE_NAME),
     }
 }
+

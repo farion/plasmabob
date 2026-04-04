@@ -23,7 +23,7 @@ use crate::game::components::plasma::{
     PLASMA_IMPACT_PARTICLE_COUNT, PLASMA_ORIGIN_HEIGHT_RATIO_FROM_BOTTOM, PLASMA_Z,
 };
 use crate::game::components::{LevelEntityType, SpawnedLevelEntity};
-use crate::audio_settings::AudioSettings;
+use crate::helper::audio_settings::AudioSettings;
 use crate::game::level::CachedLevelDefinition;
 use crate::AppState;
 use crate::{PendingStoryScreen, StoryScreenRequest};

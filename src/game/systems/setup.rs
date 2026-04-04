@@ -8,7 +8,7 @@ use crate::game::components::{self, SpawnedLevelEntity};
 use crate::game::level::{
     bottom_left_to_world, clamp_level_position, CachedLevelDefinition,
 };
-use crate::audio_settings::AudioSettings;
+use crate::helper::audio_settings::AudioSettings;
 use crate::{LevelSelection, LevelStats};
 
 use super::{
@@ -392,7 +392,6 @@ mod tests {
     fn entity_type_with_components(components: &[&str]) -> EntityTypeDefinition {
         EntityTypeDefinition {
             components: components.iter().map(|component| component.to_string()).collect(),
-            disposition: None,
             states: HashMap::new(),
             width: 16.0,
             height: 16.0,

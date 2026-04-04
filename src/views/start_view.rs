@@ -52,13 +52,13 @@ fn setup_start_view(
     current: Res<CurrentLanguage>,
 ) {
     // Determine title/subtitle keys or formatted detail when no worlds are available
-    let (title_key, subtitle_text) = if world_catalog.worlds().is_empty() {
+        let (title_key, subtitle_text) = if world_catalog.worlds().is_empty() {
         let detail = world_catalog
             .last_error()
             .unwrap_or("No world JSONs found in assets/worlds.");
         // Use localized template and insert detail
-        let template = translations
-            .tr(&current.0, "start.no_worlds_detail")
+            let template = translations
+                .tr(&current.effective(&translations), "start.no_worlds_detail")
             .map(|s| s.to_string())
             .unwrap_or_else(|| "{detail}\nEsc: Back to main menu".to_string());
         let subtitle = template.replace("{detail}", detail);
@@ -66,8 +66,8 @@ fn setup_start_view(
     } else {
         (
             "start.title",
-            translations
-                .tr(&current.0, "start.subtitle")
+                translations
+                    .tr(&current.effective(&translations), "start.subtitle")
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "Arrow keys: navigate | Enter: world map | Esc: back".to_string()),
         )

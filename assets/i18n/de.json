@@ -18,10 +18,15 @@
   "settings.hint": "Hoch/Runter: Auswahl | Links/Rechts: Lautstärke | Enter/Klick: Taste ändern | Esc: Zurück",
   "settings.section.volume": "Lautstärke",
   "settings.section.keybindings": "Tastenbelegung",
+  "settings.section.language": "Sprache",
   "settings.volume.music": "Musik",
   "settings.volume.effects": "Effekte",
   "settings.volume.quotes": "Quotes",
   "settings.error.key_already_bound": "Diese Taste ist bereits belegt!",
+
+  "settings.language.label": "Sprache",
+  "settings.language.auto": "Auto",
+  "settings.language.name": "Deutsch",
 
   "action.move_left": "Laufen Links",
   "action.move_right": "Laufen Rechts",
