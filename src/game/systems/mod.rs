@@ -16,7 +16,10 @@ pub mod detect_player_defeated;
 pub mod detect_player_reached_exit;
 pub mod detect_player_collectibles;
 pub mod hud;
-pub mod debug;
+pub mod toggle_hitbox_debug_lines;
+pub mod update_debug_stats_labels;
+pub mod toggle_debug_overlay;
+pub mod draw_hitbox_debug_lines;
 // animation.rs was intentionally removed; animation-related systems are
 // declared directly below so callers reference them as
 // `crate::game::systems::tick_hit_state_timers::tick_hit_state_timers`, etc.
