@@ -144,6 +144,8 @@ pub(crate) struct EntityTypeDefinition {
     pub(crate) health: Option<i32>,
     #[serde(default)]
     pub(crate) damage: Option<i32>,
+    #[serde(default)]
+    pub(crate) heal: Option<i32>,
     /// Maximum range of the plasma beam (player only). Enables the PlasmaAttack component.
     #[serde(default)]
     pub(crate) attack_range: Option<f32>,

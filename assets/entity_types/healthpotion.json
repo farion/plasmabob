@@ -1,0 +1,13 @@
+{
+  "component": ["collectible", "effect_heal", "collision"],
+  "height": 67,
+  "heal": 30,
+  "states": {
+    "default": {
+      "animation": ["sprites/healthpotion/healthpotion-default.png"],
+      "animation_frame_ms": 180,
+      "hitbox": [[0, 0], [36, 0], [36, 67], [0, 67]]
+    }
+  },
+  "width": 36
+}

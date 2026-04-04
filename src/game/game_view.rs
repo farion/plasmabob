@@ -192,6 +192,7 @@ impl Plugin for GameViewPlugin {
                 hud::update_player_health_hud,
                 (
                     combat::detect_player_defeated,
+                    combat::detect_player_collectibles,
                     combat::detect_player_reached_exit,
                 ),
             )

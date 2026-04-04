@@ -17,6 +17,8 @@ pub(crate) mod moving;
 pub(crate) mod npc;
 pub(crate) mod plasma;
 pub(crate) mod player;
+pub(crate) mod collectible;
+pub(crate) mod effect_heal;
 
 #[derive(Component)]
 pub(crate) struct SpawnedLevelEntity;
@@ -88,6 +90,13 @@ pub(crate) fn spawn_entity(
             "moving" => {
                 has_moving = true;
                 moving::insert(&mut entity_commands, world_position.x)
+            }
+            "collectible" => {
+                collectible::insert(&mut entity_commands)
+            }
+            "effect_heal" => {
+                let amount = entity_type.heal.unwrap_or(0);
+                effect_heal::insert(&mut entity_commands, amount)
             }
             "player" => {
                 has_player = true;

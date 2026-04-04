@@ -1,0 +1,25 @@
+{
+  "components": {
+    "effect_heal": {
+      "heal": {
+        "type": "number",
+        "default": 0
+      }
+    },
+    "moving_platform": {
+      "direction": {
+        "type": "enum",
+        "default": "right",
+        "options": [ "right", "left", "up", "down" ]
+      },
+      "speed": {
+        "type": "number",
+        "default": 0
+      },
+      "distance": {
+        "type": "number",
+        "default": 0
+      }
+    }
+  }
+}

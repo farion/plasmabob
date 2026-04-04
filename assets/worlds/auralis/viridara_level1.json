@@ -2,26 +2,13 @@
   "terrain": {
     "background": "worlds/auralis/backgrounds/level1.png"
   },
+  "quotes": [],
   "music": "music/level1.ogg",
   "bounds": {
     "width": 30000.0,
     "height": 1024.0
   },
   "entity_types_path": "entity_types",
-  "story": {
-    "start": {
-      "text": "worlds/auralis/story/viridara_level1_start.md",
-      "background": "worlds/auralis/story/viridara_level1.jpg"
-    },
-    "win": {
-      "text": "worlds/auralis/story/viridara_level1_win.md",
-      "background": "worlds/auralis/story/viridara_level1.jpg"
-    },
-    "lose": {
-      "text": "worlds/auralis/story/viridara_level1_lose.md",
-      "background": "worlds/auralis/story/viridara_level1.jpg"
-    }
-  },
   "entities": [
     {
       "id": "mountain1",
@@ -3263,6 +3250,13 @@
       "x": 19766.688,
       "y": 0.0,
       "z_index": 98.0
+    },
+    {
+      "id": "healthpotion1",
+      "entity_type": "healthpotion",
+      "x": 2251.4258,
+      "y": 379.76822,
+      "z_index": 100.0
     }
   ]
 }

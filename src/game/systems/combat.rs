@@ -786,6 +786,36 @@ pub(super) fn detect_player_reached_exit(
     }
 }
 
+/// Detects when the player collides with a collectible entity. Applies effects (e.g. healing)
+/// based on additional components present on the collectible entity and despawns it.
+pub(super) fn detect_player_collectibles(
+    mut commands: Commands,
+    mut player_query: Query<(Entity, &CollidingEntities, &mut Health), With<Player>>,
+    collectible_query: Query<(), With<crate::game::components::collectible::Collectible>>,
+    effect_heal_query: Query<&crate::game::components::effect_heal::EffectHeal>,
+) {
+    for (_player_entity, colliding_entities, mut player_health) in &mut player_query {
+        if player_health.is_dead() {
+            continue;
+        }
+
+        for &colliding_entity in colliding_entities.0.iter() {
+            // Check if colliding entity is a collectible
+            if collectible_query.get(colliding_entity).is_ok() {
+                // If it has an EffectHeal component, apply healing.
+                if let Ok(effect) = effect_heal_query.get(colliding_entity) {
+                    let heal_amount = effect.0;
+                    player_health.current = (player_health.current + heal_amount).min(player_health.max);
+                    info!("Player healed by {} - HP: {}/{}", heal_amount, player_health.current, player_health.max);
+                }
+
+                // Despawn the collectible after applying its effects.
+                commands.entity(colliding_entity).despawn();
+            }
+        }
+    }
+}
+
 pub(super) fn detect_player_defeated(
     player_query: Query<&Health, With<Player>>,
     cached_level_definition: Option<Res<CachedLevelDefinition>>,
