@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::game::components::SpawnedLevelEntity;
 use crate::game::view_api::{DebugStatsLabel, GameViewEntity};
 
-use crate::game::systems::common::debug_helpers::{toggle_hitbox_lines, build_stats_text};
+use crate::game::systems::debug_helpers::{toggle_hitbox_lines, build_stats_text};
 
 pub(crate) fn toggle_hitbox_debug_lines(
     mut commands: Commands,

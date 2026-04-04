@@ -5,19 +5,16 @@ use bevy::prelude::*;
 use crate::game::components::collision::Collision;
 use crate::game::components::hostile::Hostile;
 use crate::game::components::player::Player;
-use crate::game::components::plasma::{PlasmaBeam, PLASMA_BEAM_PARTICLE_COUNT, PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE, PLASMA_BEAM_PARTICLE_WIGGLE_SPEED, PLASMA_BEAM_VISUAL_HALF_HEIGHT, PLASMA_EXPAND_SPEED, PLASMA_Z};
-use crate::game::components::{SpawnedLevelEntity, LevelEntityType};
+use crate::game::components::plasma::{PlasmaBeam, PLASMA_BEAM_PARTICLE_COUNT, PLASMA_Z};
 use crate::helper::audio_settings::AudioSettings;
 use crate::key_bindings::KeyBindings;
 use crate::LevelStats;
 
-use crate::game::view_api::PLAYER_INVINCIBILITY_SECONDS;
 use crate::game::view_api::CombatSoundEffects;
 use crate::game::view_api::GameViewEntity;
 
-use crate::game::systems::common::combat_helpers::{
+use crate::game::systems::combat_helpers::{
     hash_to_unit,
-    create_round_particle_image,
     plasma_origin_from_player,
     ensure_plasma_particle_image,
 };

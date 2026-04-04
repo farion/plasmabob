@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::systems::snap_camera_to_player;
+use crate::game::systems::{draw_hitbox_debug_lines, snap_camera_to_player, tick_level_time, toggle_debug_overlay, toggle_hitbox_debug_lines, update_debug_stats_labels, update_level_hud, update_player_health_hud};
 use crate::game::systems::follow_player_with_camera;
 use crate::game::systems::cleanup_game_view;
 use crate::game::systems::tick_invincibility_timers;
@@ -36,6 +36,7 @@ use crate::game::systems::sync_player_hitbox_orientation;
 use crate::game::systems::control_moving_entities;
 use crate::game::systems::pause_menu;
 use crate::game::systems::health_floating;
+use crate::game::systems::hud_types;
 
 use crate::game::view_api::{PauseMenuState, QuoteCooldown};
 
@@ -61,7 +62,7 @@ impl Plugin for GameViewPlugin {
         // Floating health change markers are inserted as components by combat
         // systems (RecentHealthChange). No separate event type is required.
         .init_resource::<PauseMenuState>()
-        .init_resource::<hud::LevelTimer>()
+        .init_resource::<hud_types::LevelTimer>()
         .add_systems(
             Update,
             pause_menu::update_pause_menu.run_if(in_state(crate::AppState::GameView)),

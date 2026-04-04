@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::game::view_api::GameViewEntity;
 
-use crate::game::systems::common::combat_helpers::{hash_to_unit, create_round_particle_image};
+use crate::game::systems::combat_helpers::{hash_to_unit, create_round_particle_image};
 
 pub(crate) fn dust_origin(transform: &Transform, sprite: &Sprite) -> Vec2 {
     let size = sprite.custom_size.unwrap_or(Vec2::new(96.0, 128.0));

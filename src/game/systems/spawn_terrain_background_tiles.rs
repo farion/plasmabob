@@ -2,9 +2,8 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::window::PrimaryWindow;
 
-use crate::game::view_api::{ActiveLevelBounds, TerrainBackgroundConfig, TerrainBackgroundReady};
-use crate::game::components::SpawnedLevelEntity;
 use crate::game::systems::parallax_types::BackgroundParallax;
+use crate::game::view_api::{ActiveLevelBounds, GameViewEntity, TerrainBackgroundConfig, TerrainBackgroundReady};
 
 pub(crate) fn spawn_terrain_background_tiles(
     mut commands: Commands,

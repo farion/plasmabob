@@ -9,7 +9,7 @@ use crate::game::systems::hud_types::{
     PlayerPlasmaCooldownPercentText,
 };
 
-use crate::game::systems::common::hud_helpers::{
+use crate::game::systems::hud_helpers::{
     health_fraction,
     percentage_text,
     filled_bar_width,

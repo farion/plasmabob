@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::game::view_api::GameViewEntity;
 
 pub(crate) fn spawn_overlay(
     commands: &mut Commands,

@@ -1,16 +1,15 @@
-use avian2d::prelude::Collider;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::game::components::{self, SpawnedLevelEntity};
+use crate::game::components::{self};
 use crate::game::level::{bottom_left_to_world, clamp_level_position, CachedLevelDefinition};
 use crate::helper::audio_settings::AudioSettings;
 use crate::{LevelSelection, LevelStats};
 
 use crate::game::view_api::{
-    ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LEVEL_BOUNDARY_THICKNESS, LevelQuotes,
-    TerrainBackgroundConfig, TerrainBackgroundReady, QuoteCooldown,
+    ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LevelQuotes,
+    QuoteCooldown, TerrainBackgroundConfig,
 };
 
 pub(crate) fn setup_game_view(
@@ -119,7 +118,7 @@ pub(crate) fn setup_game_view(
                 let is_player = entity_type.components.iter().any(|component| component == "player");
 
                 // Resolve z-index: per-entity value or a component-based fallback.
-                let z = crate::game::systems::common::setup_helpers::resolve_entity_z_index(entity_definition, entity_type, is_player);
+                let z = resolve_entity_z_index(entity_definition, entity_type, is_player);
 
                 let level_position = if is_player {
                     level_bounds
@@ -185,4 +184,21 @@ pub(crate) fn setup_game_view(
 
     crate::game::systems::spawn_overlay::spawn_overlay(&mut commands, status_title, status_detail, &warnings);
 }
+
+fn resolve_entity_z_index(
+    entity_definition: &crate::game::level::EntityDefinition,
+    entity_type: &crate::game::level::EntityTypeDefinition,
+    is_player: bool,
+) -> f32 {
+    entity_definition.z_index.unwrap_or_else(|| {
+        if is_player {
+            20.0
+        } else if entity_type.components.iter().any(|c| c == "npc") {
+            10.0
+        } else {
+            0.0
+        }
+    })
+}
+
 

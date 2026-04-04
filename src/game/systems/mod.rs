@@ -40,19 +40,23 @@ pub mod parallax_types;
 pub mod attach_parallax_anchors;
 pub mod apply_parallax_from_camera;
 pub mod setup_game_view;
-pub mod setup_helpers;
 pub mod spawn_level_boundaries;
 pub mod spawn_terrain_background_tiles;
 pub mod spawn_overlay;
 pub mod configure_player_controller;
 pub mod update_grounded;
 pub mod control_player;
+pub mod player_types;
 pub mod update_dust_particles;
 pub mod sync_player_hitbox_orientation;
 pub mod pause_menu;
 pub mod health_floating;
-
-pub mod common;
+pub mod camera_helpers;
+pub mod combat_helpers;
+pub mod debug_helpers;
+pub mod hud_helpers;
+pub mod movement_helpers;
+pub mod player_helpers;
 
 
 

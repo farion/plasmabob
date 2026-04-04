@@ -19,7 +19,7 @@ pub(crate) fn follow_player_with_camera(
     };
 
     let Ok(window) = windows.single() else { return; };
-    crate::game::systems::common::camera_helpers::update_camera_x(
+    crate::game::systems::camera_helpers::update_camera_x(
         &mut camera_transform,
         player_transform.translation.x,
         window.width(),

@@ -1,6 +1,3 @@
-use std::collections::HashSet;
-
-use avian2d::prelude::CollidingEntities;
 use bevy::prelude::*;
 
 use crate::game::components::animation::{AnimationState, EntityState, FightStateTimer, HitStateTimer, FIGHT_STATE_SECONDS, HIT_STATE_SECONDS, can_set_state};

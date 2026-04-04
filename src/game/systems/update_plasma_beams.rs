@@ -1,21 +1,8 @@
 use bevy::prelude::*;
-use avian2d::prelude::SpatialQuery;
-use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use bevy::asset::RenderAssetUsages;
 use crate::helper::audio_settings::AudioSettings;
 
 use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::plasma::PLASMA_EXPAND_SPEED;
-// Player type already imported earlier where needed
-use crate::game::components::plasma::PLASMA_Z;
-use crate::game::components::plasma::PLASMA_IMPACT_PARTICLE_COUNT;
-use crate::game::components::plasma::PLASMA_IMPACT_MAX_SPEED;
-use crate::game::components::plasma::PLASMA_IMPACT_MIN_SPEED;
-use crate::game::components::plasma::PLASMA_IMPACT_LIFETIME_SECS;
-use crate::game::components::plasma::PLASMA_BEAM_PARTICLE_WIGGLE_SPEED;
-use crate::game::components::plasma::PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE;
-use crate::game::components::plasma::PLASMA_BEAM_VISUAL_HALF_HEIGHT;
-use crate::game::components::plasma::PLASMA_BEAM_PARTICLE_COUNT;
 
 use crate::game::components::hostile::Hostile;
 use crate::game::components::health::Health;
@@ -25,9 +12,7 @@ use crate::game::view_api::CombatSoundEffects;
 use crate::game::view_api::GameViewEntity;
 
 use crate::game::systems::combat_types::PlasmaBeamParticle;
-use crate::game::systems::common::combat_helpers::{
-    hash_to_unit,
-    create_round_particle_image,
+use crate::game::systems::combat_helpers::{
     update_beam_particles,
     spawn_plasma_impact_explosion,
     plasma_origin_from_player,

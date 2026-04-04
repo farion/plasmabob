@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::game::view_api::DebugStatsLabel;
 
-use crate::game::systems::common::debug_helpers::build_stats_text;
+use crate::game::systems::debug_helpers::build_stats_text;
 
 pub(crate) fn update_debug_stats_labels(
     mut commands: Commands,

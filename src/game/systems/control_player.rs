@@ -1,13 +1,13 @@
 use bevy::prelude::*;
-use avian2d::prelude::SpatialQuery;
+use avian2d::prelude::{SpatialQuery, SpatialQueryFilter};
 
 use crate::key_bindings::KeyBindings;
 use crate::LevelStats;
 use crate::game::components::player::Player;
 use crate::game::components::animation::{AnimationState, EntityState, HitStateTimer, can_set_state};
 use crate::game::view_api::{PLAYER_JUMP_SPEED, PLAYER_MOVE_SPEED};
-use crate::game::systems::common::player_helpers::{ensure_dust_particle_image, spawn_dust_burst, dust_origin};
-use crate::game::systems::common::movement_helpers::{detect_small_step, update_sprite_flip_for_move_axis, is_airborne_side_blocked};
+use crate::game::systems::player_helpers::{ensure_dust_particle_image, spawn_dust_burst, dust_origin};
+use crate::game::systems::movement_helpers::{detect_small_step, update_sprite_flip_for_move_axis};
 
 pub(crate) fn control_player(
     mut commands: Commands,
@@ -86,5 +86,36 @@ pub(crate) fn control_player(
             state.set(next_state);
         }
     }
+}
+
+fn is_airborne_side_blocked(
+    spatial_query: &SpatialQuery,
+    entity: Entity,
+    transform: &Transform,
+    sprite: &Sprite,
+    move_axis: f32,
+) -> bool {
+    let size = sprite.custom_size.unwrap_or(Vec2::new(96.0, 128.0));
+    let half_height = (size.y * 0.5).max(8.0);
+    let edge_inset = (half_height * 0.2).clamp(6.0, 20.0);
+    let sample_offsets = [
+        -half_height + edge_inset,
+        0.0,
+        half_height - edge_inset,
+    ];
+
+    let mut filter = SpatialQueryFilter::default();
+    filter.excluded_entities.insert(entity);
+
+    let dir = if move_axis > 0.0 { Dir2::X } else { Dir2::NEG_X };
+    for offset_y in sample_offsets {
+        let origin = Vec2::new(transform.translation.x, transform.translation.y + offset_y);
+        let hits = spatial_query.ray_hits(origin, dir, 6.0, 4, true, &filter);
+        if !hits.is_empty() {
+            return true;
+        }
+    }
+
+    false
 }
 
