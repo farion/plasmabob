@@ -23,6 +23,8 @@ mod parallax;
 mod setup;
 #[path = "systems/pause_menu.rs"]
 mod pause_menu;
+#[path = "systems/health_floating.rs"]
+mod health_floating;
 
 pub struct GameViewPlugin;
 
@@ -32,6 +34,8 @@ const MOVING_NPC_MAX_DISTANCE_FROM_ORIGIN: f32 = 500.0;
 const LEVEL_BOUNDARY_THICKNESS: f32 = 64.0;
 const PLAYER_SCREEN_X_ANCHOR: f32 = 0.4;
 const PLAYER_INVINCIBILITY_SECONDS: f32 = 1.0;
+
+// ...existing code...
 
 #[derive(Component)]
 struct GameViewEntity;
@@ -142,6 +146,8 @@ impl Plugin for GameViewPlugin {
                 .chain(),
         )
         .init_resource::<QuoteCooldown>()
+        // Floating health change markers are inserted as components by combat
+        // systems (RecentHealthChange). No separate event type is required.
         .init_resource::<PauseMenuState>()
         .init_resource::<hud::LevelTimer>()
         .add_systems(
@@ -162,8 +168,8 @@ impl Plugin for GameViewPlugin {
                 combat::tick_invincibility_timers,
                 combat::apply_hostile_contact_damage,
                 combat::set_hostile_fight_state_on_player_contact,
-                combat::shoot_plasma.before(combat::update_plasma_beams),
                 (
+                    combat::shoot_plasma,
                     combat::update_plasma_beams,
                     combat::update_plasma_impact_particles,
                     combat::maintain_player_fight_state,
@@ -206,6 +212,15 @@ impl Plugin for GameViewPlugin {
                 parallax::apply_parallax_from_camera,
             )
                 .chain()
+                .run_if(in_state(crate::AppState::GameView)),
+        )
+        // Floating health/damage numbers: spawn on events and animate them
+        .add_systems(
+            Update,
+            (
+                health_floating::spawn_on_health_change,
+                health_floating::animate_floating_texts,
+            )
                 .run_if(in_state(crate::AppState::GameView)),
         )
         .add_systems(OnExit(crate::AppState::GameView), cleanup::cleanup_game_view);

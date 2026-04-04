@@ -254,7 +254,11 @@ fn main() {
         .add_systems(Update, fit_background_to_window)
         .add_plugins(views::ViewsPlugin)
         .add_systems(OnEnter(AppState::MainMenu), setup_main_menu)
-        .add_systems(OnEnter(AppState::StartView), stop_menu_music)
+            .add_systems(OnEnter(AppState::StartView), stop_menu_music)
+            // When leaving the main menu we usually want to stop the menu music, but
+            // not when opening transient views like Settings or About. Run this on
+            // exit from the MainMenu and inspect the pending next state to decide.
+            .add_systems(OnExit(AppState::MainMenu), stop_menu_music_on_main_exit)
         .add_systems(OnExit(AppState::MainMenu), cleanup_main_menu)
         .add_systems(
             Update,
@@ -420,6 +424,32 @@ fn cleanup_main_menu(mut commands: Commands, entities: Query<Entity, (With<MainM
 }
 
 fn stop_menu_music(mut commands: Commands, music_entities: Query<Entity, With<MenuMusicEntity>>) {
+    for entity in &music_entities {
+        commands.entity(entity).despawn();
+    }
+}
+
+fn stop_menu_music_on_main_exit(
+    mut commands: Commands,
+    music_entities: Query<Entity, With<MenuMusicEntity>>,
+    next_state: Option<Res<NextState<AppState>>>,
+) {
+    // If we don't know the next state, be conservative and stop music.
+    let should_stop = match next_state {
+        Some(ns) => match &*ns {
+            // If the next state is explicitly SettingsView or AboutView,
+            // leave the music running.
+            NextState::Pending(AppState::SettingsView) | NextState::Pending(AppState::AboutView) => false,
+            // Otherwise stop the music (entering Start/WorldMap/Game/etc.).
+            _ => true,
+        },
+        None => true,
+    };
+
+    if !should_stop {
+        return;
+    }
+
     for entity in &music_entities {
         commands.entity(entity).despawn();
     }

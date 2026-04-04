@@ -121,6 +121,8 @@ pub(super) fn apply_hostile_contact_damage(
             {
                 // Apply contact damage immediately (stomping removed).
                 player_health.take_damage(damage.0);
+                // Mark entity for floating health text (negative = damage)
+                commands.entity(player_entity).insert(super::health_floating::RecentHealthChange(-(damage.0)));
                 commands.entity(player_entity).insert(InvincibilityTimer::new(PLAYER_INVINCIBILITY_SECONDS));
 
                 if !player_health.is_dead() {
@@ -496,6 +498,8 @@ pub(super) fn update_plasma_beams(
 
                             let was_alive = !health.is_dead();
                             health.take_damage(beam.damage);
+                            // Mark hostile for floating health text (negative = damage)
+                            commands.entity(target_entity).insert(super::health_floating::RecentHealthChange(-(beam.damage)));
                             beam.damage_applied = true;
 
                             if !health.is_dead() {
@@ -807,6 +811,8 @@ pub(super) fn detect_player_collectibles(
                     let heal_amount = effect.0;
                     player_health.current = (player_health.current + heal_amount).min(player_health.max);
                     info!("Player healed by {} - HP: {}/{}", heal_amount, player_health.current, player_health.max);
+                    // Mark player for floating health text (positive = heal)
+                    commands.entity(_player_entity).insert(super::health_floating::RecentHealthChange(heal_amount));
                 }
 
                 // Despawn the collectible after applying its effects.
