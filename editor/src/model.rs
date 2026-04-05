@@ -58,17 +58,80 @@ pub(crate) struct EntityTypeDefinition {
     pub(crate) states: HashMap<String, EntityTypeStateDefinition>,
     pub(crate) width: f32,
     pub(crate) height: f32,
-    #[serde(default)]
-    pub(crate) health: Option<i32>,
+    // The runtime format evolved: `health` may now be an object like
+    // `{ "health": 100 }`. Accept both legacy numeric values and the
+    // newer nested object form during deserialization.
+    #[serde(default, deserialize_with = "deserialize_opt_health")]
+    pub(crate) health: Option<HealthDefinition>,
     #[serde(default)]
     pub(crate) damage: Option<i32>,
     #[serde(default)]
     pub(crate) attack_range: Option<f32>,
+    /// Optional structured effect that heals the target. Runtime represents
+    /// this as an object `{ "heal": 30 }`. Accept either number or object
+    /// during deserialization for backward compatibility.
+    #[serde(default, deserialize_with = "deserialize_opt_effect_heal")]
+    pub(crate) effect_heal: Option<EffectHealDefinition>,
     /// Catch-all for any additional top-level fields in the entity-type JSON,
     /// e.g. `"effect_heal": { "heal": 30 }`. Used by the editor to show
     /// per-entity-type defaults next to override controls.
     #[serde(flatten)]
     pub(crate) extra: HashMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct HealthDefinition {
+    #[serde(default)]
+    pub(crate) health: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct EffectHealDefinition {
+    #[serde(default)]
+    pub(crate) heal: Option<i32>,
+}
+
+fn deserialize_opt_health<'de, D>(deserializer: D) -> Result<Option<HealthDefinition>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    use serde::Deserialize as _;
+    use serde_json::Value as JsonValue;
+
+    let opt: Option<JsonValue> = Option::deserialize(deserializer)?;
+    match opt {
+        None => Ok(None),
+        Some(JsonValue::Number(n)) => {
+            let val = n.as_i64().map(|i| i as i32);
+            Ok(Some(HealthDefinition { health: val }))
+        }
+        Some(other) => {
+            // Try to deserialize the object into HealthDefinition
+            let hd: HealthDefinition = serde_json::from_value(other).map_err(serde::de::Error::custom)?;
+            Ok(Some(hd))
+        }
+    }
+}
+
+fn deserialize_opt_effect_heal<'de, D>(deserializer: D) -> Result<Option<EffectHealDefinition>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    use serde::Deserialize as _;
+    use serde_json::Value as JsonValue;
+
+    let opt: Option<JsonValue> = Option::deserialize(deserializer)?;
+    match opt {
+        None => Ok(None),
+        Some(JsonValue::Number(n)) => {
+            let val = n.as_i64().map(|i| i as i32);
+            Ok(Some(EffectHealDefinition { heal: val }))
+        }
+        Some(other) => {
+            let eh: EffectHealDefinition = serde_json::from_value(other).map_err(serde::de::Error::custom)?;
+            Ok(Some(eh))
+        }
+    }
 }
 
 impl EntityTypeDefinition {
@@ -134,6 +197,7 @@ mod tests {
             width: 10.0,
             height: 20.0,
             health: None,
+            effect_heal: None,
             damage: None,
             attack_range: None,
             extra: Default::default(),

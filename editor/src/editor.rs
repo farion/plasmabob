@@ -589,13 +589,23 @@ fn editing_ui(
 
                                     // Resolve entity-type default: prefer nested component data in
                                     // the entity-type JSON (e.g. `"effect_heal": {"heal": 30}`),
-                                    // fall back to the generic mapping default.
-                                    let entity_type_default: serde_json::Value = et.extra
+                                    // fall back to a reasonable default based on the attribute type
+                                    // from the `ComponentValueMapping` when the nested value is absent.
+                                    let entity_type_default: serde_json::Value = et
+                                        .extra
                                         .get(comp_name.as_str())
                                         .and_then(|v| v.as_object())
                                         .and_then(|obj| obj.get(attr_name.as_str()))
                                         .cloned()
-                                        .unwrap();
+                                        .unwrap_or_else(|| {
+                                            match attr_def.attr_type.as_str() {
+                                                "number" => serde_json::Value::Number(serde_json::Number::from(0)),
+                                                "enum" => serde_json::Value::String(
+                                                    attr_def.options.get(0).cloned().unwrap_or_default(),
+                                                ),
+                                                _ => serde_json::Value::Null,
+                                            }
+                                        });
 
                                     let is_overridden = current_overrides.contains_key(&key);
                                     let mut enable_override = is_overridden;

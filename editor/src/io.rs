@@ -643,6 +643,23 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
         }
     }
 
+    // Normalize legacy numeric fields to the newer structured format expected
+    // by the runtime. For example, convert `"health": 100` into
+    // `"health": { "health": 100 }`. Similarly, if `"effect_heal"` is
+    // a number convert it to `{ "heal": N }` so the editor writes the
+    // runtime-compatible nested form.
+    if let Some(Value::Number(num)) = root.get("health") {
+        let mut obj = Map::new();
+        obj.insert("health".to_string(), Value::Number(num.clone()));
+        root.insert("health".to_string(), Value::Object(obj));
+    }
+
+    if let Some(Value::Number(num)) = root.get("effect_heal") {
+        let mut obj = Map::new();
+        obj.insert("heal".to_string(), Value::Number(num.clone()));
+        root.insert("effect_heal".to_string(), Value::Object(obj));
+    }
+
     Ok(Value::Object(root))
 }
 
@@ -1149,7 +1166,7 @@ mod tests {
         )
         .expect("bob json should parse");
         assert_eq!(bob_json["component"], json!(["player"]));
-        assert_eq!(bob_json["health"], json!(100));
+        assert_eq!(bob_json["health"]["health"], json!(100));
         // Existing entity-type JSON provided a "height": 77 so we must keep it and recompute width
         assert_eq!(bob_json["width"], json!(77));
         assert_eq!(bob_json["height"], json!(77));
