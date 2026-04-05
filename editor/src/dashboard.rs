@@ -39,13 +39,36 @@ pub(crate) fn render_level_picker_columns(
                     } else {
                         for world in &catalog.worlds {
                             ui.push_id(format!("world_item:{}", world.asset_path), |ui| {
-                                if ui.button(&world.display_name).clicked() {
-                                    // set selected world to the folder name (stem of json file)
-                                    let folder = std::path::Path::new(&world.asset_path)
-                                        .file_stem()
-                                        .and_then(|s| s.to_str())
-                                        .map(|s| s.to_string());
-                                    catalog.selected_world = folder;
+                                // folder name (stem of json file) used as selection key
+                                let folder_opt = std::path::Path::new(&world.asset_path)
+                                    .file_stem()
+                                    .and_then(|s| s.to_str())
+                                    .map(|s| s.to_string());
+
+                                let is_selected = match (&catalog.selected_world, &folder_opt) {
+                                    (Some(sel), Some(folder)) => sel == folder,
+                                    _ => false,
+                                };
+
+                                // Render a button inside a filled Frame so it always has a background.
+                                // When selected, use a highlighted color; otherwise use the default
+                                // widget background so it looks like a normal button.
+                                // Render the world as a normal button so it has the same
+                                // padding and interaction as other buttons (e.g. "Force Reread").
+                                // If the world is selected, draw a highlighted outline around it.
+                                // Capture the corner radius value before mutably borrowing `ui`.
+                                let rounding = ui.visuals().widgets.inactive.corner_radius;
+                                let btn = egui::Button::new(&world.display_name);
+                                let resp = ui.add(btn);
+                                if resp.clicked() {
+                                    catalog.selected_world = folder_opt.clone();
+                                }
+
+                                if is_selected {
+                                    // draw blue outline around the button rect
+                                    let stroke_color = egui::Color32::from_rgb(60, 120, 200);
+                                    let stroke = egui::Stroke::new(2.0, stroke_color);
+                                    ui.painter().rect_stroke(resp.rect.expand(2.0), rounding, stroke, egui::StrokeKind::Inside);
                                 }
                             });
                         }
@@ -55,7 +78,13 @@ pub(crate) fn render_level_picker_columns(
         });
 
         columns[1].vertical(|ui| {
-            ui.heading("Levels");
+            // Show the selected world in parentheses after the Levels heading
+            let selected_world = catalog.selected_world.as_deref();
+            if let Some(folder) = selected_world {
+                ui.heading(format!("Levels ({})", folder));
+            } else {
+                ui.heading("Levels");
+            }
             ui.add_space(8.0);
             if ui.button("Force Reread").clicked() {
                 match crate::io::scan_levels() {
@@ -91,6 +120,7 @@ pub(crate) fn render_level_picker_columns(
                     }
 
                     let folder = selected_world.unwrap();
+
                     let prefix = format!("worlds/{}/", folder);
                     let filtered: Vec<&crate::io::LevelEntry> = catalog
                         .levels

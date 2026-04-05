@@ -60,6 +60,61 @@ pub(crate) fn asset_path_to_filesystem_path(asset_path: &str) -> PathBuf {
     assets_dir().join(normalize_asset_reference(asset_path))
 }
 
+// Scan the source tree for available gameplay component names.
+// Returns file stems (e.g. "player", "effect_heal") found under src/game/components.
+pub(crate) fn scan_game_components() -> Result<Vec<String>, String> {
+    let components_dir = workspace_root().join("src").join("game").join("components");
+    let mut names = Vec::new();
+
+    let entries = std::fs::read_dir(&components_dir).map_err(|e| format!("{}: {e}", components_dir.display()))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            if ext != "rs" {
+                continue;
+            }
+        } else {
+            continue;
+        }
+        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+            if stem == "mod" {
+                continue;
+            }
+            names.push(stem.to_string());
+        }
+    }
+
+    names.sort();
+    Ok(names)
+}
+
+// Overwrite the "component" array in the entity-type JSON file for `entity_type_name`.
+// Keeps other fields untouched, writes using render_value_compact_arrays for consistent formatting.
+pub(crate) fn save_entity_type_components(entity_type_name: &str, components: &[String]) -> Result<(), String> {
+    let json_path = assets_dir().join("entity_types").join(format!("{entity_type_name}.json"));
+
+    let content = std::fs::read_to_string(&json_path)
+        .map_err(|error| format!("{}: {error}", json_path.display()))?;
+    let mut root = serde_json::from_str::<serde_json::Value>(&content)
+        .map_err(|error| format!("{}: {error}", json_path.display()))?;
+
+    // Ensure object root
+    let obj = root
+        .as_object_mut()
+        .ok_or_else(|| format!("{}: entity type JSON must be an object", json_path.display()))?;
+
+    // Build array
+    let arr: Vec<serde_json::Value> = components.iter().map(|s| serde_json::Value::String(s.clone())).collect();
+    obj.insert("component".to_string(), serde_json::Value::Array(arr));
+
+    let serialized = render_value_compact_arrays(&root);
+    std::fs::write(&json_path, format!("{serialized}\n"))
+        .map_err(|error| format!("{}: {error}", json_path.display()))
+}
+
 pub(crate) fn scan_levels() -> Result<Vec<LevelEntry>, String> {
     scan_levels_in_dir(&worlds_dir())
 }

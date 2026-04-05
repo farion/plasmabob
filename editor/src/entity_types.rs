@@ -106,14 +106,31 @@ impl RectHitbox {
     }
 }
 
-#[derive(Default)]
 pub(crate) struct HitboxEditorState {
     show_hitboxes: bool,
     active_drag: Option<ActiveHitboxDrag>,
     edited_hitboxes: HashMap<String, RectHitbox>,
     dirty_states: HashSet<String>,
     last_entity_type: Option<String>,
-    status_message: Option<String>,
+        add_selected: Option<String>,
+    dirty_entity_types: HashSet<String>,
+    edited_entity_types: HashMap<String, crate::model::EntityTypeDefinition>,
+}
+
+impl Default for HitboxEditorState {
+    fn default() -> Self {
+        Self {
+            // Enable hitbox overlays by default per user request
+            show_hitboxes: true,
+            active_drag: None,
+            edited_hitboxes: HashMap::new(),
+            dirty_states: HashSet::new(),
+            last_entity_type: None,
+            add_selected: None,
+            dirty_entity_types: HashSet::new(),
+            edited_entity_types: HashMap::new(),
+        }
+    }
 }
 
 fn hitbox_to_screen(rect: RectHitbox, image_rect: egui::Rect, image_size: egui::Vec2) -> egui::Rect {
@@ -197,12 +214,15 @@ fn cursor_for_drag_edge(edge: DragEdge) -> egui::CursorIcon {
 pub(crate) fn entity_type_view_ui(
     mut contexts: EguiContexts,
     view_state: Res<crate::editor::EntityTypeViewState>,
-    document: Option<Res<crate::editor::EditorDocument>>,
+    mut document: Option<ResMut<crate::editor::EditorDocument>>,
     mut next_state: ResMut<NextState<crate::editor::EditorMode>>,
     mut loaded_textures: Local<HashMap<String, TextureId>>,
     mut loaded_image_sizes: Local<HashMap<String, (u32, u32)>>,
     mut hitbox_editor: Local<HitboxEditorState>,
+    mut show_close_confirm: Local<bool>,
     asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    mut toast: ResMut<crate::editor::ToastState>,
 ) {
     // If nothing is selected, simply show a small message and return.
     if view_state.selected.is_none() {
@@ -221,7 +241,8 @@ pub(crate) fn entity_type_view_ui(
         hitbox_editor.edited_hitboxes.clear();
         hitbox_editor.dirty_states.clear();
         hitbox_editor.active_drag = None;
-        hitbox_editor.status_message = None;
+        hitbox_editor.add_selected = None;
+        // Do not clear edited_entity_types here; keep staged edits across selections
         hitbox_editor.last_entity_type = Some(selected_name.clone());
     }
 
@@ -229,9 +250,11 @@ pub(crate) fn entity_type_view_ui(
     // if present. Otherwise attempt to read the JSON file directly from
     // assets/entity_types/<selected>.json so the dashboard click works without
     // opening a level.
-    let et_data: Cow<'_, crate::model::EntityTypeDefinition> = if let Some(doc) = &document {
+    let et_data: Cow<'_, crate::model::EntityTypeDefinition> = if let Some(doc) = document.as_ref() {
         if let Some(et) = doc.entity_types.get(&selected_name) {
-            Cow::Borrowed(et)
+            // Clone the in-memory entity-type so we can safely mutate the
+            // document later without conflicting borrows.
+            Cow::Owned(et.clone())
         } else {
             let Ok(ctx) = contexts.ctx_mut() else {
                 return;
@@ -296,7 +319,15 @@ pub(crate) fn entity_type_view_ui(
             return;
         }
 
-        Cow::Owned(parsed)
+        // Keep an owned parsed value and also store a staged editable copy so
+        // component edits are staged in-memory and saved only on Ctrl+S.
+        let parsed_owned = parsed;
+        hitbox_editor
+            .edited_entity_types
+            .entry(selected_name.clone())
+            .or_insert_with(|| parsed_owned.clone());
+
+        Cow::Owned(parsed_owned)
     };
     let et_ref = et_data.as_ref();
 
@@ -332,6 +363,35 @@ pub(crate) fn entity_type_view_ui(
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
+    // Determine dirty mark for the selected entity type and show it in the top title
+    let dirty_mark = if hitbox_editor.dirty_entity_types.contains(&selected_name) { " *" } else { "" };
+
+    // Build a normalized asset-like path for the entity type so the title matches
+    // the Level editor style (e.g. "entity_types/cockroach.json"). The
+    // `selected_name` may already include the ".json" suffix; handle both cases.
+    let full_asset_path = if selected_name.to_lowercase().ends_with(".json") {
+        format!("entity_types/{}", selected_name)
+    } else {
+        format!("entity_types/{}.json", selected_name)
+    };
+
+    // Top bar with Close button (right aligned). Title shows the asset-like path
+    // and the dirty '*' when applicable.
+    egui::TopBottomPanel::top("entity_type_top_bar").show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            ui.heading(format!("{}{}", full_asset_path, dirty_mark));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Close").clicked() {
+                    // If dirty, show confirm dialog; otherwise close immediately.
+                    if hitbox_editor.dirty_entity_types.contains(&selected_name) {
+                        *show_close_confirm = true;
+                    } else {
+                        next_state.set(crate::editor::EditorMode::LevelPicker);
+                    }
+                }
+            });
+        });
+    });
 
     if !ctx.input(|input| input.pointer.primary_down()) {
         hitbox_editor.active_drag = None;
@@ -342,9 +402,27 @@ pub(crate) fn entity_type_view_ui(
     }
 
     if ctx.input(|input| input.modifiers.ctrl && input.key_pressed(egui::Key::S)) {
-        if hitbox_editor.dirty_states.is_empty() {
-            hitbox_editor.status_message = Some("No hitbox changes to save.".to_string());
+        // Save staged component and hitbox changes for the currently selected entity type.
+        if !hitbox_editor.dirty_entity_types.contains(&selected_name) && hitbox_editor.dirty_states.is_empty() {
+            // no-op when nothing to save
         } else {
+            // Prepare components to save: prefer staged copy, then document copy
+            let components_to_save: Option<Vec<String>> = if let Some(doc_ref) = document.as_ref() {
+                doc_ref.entity_types.get(&selected_name).map(|et| et.components.clone())
+            } else {
+                hitbox_editor
+                    .edited_entity_types
+                    .get(&selected_name)
+                    .map(|et| et.components.clone())
+            };
+
+            let comp_result = if let Some(components) = components_to_save {
+                crate::io::save_entity_type_components(&selected_name, &components)
+            } else {
+                Ok(())
+            };
+
+            // Prepare hitbox save map
             let mut save_map: HashMap<String, [[f32; 2]; 4]> = HashMap::new();
             for state_key in &hitbox_editor.dirty_states {
                 if let Some(rect) = hitbox_editor.edited_hitboxes.get(state_key) {
@@ -352,13 +430,19 @@ pub(crate) fn entity_type_view_ui(
                 }
             }
 
-            match crate::io::save_entity_type_hitboxes(&selected_name, &save_map) {
+            let hitbox_result = if save_map.is_empty() {
+                Ok(())
+            } else {
+                crate::io::save_entity_type_hitboxes(&selected_name, &save_map)
+            };
+
+            match comp_result.and(hitbox_result) {
                 Ok(()) => {
                     hitbox_editor.dirty_states.clear();
-                    hitbox_editor.status_message = Some("Hitbox saved.".to_string());
+                    hitbox_editor.dirty_entity_types.remove(&selected_name);
                 }
-                Err(error) => {
-                    hitbox_editor.status_message = Some(format!("Save failed: {error}"));
+                Err(_error) => {
+                    // ignore save error here (status messages removed)
                 }
             }
         }
@@ -367,31 +451,137 @@ pub(crate) fn entity_type_view_ui(
     egui::CentralPanel::default().show(ctx, |ui| {
         // Make the entire central content scrollable
         egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("Back to Dashboard").clicked() {
-                    next_state.set(crate::editor::EditorMode::LevelPicker);
-                }
-                ui.add_space(6.0);
-                ui.heading("Entity Type Preview");
-            });
             ui.add_space(6.0);
 
             ui.label("L: toggle hitboxes | Drag edge: adjust hitbox | Ctrl+S: save");
-            if let Some(message) = &hitbox_editor.status_message {
-                ui.label(message);
-            }
 
-            ui.label(format!("Selected: {}", selected_name));
+            // The selected entity type is shown in the header; no separate
+            // "Selected:" label is needed here.
             ui.separator();
 
-            // Components
+            // Components (editable)
             ui.group(|ui| {
                 ui.label(egui::RichText::new("Components").strong());
+                ui.add_space(4.0);
+
+                // Scan available gameplay components from src/game/components
+                let available_components = match crate::io::scan_game_components() {
+                    Ok(v) => v,
+                    Err(e) => {
+                        // Show a temporary toast when scanning fails
+                        toast.message = Some(format!("Could not scan components: {}", e));
+                        toast.expires_at_seconds = time.elapsed_secs_f64() + 3.0;
+                        Vec::new()
+                    }
+                };
+
+                // Compute current components snapshot (prefer live document if present)
+                let components_snapshot: Vec<String> = if let Some(doc_ref) = document.as_ref() {
+                    doc_ref
+                        .entity_types
+                        .get(&selected_name)
+                        .map(|et| et.components.clone())
+                        .unwrap_or_else(|| et_ref.components.clone())
+                } else {
+                    hitbox_editor
+                        .edited_entity_types
+                        .get(&selected_name)
+                        .map(|et| et.components.clone())
+                        .unwrap_or_else(|| et_ref.components.clone())
+                };
+
+                // Show components inline with a small 'X' button to remove
                 ui.horizontal_wrapped(|ui| {
-                    for comp in &et_ref.components {
-                        ui.label(format!("[{}]", comp));
+                    for comp in &components_snapshot {
+                        ui.horizontal(|ui| {
+                            ui.label(format!("[{}]", comp));
+                                if ui.small_button("X").clicked() {
+                                let mut new_components = components_snapshot.clone();
+                                new_components.retain(|c| c != comp);
+
+                                if let Some(doc_mut) = document.as_mut() {
+                                        if let Some(et) = doc_mut.entity_types.get_mut(&selected_name) {
+                                            // Stage component change in-memory. Do not write file yet.
+                                            et.components = new_components.clone();
+                                        } else {
+                                            // entity type not found in document; no status message
+                                        }
+                                } else {
+                                    // Update staged copy for unloaded document mode
+                                    hitbox_editor
+                                        .edited_entity_types
+                                        .entry(selected_name.clone())
+                                        .or_insert_with(|| et_ref.clone())
+                                        .components = new_components.clone();
+                                }
+                                // mark entity type dirty for saving via Ctrl+S
+                                hitbox_editor.dirty_entity_types.insert(selected_name.clone());
+                            }
+                        });
+                        ui.add_space(6.0);
                     }
                 });
+
+                ui.separator();
+                ui.add_space(4.0);
+
+                // Add component pulldown (ComboBox) — only show components not already present
+                let add_options: Vec<String> = available_components
+                    .into_iter()
+                    .filter(|s| !components_snapshot.iter().any(|c| c == s))
+                    .collect();
+
+                if !add_options.is_empty() {
+                    ui.horizontal(|ui| {
+                        ui.label("Add component:");
+
+                        // Persist previous selection and provide a local mutable copy for the ComboBox
+                        let prev_sel = hitbox_editor.add_selected.clone().unwrap_or_default();
+                        let mut add_sel = prev_sel.clone();
+
+                        egui::ComboBox::from_id_salt(format!("add_component_cb_{}", selected_name))
+                            .selected_text(if add_sel.is_empty() { "select..." } else { &add_sel })
+                            .show_ui(ui, |ui| {
+                                        for opt in &add_options {
+                                                    ui.selectable_value(&mut add_sel, opt.clone(), opt);
+                                                }
+                            });
+
+                        // If selection changed to a non-empty value, apply it
+                        if !add_sel.is_empty() && add_sel != prev_sel {
+                            let chosen = add_sel.clone();
+                            let mut new_components = components_snapshot.clone();
+                                if !new_components.iter().any(|c| c == &chosen) {
+                                    new_components.push(chosen.clone());
+                                    if let Some(doc_mut) = document.as_mut() {
+                                        if let Some(et) = doc_mut.entity_types.get_mut(&selected_name) {
+                                            // Stage in-memory change; do not write to disk yet
+                                            et.components = new_components.clone();
+                                            // staged
+                                        } else {
+                                            // entity type not found in document
+                                        }
+                                    } else {
+                                        hitbox_editor
+                                            .edited_entity_types
+                                            .entry(selected_name.clone())
+                                            .or_insert_with(|| et_ref.clone())
+                                            .components = new_components.clone();
+                                        // staged
+                                    }
+                                }
+                                // mark entity type dirty for saving via Ctrl+S
+                                hitbox_editor.dirty_entity_types.insert(selected_name.clone());
+                            // clear stored selection
+                            hitbox_editor.add_selected = None;
+                        } else {
+                            // persist current selection into state (or None if empty)
+                            hitbox_editor.add_selected = if add_sel.is_empty() { None } else { Some(add_sel) };
+                        }
+                    });
+                } else {
+                    ui.label("(no additional components available)");
+                }
             });
 
             ui.add_space(6.0);
@@ -563,6 +753,9 @@ pub(crate) fn entity_type_view_ui(
                                                         ratio_units_per_pixel,
                                                     );
                                                     hitbox_editor.dirty_states.insert(state_key.clone());
+                                                    // Mark the whole entity type as dirty so the title shows '*' and
+                                                    // Ctrl+S will save staged changes.
+                                                    hitbox_editor.dirty_entity_types.insert(selected_name.clone());
                                                 }
                                             }
                                         }
@@ -579,6 +772,80 @@ pub(crate) fn entity_type_view_ui(
             }
         });
     });
+
+    // Confirm close dialog when requested
+    if *show_close_confirm {
+        egui::Window::new("Confirm Close")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.label("There are unsaved changes for this entity type.");
+                ui.label("Save before closing?");
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Save and Close").clicked() {
+                        // Perform save logic (same as Ctrl+S handler)
+                        // Prepare components to save: prefer staged copy, then document copy
+                        let components_to_save: Option<Vec<String>> = if let Some(doc_ref) = document.as_ref() {
+                            doc_ref.entity_types.get(&selected_name).map(|et| et.components.clone())
+                        } else {
+                            hitbox_editor
+                                .edited_entity_types
+                                .get(&selected_name)
+                                .map(|et| et.components.clone())
+                        };
+
+                        let comp_result = if let Some(components) = components_to_save {
+                            crate::io::save_entity_type_components(&selected_name, &components)
+                        } else {
+                            Ok(())
+                        };
+
+                        // Prepare hitbox save map
+                        let mut save_map: HashMap<String, [[f32; 2]; 4]> = HashMap::new();
+                        for state_key in &hitbox_editor.dirty_states {
+                            if let Some(rect) = hitbox_editor.edited_hitboxes.get(state_key) {
+                                save_map.insert(state_key.clone(), rect.to_json_points());
+                            }
+                        }
+
+                        let hitbox_result = if save_map.is_empty() {
+                            Ok(())
+                        } else {
+                            crate::io::save_entity_type_hitboxes(&selected_name, &save_map)
+                        };
+
+                        match comp_result.and(hitbox_result) {
+                            Ok(()) => {
+                                hitbox_editor.dirty_states.clear();
+                                hitbox_editor.dirty_entity_types.remove(&selected_name);
+                                *show_close_confirm = false;
+                                next_state.set(crate::editor::EditorMode::LevelPicker);
+                            }
+                            Err(_e) => {
+                                // Show a toast on failure
+                                toast.message = Some("Save failed while closing".to_string());
+                                toast.expires_at_seconds = time.elapsed_secs_f64() + 3.0;
+                            }
+                        }
+                    }
+
+                    if ui.button("Discard and Close").clicked() {
+                        // Drop staged edits for this entity type and close
+                        hitbox_editor.edited_entity_types.remove(&selected_name);
+                        hitbox_editor.dirty_entity_types.remove(&selected_name);
+                        hitbox_editor.dirty_states.clear();
+                        *show_close_confirm = false;
+                        next_state.set(crate::editor::EditorMode::LevelPicker);
+                    }
+
+                    if ui.button("Cancel").clicked() {
+                        *show_close_confirm = false;
+                    }
+                });
+            });
+    }
 }
 
 

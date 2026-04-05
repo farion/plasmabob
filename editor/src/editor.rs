@@ -135,9 +135,9 @@ struct SelectionState {
 }
 
 #[derive(Resource, Default)]
-struct ToastState {
-    message: Option<String>,
-    expires_at_seconds: f64,
+pub(crate) struct ToastState {
+    pub(crate) message: Option<String>,
+    pub(crate) expires_at_seconds: f64,
 }
 
 #[derive(Resource)]
@@ -499,6 +499,7 @@ fn editing_ui(
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut selection: ResMut<SelectionState>,
     mapping: Res<ComponentValueMapping>,
+    mut show_close_confirm: Local<bool>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
@@ -507,17 +508,22 @@ fn editing_ui(
     pointer_state.over_ui = ctx.is_pointer_over_area() || ctx.wants_pointer_input();
 
     egui::TopBottomPanel::top("editor_top_bar").show(ctx, |ui| {
-        ui.horizontal_wrapped(|ui| {
+        ui.horizontal(|ui| {
             let dirty_marker = if document.dirty { " *" } else { "" };
             ui.heading(format!("{}{}", document.level_asset_path, dirty_marker));
-            ui.separator();
-            if ui.button("Change Level").clicked() {
-                next_state.set(EditorMode::LevelPicker);
-            }
-            ui.separator();
-            if ui.button("Add Entity (A)").clicked() {
-                ui_state.show_add_menu = !ui_state.show_add_menu;
-            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Close").clicked() {
+                    if document.dirty {
+                        *show_close_confirm = true;
+                    } else {
+                        next_state.set(EditorMode::LevelPicker);
+                    }
+                }
+                ui.add_space(8.0);
+                if ui.button("Add Entity (A)").clicked() {
+                    ui_state.show_add_menu = !ui_state.show_add_menu;
+                }
+            });
         });
     });
 
@@ -864,6 +870,47 @@ fn editing_ui(
                     });
                 });
         }
+    }
+
+    // Confirm close dialog for the level editor when requested
+    if *show_close_confirm {
+        egui::Window::new("Confirm Close")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.label("There are unsaved changes.");
+                ui.label("Save before closing?");
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Save and Close").clicked() {
+                        match save_level(&document.level_fs_path, &document.level) {
+                            Ok(()) => {
+                                document.dirty = false;
+                                toast.message = Some("Saved".to_string());
+                                toast.expires_at_seconds = time.elapsed_secs_f64() + 2.0;
+                                *show_close_confirm = false;
+                                next_state.set(EditorMode::LevelPicker);
+                            }
+                            Err(error) => {
+                                toast.message = Some(format!("Save failed: {}", error));
+                                toast.expires_at_seconds = time.elapsed_secs_f64() + 4.0;
+                            }
+                        }
+                    }
+
+                    if ui.button("Discard and Close").clicked() {
+                        // Drop in-memory dirty flag and close
+                        document.dirty = false;
+                        *show_close_confirm = false;
+                        next_state.set(EditorMode::LevelPicker);
+                    }
+
+                    if ui.button("Cancel").clicked() {
+                        *show_close_confirm = false;
+                    }
+                });
+            });
     }
 
     // Update pointer_state after constructing the UI so that clicks inside egui
