@@ -1,0 +1,15 @@
+{
+  "component": ["collision", "health", "npc"],
+  "health": {
+    "health": 60
+  },
+  "height": 125,
+  "states": {
+    "default": {
+      "animation": ["sprites/poisonplant/poisonplant-default-1.png", "sprites/poisonplant/poisonplant-default-2.png"],
+      "animation_frame_ms": 500,
+      "hitbox": [[33, 3], [84, 3], [84, 88], [33, 88]]
+    }
+  },
+  "width": 166
+}
