@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 
+use crate::app_model::AppState;
 use crate::world::WorldCatalog;
 use crate::level::CachedLevelDefinition;
-use crate::{AppState, CampaignProgress, LevelSelection, LevelStats};
+use crate::{CampaignProgress, LevelSelection, LevelStats};
 use crate::i18n::LocalizedText;
 
 pub struct WinViewPlugin;

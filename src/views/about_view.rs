@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::AppState;
-use crate::i18n::LocalizedText;
+use crate::app_model::{AppState, StartScreenBackground};
+use crate::helper::i18n::LocalizedText;
 
 pub struct AboutViewPlugin;
 
@@ -24,7 +24,7 @@ fn setup_about_view(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("start.png")),
         Transform::from_xyz(0.0, 0.0, -1.0),
-        crate::StartScreenBackground,
+        StartScreenBackground,
         AboutViewEntity,
     ));
 

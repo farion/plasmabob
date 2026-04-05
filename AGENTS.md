@@ -1,13 +1,15 @@
 # AGENTS.md — PlasmaBob Codebase Guide
 
 ## Stack
-- **Rust** (2024 edition)
-- **Bevy 0.18.1** (ECS game engine)
-- **avian2d 0.6.1** for physics (rigid bodies, colliders, shape casters)
-- **bevy_framepace 0.21** for frame-rate limiting
-- **serde 1.0.228 / serde_json 1.0.149** for JSON level loading
+ - **Rust** (2024 edition)
+ - **Bevy 0.18.1** (ECS game engine)
+ - **avian2d 0.6** for physics (rigid bodies, colliders, shape casters)
+ - **bevy_framepace 0.21** for frame-rate limiting
+ - **serde 1.0 / serde_json 1.0** for JSON level loading
 
 All mentioned dependencies are compatible with bevy 0.18.1.
+
+Note: the authoritative, up-to-date versions are declared in `Cargo.toml` (use it as the source of truth when in doubt).
 
 ## Build & Run
 ```bash
@@ -73,15 +75,30 @@ Design patterns and conventions
   or `main.rs` as appropriate.
 - UI stacking / z-order: Bevy UI `ZIndex` is used where needed (see `main.rs` main menu example).
 
-How to add a new gameplay system
-1. Create a file under the appropriate submodule, e.g. `src/game/systems/gameplay/my_new_system.rs`.
-2. Add `pub mod my_new_system;` to `src/game/systems/gameplay/mod.rs`.
-3. Register the system in `src/game/game_view.rs` in the correct scheduling group (OnEnter/Update/PostUpdate) and
-   use `.before()` / `.after()` / `.chain()` to position it relative to existing systems.
-4. If the system needs to share data with others, add a small type to `systems_api.rs` or a new `Resource` in
-   `game_view.rs` as needed.
+## Error and logging policy
+Goal: consistent, typed errors and structured logging to improve diagnostics and make APIs more robust.
 
-Testing and editor
+- Use `thiserror` for module/domain-specific error types instead of raw `String` errors. Example:
+  - `#[derive(thiserror::Error, Debug)] pub enum LoadLevelError { Io(#[from] std::io::Error), Parse(#[from] serde_json::Error), ... }
+- Use `tracing` (or `log`) for structured logs. Initialize e.g. `tracing_subscriber::fmt::init()` in `main.rs`.
+- Resources should not store raw `String` errors. Instead:
+  - store typed errors (e.g. `Option<LoadLevelError>`), or
+  - store a UI-friendly formatted message (`Option<String>`) that is derived from the typed error at the UI boundary.
+- Error propagation: use `?` with `From` conversions (`#[from]`) on error enums to reduce boilerplate.
+- Localized user messages: derive localized, UI-friendly text from typed errors at the UI boundary (do not embed localization inside domain error types).
+
+Practical migration guidance:
+- First introduce typed error enums for the main domains (Level/World/Story/Entity) using `thiserror`.
+- Replace `Result<..., String>` with `Result<..., TypedError>` incrementally; convert to strings only at UI boundaries as needed.
+- Centralize Asset I/O errors in `src/helper/asset_io.rs` and provide `From` conversions so `?` works naturally everywhere.
+
+Benefits:
+- Better debugging (structured logs, backtraces, machine-readable errors)
+- Fewer silent failures or error-mangling from unstructured strings
+- Simple conversion to localized UI text in one place
+
+
+## Testing and editor
 - Unit tests for pure functions live alongside the module (`#[cfg(test)]` blocks). Integration smoke tests are
   exercised by running the game and using `cargo run` with a level path.
 - There is a separate `editor/` binary that operates on the same JSON assets; the editor code is kept in the
@@ -154,3 +171,12 @@ keys translated in those files must be used to bring texts in the game.
 
 All commenting must happen in english.
 
+## Best Practices
+
+### How to add a new gameplay system
+1. Create a file under the appropriate submodule, e.g. `src/game/systems/gameplay/my_new_system.rs`.
+2. Add `pub mod my_new_system;` to `src/game/systems/gameplay/mod.rs`.
+3. Register the system in `src/game/game_view.rs` in the correct scheduling group (OnEnter/Update/PostUpdate) and
+   use `.before()` / `.after()` / `.chain()` to position it relative to existing systems.
+4. If the system needs to share data with others, add a small type to `systems_api.rs` or a new `Resource` in
+   `game_view.rs` as needed.

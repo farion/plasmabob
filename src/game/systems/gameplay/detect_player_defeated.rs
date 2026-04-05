@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::app_model::AppState;
 use crate::{PendingStoryScreen, StoryScreenRequest};
 use crate::level::CachedLevelDefinition;
 

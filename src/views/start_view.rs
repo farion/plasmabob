@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 
+use crate::app_model::AppState;
 use crate::world::WorldCatalog;
-use crate::{AppState, CampaignProgress, WorldListSelection};
+use crate::{CampaignProgress, WorldListSelection};
 use crate::i18n::{Translations, CurrentLanguage};
 
 pub struct StartViewPlugin;
@@ -55,13 +56,14 @@ fn setup_start_view(
         let (title_key, subtitle_text) = if world_catalog.worlds().is_empty() {
         let detail = world_catalog
             .last_error()
-            .unwrap_or("No world JSONs found in assets/worlds.");
+            .map(|e| e.to_string())
+            .unwrap_or_else(|| "No world JSONs found in assets/worlds.".to_string());
         // Use localized template and insert detail
             let template = translations
                 .tr(&current.effective(&translations), "start.no_worlds_detail")
             .map(|s| s.to_string())
             .unwrap_or_else(|| "{detail}\nEsc: Back to main menu".to_string());
-        let subtitle = template.replace("{detail}", detail);
+        let subtitle = template.replace("{detail}", &detail);
         ("start.title_no_worlds", subtitle)
     } else {
         (

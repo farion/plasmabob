@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
+use crate::app_model::AppState;
 use crate::game::components::exit::Exit;
-use crate::AppState;
 use crate::{PendingStoryScreen, StoryScreenRequest};
 use crate::level::CachedLevelDefinition;
 

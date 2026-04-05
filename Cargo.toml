@@ -13,6 +13,8 @@ futures-lite = "2"
 pollster = "0.4"
 pulldown-cmark = "0.13.3"
 sys-locale = "0.3.2"
+thiserror = "2.0.18"
+tracing = "0.1"
 
 [profile.dev]
 opt-level = 1        # leichte Optimierung – Bevy läuft sonst bei opt-level=0 sehr langsam

@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use serde_json::Value;
-use std::error::Error;
-use std::fmt::{Display, Formatter};
 
 use bevy::asset::io::AssetSourceId;
 use bevy::prelude::*;
@@ -22,31 +20,28 @@ pub(crate) struct LevelDefinition {
     pub(crate) entities: Vec<EntityDefinition>,
 }
 
-#[derive(Resource, Debug, Clone)]
+#[derive(Resource, Debug)]
 pub(crate) struct CachedLevelDefinition {
     asset_path: String,
-    loaded_level: Result<LevelDefinition, String>,
+    loaded_level: Result<LevelDefinition, LoadLevelError>,
 }
 
 impl CachedLevelDefinition {
     pub(crate) fn empty() -> Self {
         Self {
             asset_path: String::new(),
-            loaded_level: Err("Level has not been loaded yet".to_string()),
+            loaded_level: Err(LoadLevelError::NotLoaded("Level has not been loaded yet".to_string())),
         }
     }
 
     pub(crate) fn refresh(&mut self, asset_server: &AssetServer, asset_path: &str) {
         let asset_path = asset_path.trim().trim_start_matches("assets/");
-        self.loaded_level = load_level_from_asset_server(asset_server, asset_path)
-            .map_err(|error| error.to_string());
+        self.loaded_level = load_level_from_asset_server(asset_server, asset_path);
         self.asset_path = asset_path.to_string();
     }
 
-    pub(crate) fn level_definition(&self) -> Result<&LevelDefinition, &str> {
-        self.loaded_level
-            .as_ref()
-            .map_err(|error| error.as_str())
+    pub(crate) fn level_definition(&self) -> Result<&LevelDefinition, &LoadLevelError> {
+        self.loaded_level.as_ref().map_err(|error| error)
     }
 }
 
@@ -235,11 +230,11 @@ impl EntityTypeDefinition {
         Vec2::new(self.width, self.height)
     }
 
-    pub(crate) fn centered_hitbox_polygon(&self) -> Result<Vec<Vec2>, String> {
+    pub(crate) fn centered_hitbox_polygon(&self) -> Result<Vec<Vec2>, EntityTypeError> {
         self.centered_hitbox_polygon_for_state("default")
     }
 
-    pub(crate) fn centered_hitbox_polygon_for_state(&self, state_name: &str) -> Result<Vec<Vec2>, String> {
+    pub(crate) fn centered_hitbox_polygon_for_state(&self, state_name: &str) -> Result<Vec<Vec2>, EntityTypeError> {
         let state_hitbox = self.state_hitbox_points(state_name);
         let points: Vec<[f32; 2]> = if state_hitbox.is_empty() {
             vec![
@@ -253,7 +248,7 @@ impl EntityTypeDefinition {
         };
 
         if points.len() < 3 {
-            return Err("hitbox polygon requires at least 3 points".to_string());
+            return Err(EntityTypeError::InvalidHitbox("hitbox polygon requires at least 3 points".to_string()));
         }
 
         let half_width = self.width * 0.5;
@@ -287,7 +282,7 @@ impl EntityTypeDefinition {
         durations
     }
 
-    pub(crate) fn centered_hitbox_polygons_by_state(&self) -> Result<HashMap<String, Vec<Vec2>>, String> {
+    pub(crate) fn centered_hitbox_polygons_by_state(&self) -> Result<HashMap<String, Vec<Vec2>>, EntityTypeError> {
         let mut hitboxes = HashMap::new();
 
         for state_name in self.all_state_names() {
@@ -316,40 +311,29 @@ pub(crate) struct EntityDefinition {
     pub(crate) overrides: HashMap<String, Value>,
 }
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub(crate) enum LoadLevelError {
-    Io(std::io::Error),
-    Parse(serde_json::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Parse error: {0}")]
+    Parse(#[from] serde_json::Error),
+    #[error("{0}")]
+    NotLoaded(String),
 }
 
-impl Display for LoadLevelError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Io(error) => write!(f, "{error}"),
-            Self::Parse(error) => write!(f, "{error}"),
-        }
-    }
-}
-
-impl Error for LoadLevelError {}
-
-impl From<std::io::Error> for LoadLevelError {
-    fn from(value: std::io::Error) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<serde_json::Error> for LoadLevelError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Parse(value)
-    }
+#[derive(thiserror::Error, Debug)]
+pub(crate) enum EntityTypeError {
+    #[error("Invalid hitbox: {0}")]
+    InvalidHitbox(String),
 }
 
 pub(crate) fn load_level_from_asset_server(
     asset_server: &AssetServer,
     asset_path: &str,
 ) -> Result<LevelDefinition, LoadLevelError> {
-    let content = read_asset_text_from_server(asset_server, asset_path)?;
+    let content = crate::helper::asset_io::read_asset_text(asset_server, asset_path)?;
     let raw_level: RawLevelDefinition = serde_json::from_str(&content)?;
 
     let entity_types_dir = raw_level.entity_types_path.clone();
@@ -366,47 +350,7 @@ pub(crate) fn load_level_from_asset_server(
     })
 }
 
-fn read_asset_text_from_server(
-    asset_server: &AssetServer,
-    asset_path: &str,
-) -> Result<String, LoadLevelError> {
-    let source = asset_server.get_source(AssetSourceId::Default).map_err(|error| {
-        LoadLevelError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("Asset source error: {error}"),
-        ))
-    })?;
-
-    let mut bytes = Vec::new();
-    pollster::block_on(async {
-        let mut reader = source
-            .reader()
-            .read(asset_path.as_ref())
-            .await
-            .map_err(|error| {
-                std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!("Could not read asset '{asset_path}': {error}"),
-                )
-            })?;
-
-        reader.read_to_end(&mut bytes).await.map_err(|error| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Could not read asset bytes for '{asset_path}': {error}"),
-            )
-        })?;
-
-        Ok::<(), std::io::Error>(())
-    })?;
-
-    String::from_utf8(bytes).map_err(|error| {
-        LoadLevelError::Io(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("Asset '{asset_path}' is not valid UTF-8: {error}"),
-        ))
-    })
-}
+// read_asset_text_from_server moved to `src/helper/asset_io.rs` as a shared helper.
 
 /// Loads all `*.json` files from a directory via the AssetServer. The filename stem becomes the entity-type key.
 fn load_entity_types_from_dir(
@@ -451,7 +395,7 @@ fn load_entity_types_from_dir(
             .unwrap_or_default()
             .to_string();
 
-        let content = read_asset_text_from_server(asset_server, &path.to_string_lossy())?;
+        let content = crate::helper::asset_io::read_asset_text(asset_server, &path.to_string_lossy())?;
         let definition: EntityTypeDefinition = serde_json::from_str(&content)?;
         validate_entity_type_definition(&definition, &key)?;
         entity_types.insert(key, definition);

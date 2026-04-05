@@ -2,33 +2,84 @@ use bevy::prelude::*;
 use bevy::ui::ZIndex;
 use bevy::window::PrimaryWindow;
 
+use crate::app_model::{
+    AppState, ExitConfirmAction, ExitConfirmButton, ExitConfirmModalRoot, ExitConfirmModalState,
+    MainMenuEntity, MenuAction, MenuButton, MenuMusicEntity, MenuSelection, StartScreenBackground,
+    EXIT_CONFIRM_ITEMS, MENU_ITEMS,
+};
 use crate::helper::i18n;
 
 pub struct MainViewPlugin;
 
 impl Plugin for MainViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(crate::AppState::MainMenu), setup_main_menu)
-            .add_systems(OnEnter(crate::AppState::StartView), stop_menu_music)
-            .add_systems(OnExit(crate::AppState::MainMenu), stop_menu_music_on_main_exit)
-            .add_systems(OnExit(crate::AppState::MainMenu), cleanup_main_menu)
+        // Define ordered SystemSets for the main menu so Input -> Action -> Visual is explicit.
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        pub enum MainMenuSet {
+            Input,
+            Modal,
+            Action,
+            Visual,
+        }
+
+        app.add_systems(OnEnter(AppState::MainMenu), setup_main_menu)
+            .add_systems(OnEnter(AppState::StartView), stop_menu_music)
+            .add_systems(OnExit(AppState::MainMenu), stop_menu_music_on_main_exit)
+            .add_systems(OnExit(AppState::MainMenu), cleanup_main_menu)
             // Keep background sprites fitted for all views that use StartScreenBackground.
             .add_systems(Update, fit_background_to_window)
+            // Configure the ordering of our MainMenu system sets on Update
+            // Order: Input -> Modal -> Action -> Visual
+            .configure_sets(
+                Update,
+                (
+                    MainMenuSet::Input,
+                    MainMenuSet::Modal,
+                    MainMenuSet::Action,
+                    MainMenuSet::Visual,
+                ),
+            )
+            // Input: collect global user input and pointer events (menu-level)
             .add_systems(
                 Update,
                 (
                     open_or_close_exit_modal_with_escape,
                     menu_keyboard_navigation,
                     menu_pointer_input,
-                    activate_selected_menu_item,
-                    update_menu_visuals,
+                )
+                    .in_set(MainMenuSet::Input)
+                    .run_if(in_state(AppState::MainMenu)),
+            )
+            // Modal: input specific to the exit-confirm modal
+            .add_systems(
+                Update,
+                (
                     modal_keyboard_navigation,
                     modal_pointer_input,
+                )
+                    .in_set(MainMenuSet::Modal)
+                    .run_if(in_state(AppState::MainMenu)),
+            )
+            // Action: activation systems that perform state changes
+            .add_systems(
+                Update,
+                (
+                    activate_selected_menu_item,
                     activate_selected_modal_item,
+                )
+                    .in_set(MainMenuSet::Action)
+                    .run_if(in_state(AppState::MainMenu)),
+            )
+            // Visual: update visuals and modal syncing after actions
+            .add_systems(
+                Update,
+                (
+                    update_menu_visuals,
                     update_modal_visuals,
                     sync_exit_modal,
                 )
-                    .run_if(in_state(crate::AppState::MainMenu)),
+                    .in_set(MainMenuSet::Visual)
+                    .run_if(in_state(AppState::MainMenu)),
             );
     }
 }
@@ -43,8 +94,8 @@ pub fn spawn_main_menu_ui(
     commands.spawn((
         Sprite::from_image(asset_server.load("start.png")),
         Transform::from_xyz(0.0, 0.0, -1.0),
-        crate::MainMenuEntity,
-        crate::StartScreenBackground,
+        MainMenuEntity,
+        StartScreenBackground,
     ));
 
     // Logo
@@ -59,7 +110,7 @@ pub fn spawn_main_menu_ui(
         },
         ImageNode::new(asset_server.load("logo.png")),
         ZIndex(200),
-        crate::MainMenuEntity,
+        MainMenuEntity,
     ));
 
     // Sidebar with menu buttons
@@ -80,10 +131,10 @@ pub fn spawn_main_menu_ui(
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
             ZIndex(100),
-            crate::MainMenuEntity,
+            MainMenuEntity,
         ))
         .with_children(|parent| {
-            for (index, (label, action)) in crate::MENU_ITEMS.into_iter().enumerate() {
+            for (index, (label, action)) in MENU_ITEMS.into_iter().enumerate() {
                 parent
                     .spawn((
                         Button,
@@ -93,16 +144,16 @@ pub fn spawn_main_menu_ui(
                             ..default()
                         },
                         BackgroundColor(Color::NONE),
-                        crate::MenuButton { index, action },
-                        crate::MainMenuEntity,
+                        MenuButton { index, action },
+                        MainMenuEntity,
                     ))
                     .with_children(|button| {
                         button.spawn((
                             Text::new(""),
-                            crate::TextFont { font_size: 46.0, ..default() },
+                            TextFont { font_size: 46.0, ..default() },
                             TextColor(Color::WHITE),
                             i18n::LocalizedText { key: label.to_string() },
-                            crate::MainMenuEntity,
+                            MainMenuEntity,
                         ));
                     });
             }
@@ -119,12 +170,12 @@ pub fn spawn_main_menu_ui(
             ..default()
         },
         Text::new("Beinhaltet Sarkasmus und Klischees"),
-        crate::TextFont {
+        TextFont {
             font_size: 18.0,
             ..default()
         },
         TextColor(Color::srgb(0.72, 0.72, 0.72)),
-        crate::MainMenuEntity,
+        MainMenuEntity,
     ));
 }
 
@@ -134,10 +185,10 @@ pub fn setup_main_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     audio_settings: Res<crate::helper::audio_settings::AudioSettings>,
-    mut selection: ResMut<crate::MenuSelection>,
-    mut modal_state: ResMut<crate::ExitConfirmModalState>,
+    mut selection: ResMut<MenuSelection>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
     mut world_catalog: ResMut<crate::world::WorldCatalog>,
-    menu_music_entities: Query<Entity, With<crate::MenuMusicEntity>>,
+    menu_music_entities: Query<Entity, With<MenuMusicEntity>>,
 ) {
     selection.index = 0;
     modal_state.is_open = false;
@@ -155,7 +206,7 @@ pub fn setup_main_menu(
                 volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
                 ..default()
             },
-            crate::MenuMusicEntity,
+            MenuMusicEntity,
         ));
     }
 
@@ -165,7 +216,7 @@ pub fn setup_main_menu(
 
 pub(crate) fn cleanup_main_menu(
     mut commands: Commands,
-    entities: Query<Entity, (With<crate::MainMenuEntity>, Without<ChildOf>)>,
+    entities: Query<Entity, (With<MainMenuEntity>, Without<ChildOf>)>,
 ) {
     for entity in &entities {
         commands.entity(entity).despawn();
@@ -174,7 +225,7 @@ pub(crate) fn cleanup_main_menu(
 
 pub(crate) fn stop_menu_music(
     mut commands: Commands,
-    music_entities: Query<Entity, With<crate::MenuMusicEntity>>,
+    music_entities: Query<Entity, With<MenuMusicEntity>>,
 ) {
     for entity in &music_entities {
         commands.entity(entity).despawn();
@@ -183,13 +234,13 @@ pub(crate) fn stop_menu_music(
 
 pub(crate) fn stop_menu_music_on_main_exit(
     mut commands: Commands,
-    music_entities: Query<Entity, With<crate::MenuMusicEntity>>,
-    next_state: Option<Res<NextState<crate::AppState>>>,
+    music_entities: Query<Entity, With<MenuMusicEntity>>,
+    next_state: Option<Res<NextState<AppState>>>,
 ) {
     let should_stop = match next_state {
         Some(ns) => match &*ns {
-            NextState::Pending(crate::AppState::SettingsView)
-            | NextState::Pending(crate::AppState::AboutView) => false,
+            NextState::Pending(AppState::SettingsView)
+            | NextState::Pending(AppState::AboutView) => false,
             _ => true,
         },
         None => true,
@@ -206,24 +257,24 @@ pub(crate) fn stop_menu_music_on_main_exit(
 
 pub(crate) fn menu_keyboard_navigation(
     keys: Res<ButtonInput<KeyCode>>,
-    mut selection: ResMut<crate::MenuSelection>,
-    modal_state: Res<crate::ExitConfirmModalState>,
+    mut selection: ResMut<MenuSelection>,
+    modal_state: Res<ExitConfirmModalState>,
 ) {
     if modal_state.is_open {
         return;
     }
 
-    if selection.index >= crate::MENU_ITEMS.len() {
+    if selection.index >= MENU_ITEMS.len() {
         selection.index = 0;
     }
 
     if keys.just_pressed(KeyCode::ArrowDown) {
-        selection.index = (selection.index + 1) % crate::MENU_ITEMS.len();
+        selection.index = (selection.index + 1) % MENU_ITEMS.len();
     }
 
     if keys.just_pressed(KeyCode::ArrowUp) {
         if selection.index == 0 {
-            selection.index = crate::MENU_ITEMS.len() - 1;
+            selection.index = MENU_ITEMS.len() - 1;
         } else {
             selection.index -= 1;
         }
@@ -231,13 +282,13 @@ pub(crate) fn menu_keyboard_navigation(
 }
 
 pub(crate) fn menu_pointer_input(
-    interactions: Query<(&Interaction, &crate::MenuButton), (Changed<Interaction>, With<Button>)>,
-    mut selection: ResMut<crate::MenuSelection>,
-    mut next_state: ResMut<NextState<crate::AppState>>,
+    interactions: Query<(&Interaction, &MenuButton), (Changed<Interaction>, With<Button>)>,
+    mut selection: ResMut<MenuSelection>,
+    mut next_state: ResMut<NextState<AppState>>,
     mut app_exit: MessageWriter<AppExit>,
     world_catalog: Res<crate::world::WorldCatalog>,
     mut progress: ResMut<crate::CampaignProgress>,
-    mut modal_state: ResMut<crate::ExitConfirmModalState>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
 ) {
     if modal_state.is_open {
         return;
@@ -266,12 +317,12 @@ pub(crate) fn menu_pointer_input(
 
 pub(crate) fn activate_selected_menu_item(
     keys: Res<ButtonInput<KeyCode>>,
-    selection: Res<crate::MenuSelection>,
-    mut next_state: ResMut<NextState<crate::AppState>>,
+    selection: Res<MenuSelection>,
+    mut next_state: ResMut<NextState<AppState>>,
     mut app_exit: MessageWriter<AppExit>,
     world_catalog: Res<crate::world::WorldCatalog>,
     mut progress: ResMut<crate::CampaignProgress>,
-    mut modal_state: ResMut<crate::ExitConfirmModalState>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
 ) {
     if modal_state.is_open {
         return;
@@ -288,7 +339,7 @@ pub(crate) fn activate_selected_menu_item(
         return;
     }
 
-    let (_, action) = crate::MENU_ITEMS[selection.index];
+    let (_, action) = MENU_ITEMS[selection.index];
     activate_action(
         action,
         &mut next_state,
@@ -300,28 +351,28 @@ pub(crate) fn activate_selected_menu_item(
 }
 
 fn activate_action(
-    action: crate::MenuAction,
-    next_state: &mut ResMut<NextState<crate::AppState>>,
+    action: MenuAction,
+    next_state: &mut ResMut<NextState<AppState>>,
     app_exit: &mut MessageWriter<AppExit>,
     world_catalog: &Res<crate::world::WorldCatalog>,
     progress: &mut ResMut<crate::CampaignProgress>,
-    modal_state: &mut ResMut<crate::ExitConfirmModalState>,
+    modal_state: &mut ResMut<ExitConfirmModalState>,
 ) {
     match action {
-        crate::MenuAction::Start => {
+        MenuAction::Start => {
             let count = world_catalog.worlds().len();
             if count == 1 {
                 progress.world_index = Some(0);
                 progress.clear_planet_progress();
                 progress.world_start_story_seen = false;
-                next_state.set(crate::AppState::WorldMapView);
+                next_state.set(AppState::WorldMapView);
             } else {
-                next_state.set(crate::AppState::StartView);
+                next_state.set(AppState::StartView);
             }
         }
-        crate::MenuAction::Settings => next_state.set(crate::AppState::SettingsView),
-        crate::MenuAction::About => next_state.set(crate::AppState::AboutView),
-        crate::MenuAction::Exit => {
+        MenuAction::Settings => next_state.set(AppState::SettingsView),
+        MenuAction::About => next_state.set(AppState::AboutView),
+        MenuAction::Exit => {
             let _ = app_exit;
             modal_state.is_open = true;
             modal_state.selection = 1;
@@ -332,7 +383,7 @@ fn activate_action(
 
 pub(crate) fn open_or_close_exit_modal_with_escape(
     keys: Res<ButtonInput<KeyCode>>,
-    mut modal_state: ResMut<crate::ExitConfirmModalState>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
 ) {
     if !keys.just_pressed(KeyCode::Escape) {
         return;
@@ -348,7 +399,7 @@ pub(crate) fn open_or_close_exit_modal_with_escape(
 
 pub(crate) fn modal_keyboard_navigation(
     keys: Res<ButtonInput<KeyCode>>,
-    mut modal_state: ResMut<crate::ExitConfirmModalState>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
 ) {
     if !modal_state.is_open {
         return;
@@ -356,20 +407,20 @@ pub(crate) fn modal_keyboard_navigation(
 
     if keys.just_pressed(KeyCode::ArrowLeft) || keys.just_pressed(KeyCode::ArrowUp) {
         modal_state.selection = if modal_state.selection == 0 {
-            crate::EXIT_CONFIRM_ITEMS.len() - 1
+            EXIT_CONFIRM_ITEMS.len() - 1
         } else {
             modal_state.selection - 1
         };
     }
 
     if keys.just_pressed(KeyCode::ArrowRight) || keys.just_pressed(KeyCode::ArrowDown) {
-        modal_state.selection = (modal_state.selection + 1) % crate::EXIT_CONFIRM_ITEMS.len();
+        modal_state.selection = (modal_state.selection + 1) % EXIT_CONFIRM_ITEMS.len();
     }
 }
 
 pub(crate) fn modal_pointer_input(
-    interactions: Query<(&Interaction, &crate::ExitConfirmButton), (Changed<Interaction>, With<Button>)>,
-    mut modal_state: ResMut<crate::ExitConfirmModalState>,
+    interactions: Query<(&Interaction, &ExitConfirmButton), (Changed<Interaction>, With<Button>)>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
     mut app_exit: MessageWriter<AppExit>,
 ) {
     if !modal_state.is_open {
@@ -392,7 +443,7 @@ pub(crate) fn modal_pointer_input(
 
 pub(crate) fn activate_selected_modal_item(
     keys: Res<ButtonInput<KeyCode>>,
-    mut modal_state: ResMut<crate::ExitConfirmModalState>,
+    mut modal_state: ResMut<ExitConfirmModalState>,
     mut app_exit: MessageWriter<AppExit>,
 ) {
     if !modal_state.is_open {
@@ -412,7 +463,7 @@ pub(crate) fn activate_selected_modal_item(
 
     modal_state.suppress_enter_until_release = true;
 
-    let (_, action) = crate::EXIT_CONFIRM_ITEMS[modal_state.selection];
+    let (_, action) = EXIT_CONFIRM_ITEMS[modal_state.selection];
     execute_exit_modal_action(action, &mut modal_state, &mut app_exit);
 }
 
@@ -425,15 +476,15 @@ fn is_enter_just_pressed(keys: &ButtonInput<KeyCode>) -> bool {
 }
 
 fn execute_exit_modal_action(
-    action: crate::ExitConfirmAction,
-    modal_state: &mut ResMut<crate::ExitConfirmModalState>,
+    action: ExitConfirmAction,
+    modal_state: &mut ResMut<ExitConfirmModalState>,
     app_exit: &mut MessageWriter<AppExit>,
 ) {
     match action {
-        crate::ExitConfirmAction::Confirm => {
+        ExitConfirmAction::Confirm => {
             app_exit.write(AppExit::Success);
         }
-        crate::ExitConfirmAction::Cancel => {
+        ExitConfirmAction::Cancel => {
             modal_state.is_open = false;
             modal_state.selection = 1;
         }
@@ -442,8 +493,8 @@ fn execute_exit_modal_action(
 
 pub(crate) fn sync_exit_modal(
     mut commands: Commands,
-    modal_state: Res<crate::ExitConfirmModalState>,
-    roots: Query<Entity, With<crate::ExitConfirmModalRoot>>,
+    modal_state: Res<ExitConfirmModalState>,
+    roots: Query<Entity, With<ExitConfirmModalRoot>>,
 ) {
     if modal_state.is_open {
         if roots.iter().next().is_some() {
@@ -464,8 +515,8 @@ pub(crate) fn sync_exit_modal(
                 },
                 bevy::ui::FocusPolicy::Block,
                 BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
-                crate::ExitConfirmModalRoot,
-                crate::MainMenuEntity,
+                ExitConfirmModalRoot,
+                MainMenuEntity,
             ))
             .with_children(|overlay| {
                 overlay
@@ -479,7 +530,7 @@ pub(crate) fn sync_exit_modal(
                             ..default()
                         },
                         BackgroundColor(Color::srgb(0.06, 0.06, 0.08)),
-                        crate::MainMenuEntity,
+                        MainMenuEntity,
                     ))
                     .with_children(|panel| {
                         panel.spawn((
@@ -492,7 +543,7 @@ pub(crate) fn sync_exit_modal(
                             i18n::LocalizedText {
                                 key: "modal.exit.title".to_string(),
                             },
-                            crate::MainMenuEntity,
+                            MainMenuEntity,
                         ));
                         panel.spawn((
                             Text::new(""),
@@ -504,7 +555,7 @@ pub(crate) fn sync_exit_modal(
                             i18n::LocalizedText {
                                 key: "modal.exit.hint".to_string(),
                             },
-                            crate::MainMenuEntity,
+                            MainMenuEntity,
                         ));
 
                         panel
@@ -515,10 +566,10 @@ pub(crate) fn sync_exit_modal(
                                     row_gap: Val::Px(12.0),
                                     ..default()
                                 },
-                                crate::MainMenuEntity,
+                                MainMenuEntity,
                             ))
                             .with_children(|button_list| {
-                                for (index, (label, action)) in crate::EXIT_CONFIRM_ITEMS.into_iter().enumerate() {
+                                for (index, (label, action)) in EXIT_CONFIRM_ITEMS.into_iter().enumerate() {
                                     button_list
                                         .spawn((
                                             Button,
@@ -528,8 +579,8 @@ pub(crate) fn sync_exit_modal(
                                                 ..default()
                                             },
                                             BackgroundColor(Color::NONE),
-                                            crate::ExitConfirmButton { index, action },
-                                            crate::MainMenuEntity,
+                                            ExitConfirmButton { index, action },
+                                            MainMenuEntity,
                                         ))
                                         .with_children(|button| {
                                             button.spawn((
@@ -542,7 +593,7 @@ pub(crate) fn sync_exit_modal(
                                                 i18n::LocalizedText {
                                                     key: label.to_string(),
                                                 },
-                                                crate::MainMenuEntity,
+                                                MainMenuEntity,
                                             ));
                                         });
                                 }
@@ -558,9 +609,9 @@ pub(crate) fn sync_exit_modal(
 }
 
 pub(crate) fn update_modal_visuals(
-    modal_state: Res<crate::ExitConfirmModalState>,
+    modal_state: Res<ExitConfirmModalState>,
     mut button_query: Query<
-        (&crate::ExitConfirmButton, &Children, &mut BackgroundColor),
+        (&ExitConfirmButton, &Children, &mut BackgroundColor),
         With<Button>,
     >,
     mut text_colors: Query<&mut TextColor>,
@@ -586,9 +637,9 @@ pub(crate) fn update_modal_visuals(
 }
 
 pub(crate) fn update_menu_visuals(
-    selection: Res<crate::MenuSelection>,
-    modal_state: Res<crate::ExitConfirmModalState>,
-    mut button_query: Query<(&crate::MenuButton, &Children, &mut BackgroundColor), With<Button>>,
+    selection: Res<MenuSelection>,
+    modal_state: Res<ExitConfirmModalState>,
+    mut button_query: Query<(&MenuButton, &Children, &mut BackgroundColor), With<Button>>,
     mut text_colors: Query<&mut TextColor>,
 ) {
     if modal_state.is_open {
@@ -615,7 +666,7 @@ pub(crate) fn update_menu_visuals(
 pub(crate) fn fit_background_to_window(
     windows: Query<&Window, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
-    mut backgrounds: Query<(&Sprite, &mut Transform), With<crate::StartScreenBackground>>,
+    mut backgrounds: Query<(&Sprite, &mut Transform), With<StartScreenBackground>>,
 ) {
     let Ok(window) = windows.single() else {
         return;

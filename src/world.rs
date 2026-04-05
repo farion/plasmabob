@@ -1,5 +1,4 @@
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+
 
 use bevy::asset::io::AssetSourceId;
 use bevy::prelude::*;
@@ -77,10 +76,10 @@ pub(crate) struct WorldCatalogEntry {
     pub(crate) definition: WorldDefinition,
 }
 
-#[derive(Resource, Debug, Clone, Default)]
+#[derive(Resource, Debug, Default)]
 pub(crate) struct WorldCatalog {
     worlds: Vec<WorldCatalogEntry>,
-    last_error: Option<String>,
+    last_error: Option<LoadWorldError>,
 }
 
 impl WorldCatalog {
@@ -92,8 +91,8 @@ impl WorldCatalog {
         self.worlds.get(index)
     }
 
-    pub(crate) fn last_error(&self) -> Option<&str> {
-        self.last_error.as_deref()
+    pub(crate) fn last_error(&self) -> Option<&LoadWorldError> {
+        self.last_error.as_ref()
     }
 
     pub(crate) fn refresh(&mut self, asset_server: &AssetServer) {
@@ -104,39 +103,20 @@ impl WorldCatalog {
             }
             Err(error) => {
                 self.worlds.clear();
-                self.last_error = Some(error.to_string());
+                self.last_error = Some(error);
             }
         }
     }
 }
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub(crate) enum LoadWorldError {
-    Io(std::io::Error),
-    Parse(serde_json::Error),
-}
-
-impl Display for LoadWorldError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Io(error) => write!(f, "{error}"),
-            Self::Parse(error) => write!(f, "{error}"),
-        }
-    }
-}
-
-impl Error for LoadWorldError {}
-
-impl From<std::io::Error> for LoadWorldError {
-    fn from(value: std::io::Error) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<serde_json::Error> for LoadWorldError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Parse(value)
-    }
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Parse error: {0}")]
+    Parse(#[from] serde_json::Error),
 }
 
 fn load_world_catalog(asset_server: &AssetServer, dir_asset_path: &str) -> Result<Vec<WorldCatalogEntry>, LoadWorldError> {
@@ -174,7 +154,7 @@ fn load_world_catalog(asset_server: &AssetServer, dir_asset_path: &str) -> Resul
         }
 
         let asset_path = path.to_string_lossy().to_string();
-        let content = read_asset_text_from_server(asset_server, &asset_path)?;
+        let content = crate::helper::asset_io::read_asset_text(asset_server, &asset_path)?;
         let definition: WorldDefinition = serde_json::from_str(&content)?;
 
         worlds.push(WorldCatalogEntry {
@@ -187,44 +167,7 @@ fn load_world_catalog(asset_server: &AssetServer, dir_asset_path: &str) -> Resul
     Ok(worlds)
 }
 
-fn read_asset_text_from_server(asset_server: &AssetServer, asset_path: &str) -> Result<String, LoadWorldError> {
-    let source = asset_server.get_source(AssetSourceId::Default).map_err(|error| {
-        LoadWorldError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("Asset source error: {error}"),
-        ))
-    })?;
-
-    let mut bytes = Vec::new();
-    pollster::block_on(async {
-        let mut reader = source
-            .reader()
-            .read(asset_path.as_ref())
-            .await
-            .map_err(|error| {
-                std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!("Could not read asset '{asset_path}': {error}"),
-                )
-            })?;
-
-        reader.read_to_end(&mut bytes).await.map_err(|error| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Could not read asset bytes for '{asset_path}': {error}"),
-            )
-        })?;
-
-        Ok::<(), std::io::Error>(())
-    })?;
-
-    String::from_utf8(bytes).map_err(|error| {
-        LoadWorldError::Io(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("Asset '{asset_path}' is not valid UTF-8: {error}"),
-        ))
-    })
-}
+// read_asset_text_from_server moved to `src/helper/asset_io.rs` as a shared helper.
 
 pub(crate) fn find_directional_neighbor(
     planets: &[PlanetDefinition],

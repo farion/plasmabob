@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use crate::{AppState, CampaignProgress};
+use crate::app_model::AppState;
+use crate::CampaignProgress;
 use crate::i18n::LocalizedText;
 
 pub struct LoseViewPlugin;

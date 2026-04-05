@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::app_model::AppState;
 use crate::game::systems::maintenance::{draw_hitbox_debug_lines, pause_menu};
 use crate::game::systems::presentation::snap_camera_to_player;
 use crate::game::systems::presentation::tick_level_time;
@@ -52,8 +53,16 @@ pub struct GameViewPlugin;
 
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
+        // Define ordered SystemSets for gameplay so Scheduling is explicit and extensible
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        pub enum GameViewSet {
+            Gameplay,
+            Presentation,
+            Maintenance,
+        }
+
         app.add_systems(
-            OnEnter(crate::AppState::GameView),
+            OnEnter(AppState::GameView),
             (
                 setup_game_view::setup_game_view,
                 snap_camera_to_player::snap_camera_to_player,
@@ -70,15 +79,19 @@ impl Plugin for GameViewPlugin {
         .init_resource::<LevelTimer>()
         .add_systems(
             Update,
-            pause_menu::update_pause_menu.run_if(in_state(crate::AppState::GameView)),
+            pause_menu::update_pause_menu.run_if(in_state(AppState::GameView)),
         )
+        // Configure ordered sets for update-stage: Gameplay -> Presentation -> Maintenance
+        .configure_sets(
+            Update,
+            (GameViewSet::Gameplay, GameViewSet::Presentation, GameViewSet::Maintenance),
+        )
+        // Gameplay: core simulation and state changes
         .add_systems(
             Update,
             (
                 spawn_terrain_background_tiles::spawn_terrain_background_tiles,
-                attach_parallax_anchors::attach_parallax_anchors,
                 update_grounded::update_grounded,
-                update_dust_particles::update_dust_particles,
                 (control_player::control_player, sync_player_hitbox_orientation::sync_player_hitbox_orientation)
                     .chain()
                     .before(shoot_plasma::shoot_plasma),
@@ -107,21 +120,42 @@ impl Plugin for GameViewPlugin {
                     apply_state_animation::apply_state_animation,
                     despawn_dead_entities::despawn_dead_entities,
                 ),
-                toggle_hitbox_debug_lines::toggle_hitbox_debug_lines,
-                update_debug_stats_labels::update_debug_stats_labels,
-                toggle_debug_overlay::toggle_debug_overlay,
-                draw_hitbox_debug_lines::draw_hitbox_debug_lines,
                 tick_level_time::tick_level_time,
-                update_level_hud::update_level_hud,
-                update_player_health_hud::update_player_health_hud,
                 (
                     detect_player_defeated::detect_player_defeated,
                     detect_player_collectibles::detect_player_collectibles,
                     detect_player_reached_exit::detect_player_reached_exit,
                 ),
             )
+                .in_set(GameViewSet::Gameplay)
                 .run_if(gameplay_active)
-                .run_if(in_state(crate::AppState::GameView)),
+                .run_if(in_state(AppState::GameView)),
+        )
+        // Presentation: visuals, HUD and particle updates
+        .add_systems(
+            Update,
+            (
+                attach_parallax_anchors::attach_parallax_anchors,
+                update_dust_particles::update_dust_particles,
+                update_level_hud::update_level_hud,
+                update_player_health_hud::update_player_health_hud,
+            )
+                .in_set(GameViewSet::Presentation)
+                .run_if(gameplay_active)
+                .run_if(in_state(AppState::GameView)),
+        )
+        // Maintenance: debug overlays and hitbox drawing
+        .add_systems(
+            Update,
+            (
+                toggle_hitbox_debug_lines::toggle_hitbox_debug_lines,
+                update_debug_stats_labels::update_debug_stats_labels,
+                toggle_debug_overlay::toggle_debug_overlay,
+                draw_hitbox_debug_lines::draw_hitbox_debug_lines,
+            )
+                .in_set(GameViewSet::Maintenance)
+                .run_if(gameplay_active)
+                .run_if(in_state(AppState::GameView)),
         )
         .add_systems(
             PostUpdate,
@@ -130,7 +164,7 @@ impl Plugin for GameViewPlugin {
                 apply_parallax_from_camera::apply_parallax_from_camera,
             )
                 .chain()
-                .run_if(in_state(crate::AppState::GameView)),
+                .run_if(in_state(AppState::GameView)),
         )
         // Floating health/damage numbers: spawn on events and animate them
         .add_systems(
@@ -139,9 +173,10 @@ impl Plugin for GameViewPlugin {
                 health_floating::spawn_on_health_change,
                 health_floating::animate_floating_texts,
             )
-                .run_if(in_state(crate::AppState::GameView)),
+                .in_set(GameViewSet::Presentation)
+                .run_if(in_state(AppState::GameView)),
         )
-        .add_systems(OnExit(crate::AppState::GameView), cleanup_game_view::cleanup_game_view);
+        .add_systems(OnExit(AppState::GameView), cleanup_game_view::cleanup_game_view);
     }
 }
 

@@ -2,7 +2,8 @@ use bevy::prelude::*;
 use bevy::time::Virtual;
 use bevy::ui::FocusPolicy;
 
-use crate::{AppState, CampaignProgress};
+use crate::app_model::AppState;
+use crate::CampaignProgress;
 use crate::game::game_view::PauseMenuState;
 use crate::game::systems::maintenance::types::{PauseMenuAction, PAUSE_MENU_ITEMS};
 use crate::game::systems::systems_api::GameViewEntity;

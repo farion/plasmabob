@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
+use crate::app_model::{AppState, StartScreenBackground};
 use crate::helper::audio_settings::AudioSettings;
 use crate::key_bindings::{KeyAction, KeyBindings};
-use crate::AppState;
 use crate::i18n::LocalizedText;
 
 pub struct SettingsViewPlugin;
@@ -141,7 +141,7 @@ fn setup_settings_view(
     commands.spawn((
         Sprite::from_image(asset_server.load("start.png")),
         Transform::from_xyz(0.0, 0.0, -1.0),
-        crate::StartScreenBackground,
+        StartScreenBackground,
         SettingsViewEntity,
     ));
     commands.init_resource::<SettingsSelection>();

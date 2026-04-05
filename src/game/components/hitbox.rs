@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use avian2d::prelude::Collider;
 use std::collections::HashMap;
 
-use crate::level::EntityTypeDefinition;
+use crate::level::{EntityTypeDefinition, EntityTypeError};
 
 #[derive(Component, Debug, Clone)]
 #[allow(dead_code)]
@@ -77,13 +77,13 @@ impl PolygonHitbox {
 
 }
 
-pub(crate) fn from_entity_type(entity_type: &EntityTypeDefinition) -> Result<PolygonHitbox, String> {
+pub(crate) fn from_entity_type(entity_type: &EntityTypeDefinition) -> Result<PolygonHitbox, EntityTypeError> {
     Ok(PolygonHitbox {
         points: entity_type.centered_hitbox_polygon()?,
     })
 }
 
-pub(crate) fn from_entity_type_by_state(entity_type: &EntityTypeDefinition) -> Result<StateHitboxCatalog, String> {
+pub(crate) fn from_entity_type_by_state(entity_type: &EntityTypeDefinition) -> Result<StateHitboxCatalog, EntityTypeError> {
     let polygons = entity_type.centered_hitbox_polygons_by_state()?;
     let catalog = polygons
         .into_iter()

@@ -3,10 +3,12 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use futures_lite::AsyncReadExt;
+use thiserror::Error;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 
+use crate::app_model::AppState;
 use crate::key_bindings::KeyBindings;
-use crate::{AppState, PendingStoryScreen};
+use crate::PendingStoryScreen;
 use crate::i18n::{Translations, CurrentLanguage, LocalizedText};
 
 pub struct StoryViewPlugin;
@@ -77,7 +79,7 @@ impl Plugin for StoryViewPlugin {
     }
 }
 
-    fn setup_story_view(
+        fn setup_story_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut pending_story: ResMut<PendingStoryScreen>,
@@ -97,7 +99,7 @@ impl Plugin for StoryViewPlugin {
     };
 
     let story_text = read_asset_text_from_server(&asset_server, &story.text_asset_path, &translations, &current)
-        .unwrap_or_else(|error| error);
+        .unwrap_or_else(|error| error.to_string());
 
     commands.spawn((
         Sprite::from_image(asset_server.load(&story.background_asset_path)),
@@ -347,14 +349,14 @@ fn read_asset_text_from_server(
     asset_path: &str,
     translations: &Translations,
     current: &CurrentLanguage,
-) -> Result<String, String> {
+) -> Result<String, StoryLoadError> {
     let source = asset_server
         .get_source(AssetSourceId::Default)
         .map_err(|error| {
-            translations
+            StoryLoadError::Message(translations
                 .tr(&current.effective(&translations), "story.asset_read_error")
                 .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
-                .unwrap_or_else(|| format!("Asset source error: {error}", error = error))
+                .unwrap_or_else(|| format!("Asset source error: {error}", error = error)))
         })?;
 
     let mut bytes = Vec::new();
@@ -364,33 +366,39 @@ fn read_asset_text_from_server(
             .read(asset_path.as_ref())
             .await
                 .map_err(|error| {
-                translations
+                StoryLoadError::Message(translations
                     .tr(&current.effective(&translations), "story.asset_read_error")
                     .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
-                    .unwrap_or_else(|| format!("Asset '{asset}' could not be read: {error}", asset = asset_path, error = error))
+                    .unwrap_or_else(|| format!("Asset '{asset}' could not be read: {error}", asset = asset_path, error = error)))
             })?;
 
         reader
             .read_to_end(&mut bytes)
             .await
             .map_err(|error| {
-                translations
+                StoryLoadError::Message(translations
                     .tr(&current.effective(&translations), "story.asset_read_error")
                     .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
-                    .unwrap_or_else(|| format!("Asset bytes for '{asset}' could not be read: {error}", asset = asset_path, error = error))
+                    .unwrap_or_else(|| format!("Asset bytes for '{asset}' could not be read: {error}", asset = asset_path, error = error)))
             })?;
 
-        Ok::<(), String>(())
+        Ok::<(), StoryLoadError>(())
     })?;
 
     let text = String::from_utf8(bytes).map_err(|error| {
-        translations
+        StoryLoadError::Message(translations
             .tr(&current.effective(&translations), "story.asset_utf8_error")
             .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
-            .unwrap_or_else(|| format!("Asset '{asset}' is not valid UTF-8: {error}", asset = asset_path, error = error))
+            .unwrap_or_else(|| format!("Asset '{asset}' is not valid UTF-8: {error}", asset = asset_path, error = error)))
     })?;
 
     Ok(text.trim_start_matches('\u{feff}').to_string())
+}
+
+#[derive(Error, Debug)]
+pub enum StoryLoadError {
+    #[error("{0}")]
+    Message(String),
 }
 
 fn render_markdown_blocks(md: &str) -> Vec<MarkdownBlock> {
