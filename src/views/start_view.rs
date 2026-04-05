@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::world::WorldCatalog;
+use crate::world::WorldCatalog;
 use crate::{AppState, CampaignProgress, WorldListSelection};
 use crate::i18n::{Translations, CurrentLanguage};
 

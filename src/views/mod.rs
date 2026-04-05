@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use crate::game::game_view::GameViewPlugin;
 
+pub mod main_view;
+
 mod about_view;
 mod load_view;
 mod lose_view;
@@ -15,6 +17,7 @@ pub struct ViewsPlugin;
 impl Plugin for ViewsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
+            main_view::MainViewPlugin,
             start_view::StartViewPlugin,
             GameViewPlugin,
             load_view::LoadViewPlugin,

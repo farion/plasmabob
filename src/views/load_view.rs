@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::level::CachedLevelDefinition;
+use crate::level::CachedLevelDefinition;
 use crate::{AppState, CampaignProgress, LevelSelection, PendingStoryScreen, StoryScreenRequest};
 
 pub struct LoadViewPlugin;

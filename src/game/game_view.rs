@@ -1,44 +1,49 @@
 use bevy::prelude::*;
 
-use crate::game::systems::{draw_hitbox_debug_lines, snap_camera_to_player, tick_level_time, toggle_debug_overlay, toggle_hitbox_debug_lines, update_debug_stats_labels, update_level_hud, update_player_health_hud};
-use crate::game::systems::follow_player_with_camera;
-use crate::game::systems::cleanup_game_view;
-use crate::game::systems::tick_invincibility_timers;
-use crate::game::systems::apply_hostile_contact_damage;
-use crate::game::systems::set_hostile_fight_state_on_player_contact;
-use crate::game::systems::shoot_plasma;
-use crate::game::systems::update_plasma_beams;
-use crate::game::systems::update_plasma_impact_particles;
-use crate::game::systems::maintain_player_fight_state;
-use crate::game::systems::disable_dead_npc_collisions;
-use crate::game::systems::play_hostile_death_quotes;
-use crate::game::systems::count_hostile_deaths;
-use crate::game::systems::despawn_dead_entities;
-use crate::game::systems::detect_player_defeated;
-use crate::game::systems::detect_player_collectibles;
-use crate::game::systems::detect_player_reached_exit;
-use crate::game::systems::sync_death_state_from_health;
-use crate::game::systems::tick_hit_state_timers;
-use crate::game::systems::tick_fight_state_timers;
-use crate::game::systems::apply_state_animation;
-use crate::game::systems::sync_state_hitboxes;
-use crate::game::systems::attach_parallax_anchors;
-use crate::game::systems::apply_parallax_from_camera;
-use crate::game::systems::setup_game_view;
-use crate::game::systems::spawn_terrain_background_tiles;
-use crate::game::systems::configure_player_controller;
-use crate::game::systems::spawn_player_health_hud;
-use crate::game::systems::spawn_level_hud;
-use crate::game::systems::update_grounded;
-use crate::game::systems::update_dust_particles;
-use crate::game::systems::control_player;
-use crate::game::systems::sync_player_hitbox_orientation;
-use crate::game::systems::control_moving_entities;
-use crate::game::systems::pause_menu;
-use crate::game::systems::health_floating;
-use crate::game::systems::hud_types;
-
-use crate::game::view_api::{PauseMenuState, QuoteCooldown};
+use crate::game::systems::maintenance::{draw_hitbox_debug_lines, pause_menu};
+use crate::game::systems::presentation::snap_camera_to_player;
+use crate::game::systems::presentation::tick_level_time;
+use crate::game::systems::maintenance::toggle_debug_overlay;
+use crate::game::systems::maintenance::toggle_hitbox_debug_lines;
+use crate::game::systems::maintenance::update_debug_stats_labels;
+use crate::game::systems::presentation::update_level_hud;
+use crate::game::systems::presentation::update_player_health_hud;
+use crate::game::systems::presentation::follow_player_with_camera;
+use crate::game::systems::maintenance::cleanup_game_view;
+use crate::game::systems::gameplay::tick_invincibility_timers;
+use crate::game::systems::gameplay::apply_hostile_contact_damage;
+use crate::game::systems::gameplay::set_hostile_fight_state_on_player_contact;
+use crate::game::systems::gameplay::shoot_plasma;
+use crate::game::systems::presentation::update_plasma_beams;
+use crate::game::systems::presentation::update_plasma_impact_particles;
+use crate::game::systems::gameplay::maintain_player_fight_state;
+use crate::game::systems::gameplay::disable_dead_npc_collisions;
+use crate::game::systems::presentation::play_hostile_death_quotes;
+use crate::game::systems::gameplay::count_hostile_deaths;
+use crate::game::systems::gameplay::despawn_dead_entities;
+use crate::game::systems::gameplay::detect_player_defeated;
+use crate::game::systems::gameplay::detect_player_collectibles;
+use crate::game::systems::gameplay::detect_player_reached_exit;
+use crate::game::systems::gameplay::sync_death_state_from_health;
+use crate::game::systems::gameplay::tick_hit_state_timers;
+use crate::game::systems::gameplay::tick_fight_state_timers;
+use crate::game::systems::gameplay::apply_state_animation;
+use crate::game::systems::gameplay::sync_state_hitboxes;
+use crate::game::systems::presentation::attach_parallax_anchors;
+use crate::game::systems::presentation::apply_parallax_from_camera;
+use crate::game::systems::setup_spawn::setup_game_view;
+use crate::game::systems::setup_spawn::spawn_terrain_background_tiles;
+use crate::game::systems::gameplay::configure_player_controller;
+use crate::game::systems::setup_spawn::spawn_player_health_hud;
+use crate::game::systems::setup_spawn::spawn_level_hud;
+use crate::game::systems::gameplay::update_grounded;
+use crate::game::systems::presentation::update_dust_particles;
+use crate::game::systems::gameplay::control_player;
+use crate::game::systems::gameplay::sync_player_hitbox_orientation;
+use crate::game::systems::gameplay::control_moving_entities;
+use crate::game::systems::presentation::health_floating;
+use crate::game::systems::presentation::types::LevelTimer;
+use crate::game::systems::systems_api::QuoteCooldown;
 
 pub struct GameViewPlugin;
 
@@ -62,7 +67,7 @@ impl Plugin for GameViewPlugin {
         // Floating health change markers are inserted as components by combat
         // systems (RecentHealthChange). No separate event type is required.
         .init_resource::<PauseMenuState>()
-        .init_resource::<hud_types::LevelTimer>()
+        .init_resource::<LevelTimer>()
         .add_systems(
             Update,
             pause_menu::update_pause_menu.run_if(in_state(crate::AppState::GameView)),
@@ -142,6 +147,14 @@ impl Plugin for GameViewPlugin {
 
 fn gameplay_active(modal_state: Res<PauseMenuState>) -> bool {
     !modal_state.is_open && !modal_state.suppress_enter_until_release
+}
+
+
+#[derive(Resource, Default)]
+pub(crate) struct PauseMenuState {
+    pub(crate) is_open: bool,
+    pub(crate) selection: usize,
+    pub(crate) suppress_enter_until_release: bool,
 }
 
 

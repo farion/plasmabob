@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use avian2d::prelude::{CollidingEntities, LinearVelocity, LockedAxes, RigidBody, CollisionLayers, LayerMask};
 use bevy::prelude::*;
 
-use crate::game::level::{EntityDefinition, EntityTypeDefinition};
+use crate::level::{EntityDefinition, EntityTypeDefinition};
 
 pub(crate) mod collision;
 pub(crate) mod doodad;

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::game::world::WorldCatalog;
-use crate::game::level::CachedLevelDefinition;
+use crate::world::WorldCatalog;
+use crate::level::CachedLevelDefinition;
 use crate::{AppState, CampaignProgress, LevelSelection, LevelStats};
 use crate::i18n::LocalizedText;
 

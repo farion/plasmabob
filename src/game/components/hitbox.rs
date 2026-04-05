@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use avian2d::prelude::Collider;
 use std::collections::HashMap;
 
-use crate::game::level::EntityTypeDefinition;
+use crate::level::EntityTypeDefinition;
 
 #[derive(Component, Debug, Clone)]
 #[allow(dead_code)]

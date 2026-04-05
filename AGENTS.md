@@ -25,15 +25,79 @@ cargo run -- worlds/auralis/aqueon_level1.json
 
 ## Architecture Overview
 
-```
-main.rs            ← Entry point with the main menu
-src/views/         ← All the UI views
-src/game/          ← Everything related to the game itself running a level 
-  game_view.rs     ← GameViewPlugin: declares all systems and their ordering
-  components/      ← One file per ECS component type; each exports an insert() fn
-  systems/         ← One file per ECS system
-  systems/common/  ← Reusable helper methods for systems
-```
+This repository is organised around Bevy's ECS and plugin model. The codebase separates UI (menu/views), game
+logic (components + systems), and data (JSON assets). The high-level design emphasizes:
+
+- Small, single‑responsibility systems: one system per file under `src/game/systems/` for clarity and easy ordering.
+- Data‑driven entity definitions: entity types and worlds live in `assets/` and are parsed at runtime by `src/level.rs`.
+- Explicit module boundaries: `game::systems::systems_api` holds shared components, resources and constants used
+  across systems to keep public surface minimal.
+
+Top-level layout (what each area is responsible for):
+
+- `main.rs` — Application bootstrap and global app configuration:
+  - Initializes plugins and resources (fonts, i18n, key bindings, audio settings).
+  - Registers the main `AppState` and starts the UI via the `views::ViewsPlugin`.
+  - Spawns the camera and the main menu UI.
+
+- `src/views/` — All UI views for menus and screens (Start, Settings, About, Story, World map, Load/Win/Lose):
+  - Each view lives in its own module and exports a Bevy `Plugin`.
+  - `views::ViewsPlugin` composes the individual view plugins and ensures they are added to the app.
+  - Views may depend on small helper modules under `src/helper` (i18n, fonts, particles).
+
+- `src/game/` — Game runtime for playing a level:
+  - `game_view.rs` — `GameViewPlugin` and the place where systems are declared and ordered. It defines when
+    systems run (OnEnter, Update, PostUpdate, OnExit) and groups chain/run_if semantics.
+  - `components/` — One file per gameplay component (player, hostile, health, hitbox, plasma, etc.). Each file
+    exposes an `insert()` helper where appropriate and component types used by systems.
+  - `systems/` — All gameplay systems, organised into subpackages:
+    - `gameplay/` — core game mechanics (movement, collisions, combat, entity state sync).
+    - `presentation/` — visual/audio follow‑ups (camera, HUD, particles, audio playback, parallax).
+    - `maintenance/` — editor/debug helpers and housekeeping (cleanup, debug overlays, pause menu).
+    - `setup_spawn/` — initial spawn/setup logic for a level (spawn background, HUD, entities, boundaries).
+    - `systems_api.rs` — small shared API of components/resources/constants used across submodules (e.g.
+      `GameViewEntity`, `ActiveLevelBounds`, `QuoteCooldown`).
+
+- `src/helper/` — Cross-cutting utilities used by both views and game systems (i18n, fonts, audio settings,
+  key binding persistence, small particle helpers). Keep pure helpers here to avoid circular dependencies.
+
+- `src/level.rs` and `assets/` — Level loading, entity type parsing, and JSON schemas:
+  - `level.rs` contains the loader that reads JSON from `assets/` and converts it into in-memory `LevelDefinition`.
+  - `assets/entity_types/*.json` define entity components, animations and sizes. The runtime uses these to spawn
+    entities via `game::components::spawn_entity`.
+
+Design patterns and conventions
+- One system per file. Register systems in `GameViewPlugin` and prefer small chains (.chain(), .before(), .run_if()).
+- Systems and components access only the minimal `systems_api` surface when they must share state across directories.
+- Resources that represent shared runtime state are declared with `#[derive(Resource)]` and initialised in `GameViewPlugin`
+  or `main.rs` as appropriate.
+- UI stacking / z-order: Bevy UI `ZIndex` is used where needed (see `main.rs` main menu example).
+
+How to add a new gameplay system
+1. Create a file under the appropriate submodule, e.g. `src/game/systems/gameplay/my_new_system.rs`.
+2. Add `pub mod my_new_system;` to `src/game/systems/gameplay/mod.rs`.
+3. Register the system in `src/game/game_view.rs` in the correct scheduling group (OnEnter/Update/PostUpdate) and
+   use `.before()` / `.after()` / `.chain()` to position it relative to existing systems.
+4. If the system needs to share data with others, add a small type to `systems_api.rs` or a new `Resource` in
+   `game_view.rs` as needed.
+
+Testing and editor
+- Unit tests for pure functions live alongside the module (`#[cfg(test)]` blocks). Integration smoke tests are
+  exercised by running the game and using `cargo run` with a level path.
+- There is a separate `editor/` binary that operates on the same JSON assets; the editor code is kept in the
+  `editor/` folder to avoid coupling the runtime.
+
+
+### Module Dependency Graph
+
+src -> src::game -> src::helper -> src::views
+src::views -> src::game
+src::game -> src::game::components src::game -> src::game::systems
+src::game::systems -> src::game::components src::game::systems -> src::helper (durch Teilmodule wie presentation/gameplay)
+src::game::systems::gameplay -> src::game::components src::game::systems::gameplay -> src::helper
+src::game::systems::presentation -> src::game::components src::game::systems::presentation -> src::helper
+src::game::systems::maintenance -> src::game::components
+src::game::systems::setup_spawn -> src::game::components src::game::systems::setup_spawn -> src::helper
 
 Note: there is also a separate editor executable in `editor/` (see `editor/AGENTS.md`). The editor is built with Bevy and `bevy_egui` and operates on the same JSON assets in `assets/` but does not run game logic.
 
@@ -49,8 +113,6 @@ Cross-cutting helpers and global modules live at the crate root and are importan
 
 ### Welt-JSON Schema
 `assets/worlds/*.json`
-
-
 
 ## Level Format 
 `assets/worlds/{worldname}/{levelname}_level{number}.json`
@@ -92,11 +154,3 @@ keys translated in those files must be used to bring texts in the game.
 
 All commenting must happen in english.
 
-## Best Practices
-
-### Adding a new game system
-
-Adding a new game system in PlasmaBob is straightforward. You can create a new Rust file under `src/game/systems/` and
-define your system there. Then you need to add it to the `GameViewPlugin` in `src/game/game_view.rs` and specify its 
-ordering with respect to the other systems. Only one system per file is recommended for better readability and
-maintainability.

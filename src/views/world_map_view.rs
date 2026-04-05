@@ -2,14 +2,14 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use std::f32::consts::TAU;
 
-use crate::game::systems::combat_helpers::create_round_particle_image;
-use crate::game::world::find_directional_neighbor;
-use crate::game::world::WorldCatalog;
+use crate::world::find_directional_neighbor;
+use crate::world::WorldCatalog;
 use crate::i18n::{CurrentLanguage, Translations};
 use crate::{
     AppState, CampaignProgress, LevelSelection, MainCamera, PendingStoryScreen, StoryScreenRequest,
     WorldMapSelection,
 };
+use crate::helper::particles::create_round_particle_image;
 
 pub struct WorldMapViewPlugin;
 
@@ -278,7 +278,6 @@ fn rotate_vec2(value: Vec2, angle: f32) -> Vec2 {
 fn ensure_world_map_particle_image(images: &mut Assets<Image>) -> Handle<Image> {
     images.add(create_round_particle_image(32))
 }
-// create_round_particle_image moved to `src/game/systems/common/combat_helpers.rs`
 
 fn select_planet_by_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
@@ -457,7 +456,7 @@ fn cleanup_world_map_view(mut commands: Commands, entities: Query<Entity, (With<
     }
 }
 
-fn selected_world<'a>(world_catalog: &'a WorldCatalog, progress: &CampaignProgress) -> Option<&'a crate::game::world::WorldDefinition> {
+fn selected_world<'a>(world_catalog: &'a WorldCatalog, progress: &CampaignProgress) -> Option<&'a crate::world::WorldDefinition> {
     let world_index = progress.world_index?;
     world_catalog.world(world_index).map(|entry| &entry.definition)
 }
