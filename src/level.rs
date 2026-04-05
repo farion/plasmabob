@@ -140,6 +140,10 @@ pub(crate) struct EntityTypeDefinition {
     pub(crate) damage: Option<i32>,
     #[serde(default)]
     pub(crate) effect_heal: Option<EffectHealDefinition>,
+    #[serde(default)]
+    pub(crate) melee_attack: Option<MeleeAttackDefinition>,
+    #[serde(default)]
+    pub(crate) range_attack: Option<RangeAttackDefinition>,
     /// Maximum range of the plasma beam (player only). Enables the PlasmaAttack component.
     #[serde(default)]
     pub(crate) attack_range: Option<f32>,
@@ -149,6 +153,22 @@ pub(crate) struct EntityTypeDefinition {
 pub(crate) struct EffectHealDefinition {
     #[serde(default)]
     pub(crate) heal: Option<i32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct MeleeAttackDefinition {
+    #[serde(default)]
+    pub(crate) damage: Option<i32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct RangeAttackDefinition {
+    #[serde(default)]
+    pub(crate) damage: Option<i32>,
+    #[serde(default)]
+    pub(crate) speed: Option<f32>,
+    #[serde(default)]
+    pub(crate) frequency: Option<f32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

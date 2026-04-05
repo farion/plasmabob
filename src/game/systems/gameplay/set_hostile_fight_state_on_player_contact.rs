@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use avian2d::prelude::CollidingEntities;
 use bevy::prelude::*;
 
-use crate::game::components::animation::{AnimationState, EntityState, FightStateTimer, HitStateTimer, FIGHT_STATE_SECONDS, can_set_state};
+use crate::game::components::animation::{AnimationState, EntityState, HitStateTimer, can_set_state, MeleeAttackStateTimer, MELEE_ATTACK_STATE_SECONDS};
 use crate::game::components::hostile::Hostile;
 use crate::game::components::player::Player;
 
@@ -14,7 +14,7 @@ pub(crate) fn set_hostile_fight_state_on_player_contact(
         &CollidingEntities,
         &mut AnimationState,
         Option<&HitStateTimer>,
-        Option<&FightStateTimer>,
+        Option<&MeleeAttackStateTimer>,
         Option<&crate::game::components::health::Health>,
     ), (With<Hostile>, Without<Player>)>,
 ) {
@@ -34,12 +34,12 @@ pub(crate) fn set_hostile_fight_state_on_player_contact(
             continue;
         }
 
-        if can_set_state(&hostile_state, hit_timer, fight_timer, EntityState::Fight) {
-            hostile_state.set(EntityState::Fight);
-            commands
-                .entity(hostile_entity)
-                .insert(FightStateTimer::new(FIGHT_STATE_SECONDS));
-        }
+            if can_set_state(&hostile_state, hit_timer, None, fight_timer, EntityState::MeleeAttack) {
+                hostile_state.set(EntityState::MeleeAttack);
+                commands
+                    .entity(hostile_entity)
+                    .insert(MeleeAttackStateTimer::new(MELEE_ATTACK_STATE_SECONDS));
+            }
     }
 }
 

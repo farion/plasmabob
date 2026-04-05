@@ -16,7 +16,7 @@ pub(crate) fn maintain_player_fight_state(
             continue;
         }
 
-        if can_set_state(&state, hit_timer, None, EntityState::Fight) {
+        if can_set_state(&state, hit_timer, None, None, EntityState::Fight) {
             state.set(EntityState::Fight);
         }
     }

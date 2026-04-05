@@ -1,4 +1,4 @@
-pub mod apply_hostile_contact_damage;
+pub mod apply_melee_attack_contact_damage;
 pub mod apply_state_animation;
 pub mod configure_player_controller;
 pub mod control_moving_entities;
@@ -17,6 +17,7 @@ pub mod sync_death_state_from_health;
 pub mod sync_player_hitbox_orientation;
 pub mod sync_state_hitboxes;
 pub mod tick_fight_state_timers;
+pub mod tick_melee_attack_state_timers;
 pub mod tick_hit_state_timers;
 pub mod tick_invincibility_timers;
 pub mod types;

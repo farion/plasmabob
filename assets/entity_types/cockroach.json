@@ -1,6 +1,8 @@
 {
-  "component": ["collision", "npc", "hostile", "moving", "health"],
-  "damage": 10,
+  "component": ["collision", "npc", "hostile", "moving", "health", "melee_attack"],
+  "melee_attack": {
+    "damage": 10
+  },
   "health": {
     "health": 30
   },
@@ -16,7 +18,7 @@
       "animation_frame_ms": 300,
       "hitbox": [[0, 0], [166, 0], [166, 94], [0, 94]]
     },
-    "fight": {
+    "melee_attack": {
       "animation": ["sprites/cockroach/cockroach-attack-1.png", "sprites/cockroach/cockroach-attack-2.png", "sprites/cockroach/cockroach-attack-3.png"],
       "animation_frame_ms": 300,
       "hitbox": [[7, 5], [159, 5], [159, 121], [7, 121]]

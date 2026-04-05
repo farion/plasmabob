@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use crate::game::components::moving::Moving;
 use crate::game::components::npc::Npc;
 use crate::game::components::health::Health;
-use crate::game::components::animation::{AnimationState, FightStateTimer, HitStateTimer, can_set_state, EntityState};
+use crate::game::components::animation::{AnimationState, HitStateTimer, MeleeAttackStateTimer, can_set_state, EntityState};
 use crate::game::systems::gameplay::helpers::{detect_small_step, update_sprite_flip_for_move_axis};
 
 use crate::game::systems::systems_api::MOVING_NPC_MAX_DISTANCE_FROM_ORIGIN;
@@ -21,7 +21,7 @@ pub(crate) fn control_moving_entities(
             &mut Moving,
             &mut AnimationState,
             Option<&HitStateTimer>,
-            Option<&FightStateTimer>,
+            Option<&MeleeAttackStateTimer>,
             Option<&Health>,
         ),
         With<Npc>,
@@ -67,7 +67,7 @@ pub(crate) fn control_moving_entities(
             EntityState::Default
         };
 
-        if can_set_state(&state, hit_timer, fight_timer, next_state) {
+        if can_set_state(&state, hit_timer, None, fight_timer, next_state) {
             state.set(next_state);
         }
     }

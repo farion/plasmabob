@@ -19,6 +19,8 @@ pub(crate) mod plasma;
 pub(crate) mod player;
 pub(crate) mod collectible;
 pub(crate) mod effect_heal;
+  pub(crate) mod melee_attack;
+  pub(crate) mod range_attack;
 
 #[derive(Component)]
 pub(crate) struct SpawnedLevelEntity;
@@ -164,8 +166,24 @@ pub(crate) fn spawn_entity(
     // `Health` is now inserted only when the entity type lists the "health" component
     // in its `components` array. See the match arm above.
 
-    if let Some(dmg) = entity_type.damage {
-        entity_commands.insert(health::Damage(dmg));
+    // Insert MeleeAttack for hostile/NPC types when defined in the entity type
+    let overridden_melee = entity_definition
+        .overrides
+        .get("melee_attack.damage")
+        .and_then(|v| {
+            if let Some(i) = v.as_i64() {
+                Some(i as i32)
+            } else if let Some(u) = v.as_u64() {
+                Some(u as i32)
+            } else if let Some(f) = v.as_f64() {
+                Some(f.round() as i32)
+            } else {
+                None
+            }
+        });
+
+    if let Some(dmg) = overridden_melee.or(entity_type.melee_attack.as_ref().and_then(|m| m.damage)) {
+        entity_commands.insert(melee_attack::MeleeAttack::new(dmg));
     }
 
     // Insert PlasmaAttack for player entities that define an attack range.

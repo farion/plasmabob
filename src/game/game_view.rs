@@ -12,7 +12,7 @@ use crate::game::systems::presentation::update_player_health_hud;
 use crate::game::systems::presentation::follow_player_with_camera;
 use crate::game::systems::maintenance::cleanup_game_view;
 use crate::game::systems::gameplay::tick_invincibility_timers;
-use crate::game::systems::gameplay::apply_hostile_contact_damage;
+use crate::game::systems::gameplay::apply_melee_attack_contact_damage;
 use crate::game::systems::gameplay::set_hostile_fight_state_on_player_contact;
 use crate::game::systems::gameplay::shoot_plasma;
 use crate::game::systems::presentation::update_plasma_beams;
@@ -28,6 +28,7 @@ use crate::game::systems::gameplay::detect_player_reached_exit;
 use crate::game::systems::gameplay::sync_death_state_from_health;
 use crate::game::systems::gameplay::tick_hit_state_timers;
 use crate::game::systems::gameplay::tick_fight_state_timers;
+use crate::game::systems::gameplay::tick_melee_attack_state_timers;
 use crate::game::systems::gameplay::apply_state_animation;
 use crate::game::systems::gameplay::sync_state_hitboxes;
 use crate::game::systems::presentation::attach_parallax_anchors;
@@ -97,7 +98,7 @@ impl Plugin for GameViewPlugin {
                     .before(shoot_plasma::shoot_plasma),
                 control_moving_entities::control_moving_entities,
                 tick_invincibility_timers::tick_invincibility_timers,
-                apply_hostile_contact_damage::apply_hostile_contact_damage,
+                apply_melee_attack_contact_damage::apply_meele_attack_contact_damage,
                 set_hostile_fight_state_on_player_contact::set_hostile_fight_state_on_player_contact,
                 (
                     shoot_plasma::shoot_plasma,
@@ -116,6 +117,7 @@ impl Plugin for GameViewPlugin {
                     count_hostile_deaths::count_hostile_deaths,
                     tick_hit_state_timers::tick_hit_state_timers,
                     tick_fight_state_timers::tick_fight_state_timers,
+                    tick_melee_attack_state_timers::tick_melee_attack_state_timers,
                     sync_state_hitboxes::sync_state_hitboxes,
                     apply_state_animation::apply_state_animation,
                     despawn_dead_entities::despawn_dead_entities,

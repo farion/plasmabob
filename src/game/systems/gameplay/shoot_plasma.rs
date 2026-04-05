@@ -1,7 +1,7 @@
 use avian2d::prelude::SpatialQueryFilter;
 use bevy::math::Dir2;
 use bevy::prelude::*;
-
+use crate::game::components::animation::{can_set_state, EntityState};
 use crate::game::components::collision::Collision;
 use crate::game::components::hostile::Hostile;
 use crate::game::components::player::Player;
@@ -51,8 +51,8 @@ pub(crate) fn shoot_plasma(
         // record a shot
         stats.shots = stats.shots.saturating_add(1);
 
-        if crate::game::components::animation::can_set_state(&state, hit_timer, None, crate::game::components::animation::EntityState::Fight) {
-            state.set(crate::game::components::animation::EntityState::Fight);
+        if can_set_state(&state, hit_timer, None, None, EntityState::Fight) {
+            state.set(EntityState::Fight);
         }
 
         let direction = if sprite.flip_x { -1.0f32 } else { 1.0 };
