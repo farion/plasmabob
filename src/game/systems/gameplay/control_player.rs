@@ -100,7 +100,7 @@ pub(crate) fn control_player(
             EntityState::Default
         };
 
-        if can_set_state(&state, hit_timer, None, None, next_state) {
+        if can_set_state(&state, hit_timer, None, None, None, next_state) {
             state.set(next_state);
         }
     }

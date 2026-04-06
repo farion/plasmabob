@@ -245,12 +245,44 @@ pub(crate) fn spawn_entity(
             .or(definition.and_then(|d| d.aggro_range))
             .unwrap_or(max_range);
 
+        // Visual config: animation paths, frame duration, or particle effect
+        let animation: Vec<String> = entity_definition
+            .overrides
+            .get("range_attack.animation")
+            .and_then(|v| {
+                v.as_array().map(|arr| {
+                    arr.iter()
+                        .filter_map(|item| item.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
+            })
+            .unwrap_or_else(|| {
+                definition
+                    .map(|d| d.animation.clone())
+                    .unwrap_or_default()
+            });
+
+        let animation_frame_ms = entity_definition
+            .overrides
+            .get("range_attack.animation_frame_ms")
+            .and_then(|v| v.as_u64())
+            .or_else(|| definition.and_then(|d| d.animation_frame_ms));
+
+        let particle_effect = entity_definition
+            .overrides
+            .get("range_attack.particle_effect")
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
+            .or_else(|| definition.and_then(|d| d.particle_effect.clone()));
+
         entity_commands.insert(range_attack::RangeAttack::new(
             damage,
             speed,
             frequency,
             max_range,
             aggro_range,
+            animation,
+            animation_frame_ms,
+            particle_effect,
         ));
     }
 

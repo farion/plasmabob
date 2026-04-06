@@ -4,7 +4,7 @@ use bevy::window::PrimaryWindow;
 
 use crate::app_model::{
     AppState, EXIT_CONFIRM_ITEMS, ExitConfirmAction, ExitConfirmButton, ExitConfirmModalRoot,
-    ExitConfirmModalState, MENU_ITEMS, MainMenuEntity, MenuAction, MenuButton, MenuMusicEntity,
+    ExitConfirmModalState, MENU_ITEMS, MainMenuEntity, MenuAction, MenuButton,
     MenuSelection, StartScreenBackground, menu_action_label_key,
 };
 use crate::helper::active_character::ActiveCharacter;
@@ -206,12 +206,10 @@ pub fn spawn_main_menu_ui(
 pub fn setup_main_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    audio_settings: Res<crate::helper::audio_settings::AudioSettings>,
     active_character: Res<ActiveCharacter>,
     mut selection: ResMut<MenuSelection>,
     mut modal_state: ResMut<ExitConfirmModalState>,
     mut world_catalog: ResMut<crate::world::WorldCatalog>,
-    menu_music_entities: Query<Entity, With<MenuMusicEntity>>,
 ) {
     selection.index = 0;
     modal_state.is_open = false;
@@ -237,17 +235,13 @@ pub(crate) fn cleanup_main_menu(
     }
 }
 
-pub(crate) fn stop_menu_music(
-    mut commands: Commands,
-    music_entities: Query<Entity, With<MenuMusicEntity>>,
-) {
+pub(crate) fn stop_menu_music(commands: Commands) {
     // audio is managed centrally now; do nothing here to avoid stopping background music
-    let _ = (&commands, &music_entities);
+    let _ = commands;
 }
 
 pub(crate) fn stop_menu_music_on_main_exit(
-    mut commands: Commands,
-    music_entities: Query<Entity, With<MenuMusicEntity>>,
+    commands: Commands,
     next_state: Option<Res<NextState<AppState>>>,
 ) {
     let should_stop = match next_state {
@@ -263,7 +257,7 @@ pub(crate) fn stop_menu_music_on_main_exit(
         return;
     }
     // Music lifecycle is handled globally; do nothing here.
-    let _ = (&commands, &music_entities);
+    let _ = commands;
 }
 
 pub(crate) fn menu_keyboard_navigation(
@@ -407,8 +401,6 @@ fn sync_main_menu_theme(
     mut commands: Commands,
     active_character: Res<ActiveCharacter>,
     asset_server: Res<AssetServer>,
-    audio_settings: Res<crate::helper::audio_settings::AudioSettings>,
-    music_entities: Query<Entity, With<MenuMusicEntity>>,
     mut backgrounds: Query<&mut Sprite, With<StartScreenBackground>>,
     mut toggle_labels: Query<&mut Text, With<CharacterToggleLabel>>,
     logo_entities: Query<Entity, With<MainMenuLogo>>,

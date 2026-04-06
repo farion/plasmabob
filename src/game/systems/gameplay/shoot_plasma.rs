@@ -14,9 +14,8 @@ use crate::game::systems::systems_api::CombatSoundEffects;
 use crate::game::systems::systems_api::GameViewEntity;
 use crate::helper::sounds::{SfxEntity, CombatSfx};
 
-use crate::game::systems::gameplay::helpers::{
-    ensure_plasma_particle_image, hash_to_unit, plasma_origin_from_player,
-};
+use crate::game::systems::gameplay::helpers::{ensure_plasma_particle_image, plasma_origin_from_player};
+use crate::game::gfx::helpers::hash_to_unit;
 use crate::game::systems::gameplay::types::PlasmaBeamParticle;
 
 pub(crate) fn shoot_plasma(
@@ -64,7 +63,7 @@ pub(crate) fn shoot_plasma(
         // record a shot
         stats.shots = stats.shots.saturating_add(1);
 
-        if can_set_state(&state, hit_timer, None, None, EntityState::Fight) {
+        if can_set_state(&state, hit_timer, None, None, None, EntityState::Fight) {
             state.set(EntityState::Fight);
         }
 

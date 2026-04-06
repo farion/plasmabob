@@ -42,13 +42,14 @@ pub(crate) fn set_hostile_fight_state_on_player_contact(
             continue;
         }
 
-        if can_set_state(
-            &hostile_state,
-            hit_timer,
-            None,
-            fight_timer,
-            EntityState::MeleeAttack,
-        ) {
+                if can_set_state(
+                    &hostile_state,
+                    hit_timer,
+                    None,
+                    fight_timer,
+                    None,
+                    EntityState::MeleeAttack,
+                ) {
             hostile_state.set(EntityState::MeleeAttack);
             commands
                 .entity(hostile_entity)

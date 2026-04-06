@@ -175,6 +175,15 @@ pub(crate) struct RangeAttackDefinition {
     pub(crate) max_range: Option<f32>,
     #[serde(default)]
     pub(crate) aggro_range: Option<f32>,
+    /// Optional sprite frames for an animated projectile.
+    #[serde(default)]
+    pub(crate) animation: Vec<String>,
+    /// Frame duration in ms for the animation; defaults to 150 ms.
+    #[serde(default)]
+    pub(crate) animation_frame_ms: Option<u64>,
+    /// Named particle effect: "fire" | "poison" | "spit".
+    #[serde(default)]
+    pub(crate) particle_effect: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

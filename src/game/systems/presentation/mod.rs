@@ -13,5 +13,6 @@ pub mod update_level_hud;
 pub mod update_plasma_beams;
 pub mod update_plasma_impact_particles;
 pub mod update_player_health_hud;
+pub mod update_projectile_effect_particles;
 
 // Presentation helpers and types are kept in their own files.

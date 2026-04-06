@@ -22,6 +22,7 @@ pub(crate) fn apply_meele_attack_contact_damage(
             &mut AnimationState,
             Option<&HitStateTimer>,
             Option<&MeleeAttackStateTimer>,
+            Option<&crate::game::components::animation::RangeAttackStateTimer>,
             Option<&LevelEntityType>,
         ),
         (With<MeleeAttack>, Without<Player>),
@@ -65,6 +66,7 @@ pub(crate) fn apply_meele_attack_contact_damage(
                 mut hostile_state,
                 hostile_hit_timer,
                 hostile_melee_timer,
+                hostile_range_timer,
                 _level_entity_type,
             )) = enemy.get_mut(colliding_entity)
             {
@@ -91,6 +93,7 @@ pub(crate) fn apply_meele_attack_contact_damage(
                     hostile_hit_timer,
                     None,
                     hostile_melee_timer,
+                    hostile_range_timer,
                     EntityState::MeleeAttack,
                 ) {
                     hostile_state.set(EntityState::MeleeAttack);

@@ -14,8 +14,10 @@ use crate::game::systems::gameplay::detect_player_reached_exit;
 use crate::game::systems::gameplay::disable_dead_npc_collisions;
 use crate::game::systems::gameplay::fire_range_attack_projectiles;
 use crate::game::systems::gameplay::handle_range_projectile_impacts;
-use crate::game::systems::gameplay::maintain_player_fight_state;
 use crate::game::systems::gameplay::move_range_projectiles;
+use crate::game::systems::gameplay::maintain_player_fight_state;
+use crate::game::systems::gameplay::projectile_emit_particles;
+use crate::game::systems::gameplay::update_range_projectile_animations;
 use crate::game::systems::gameplay::set_hostile_fight_state_on_player_contact;
 use crate::game::systems::gameplay::shoot_plasma;
 use crate::game::systems::gameplay::sync_death_state_from_health;
@@ -25,6 +27,7 @@ use crate::game::systems::gameplay::tick_fight_state_timers;
 use crate::game::systems::gameplay::tick_hit_state_timers;
 use crate::game::systems::gameplay::tick_invincibility_timers;
 use crate::game::systems::gameplay::tick_melee_attack_state_timers;
+use crate::game::systems::gameplay::tick_range_attack_state_timers;
 use crate::game::systems::gameplay::update_grounded;
 use crate::game::systems::maintenance::cleanup_game_view;
 use crate::game::systems::maintenance::toggle_debug_overlay;
@@ -44,6 +47,7 @@ use crate::game::systems::presentation::update_level_hud;
 use crate::game::systems::presentation::update_plasma_beams;
 use crate::game::systems::presentation::update_plasma_impact_particles;
 use crate::game::systems::presentation::update_player_health_hud;
+use crate::game::systems::presentation::update_projectile_effect_particles;
 use crate::game::systems::setup_spawn::setup_game_view;
 use crate::game::systems::setup_spawn::spawn_level_hud;
 use crate::game::systems::setup_spawn::spawn_player_health_hud;
@@ -107,6 +111,8 @@ impl Plugin for GameViewPlugin {
                     fire_range_attack_projectiles::fire_range_attack_projectiles,
                     move_range_projectiles::move_range_projectiles,
                     handle_range_projectile_impacts::handle_range_projectile_impacts,
+                    projectile_emit_particles::projectile_emit_particles,
+                    update_range_projectile_animations::update_range_projectile_animations,
                     update_plasma_beams::update_plasma_beams,
                     update_plasma_impact_particles::update_plasma_impact_particles,
                     maintain_player_fight_state::maintain_player_fight_state,
@@ -123,6 +129,7 @@ impl Plugin for GameViewPlugin {
                     tick_hit_state_timers::tick_hit_state_timers,
                     tick_fight_state_timers::tick_fight_state_timers,
                     tick_melee_attack_state_timers::tick_melee_attack_state_timers,
+                    tick_range_attack_state_timers::tick_range_attack_state_timers,
                     sync_state_hitboxes::sync_state_hitboxes,
                     apply_state_animation::apply_state_animation,
                     despawn_dead_entities::despawn_dead_entities,
@@ -144,6 +151,7 @@ impl Plugin for GameViewPlugin {
             (
                 attach_parallax_anchors::attach_parallax_anchors,
                 update_dust_particles::update_dust_particles,
+                update_projectile_effect_particles::update_projectile_effect_particles,
                 update_level_hud::update_level_hud,
                 update_player_health_hud::update_player_health_hud,
             )

@@ -31,6 +31,7 @@ pub(crate) fn run() {
         .init_resource::<SceneDirty>()
         .init_resource::<CameraFitRequested>()
         .init_resource::<ZOverlayMode>()
+        .init_resource::<SnapState>()
         .init_resource::<UndoHistory>()
         .init_resource::<UndoCaptureState>()
             .init_resource::<EntityTypeViewState>()
@@ -67,6 +68,7 @@ pub(crate) fn run() {
                 update_pointer_world_position,
                 toggle_add_menu,
                 toggle_z_overlay_mode,
+                toggle_snap,
                 toggle_keyboard_legend_overlay,
                 undo_shortcut,
                 copy_entity_shortcut,
@@ -371,6 +373,14 @@ fn z_overlay_color_for_value(z: f32) -> Color {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn((Camera2d, EditorCamera));
+}
+
+// Distance in world units within which edges/corners will snap together.
+const SNAP_THRESHOLD: f32 = 40.0;
+
+#[derive(Resource, Default)]
+struct SnapState {
+    enabled: bool,
 }
 
 fn refresh_level_catalog(mut catalog: ResMut<LevelCatalog>) {
@@ -866,6 +876,10 @@ fn editing_ui(
                 .anchor(egui::Align2::RIGHT_BOTTOM, [-20.0, -20.0])
                 .show(ctx, |ui| {
                     egui::Frame::popup(ui.style()).show(ui, |ui| {
+                        // Make the toast wider so most messages fit on one line.
+                        // We set a reasonable minimum width while allowing it to grow.
+                        ui.set_min_width(420.0);
+                        ui.set_max_width(900.0);
                         ui.label(message);
                     });
                 });
@@ -990,6 +1004,7 @@ fn draw_keyboard_legend_overlay(ctx: &egui::Context, z_overlay_enabled: bool) {
                     let overlay_state = if z_overlay_enabled { "on" } else { "off" };
                     ui.label(format!("Z: Z-Overlay ({overlay_state})"));
                     ui.label("L: Toggle legend");
+                    ui.label("S: Toggle snap");
                 });
         });
 }
@@ -1019,6 +1034,27 @@ fn toggle_z_overlay_mode(
         "Z-Overlay: off".to_string()
     });
     toast.expires_at_seconds = time.elapsed_secs_f64() + 1.5;
+}
+
+fn toggle_snap(
+    mut key_events: MessageReader<KeyboardInput>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut snap_state: ResMut<SnapState>,
+    mut toast: ResMut<ToastState>,
+    time: Res<Time>,
+) {
+    let control_pressed = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+    if control_pressed {
+        return;
+    }
+
+    if !logical_char_just_pressed(&mut key_events, "s") {
+        return;
+    }
+
+    snap_state.enabled = !snap_state.enabled;
+    toast.message = Some(if snap_state.enabled { "Snap: on".to_string() } else { "Snap: off".to_string() });
+    toast.expires_at_seconds = time.elapsed_secs_f64() + 1.2;
 }
 
 fn logical_char_just_pressed(key_events: &mut MessageReader<KeyboardInput>, target: &str) -> bool {
@@ -1329,6 +1365,7 @@ fn drag_selected_entity(
         Without<RenderedZOverlay>,
     >,
     mut rendered_overlays: Query<(&RenderedZOverlay, &mut Transform), Without<RenderedLevelEntity>>,
+    snap_state: Res<SnapState>,
 ) {
     if !mouse_buttons.pressed(MouseButton::Left) {
         selection.is_dragging = false;
@@ -1359,23 +1396,30 @@ fn drag_selected_entity(
         capture_state.drag_snapshot_taken = true;
     }
 
-    let entity_type_name = {
-        let Some(entity) = document.level.entities.get_mut(index) else {
-            return;
-        };
-
+    if let Some(entity) = document.level.entities.get_mut(index) {
         entity.x = new_position.x;
         entity.y = new_position.y;
-        entity.entity_type.clone()
-    };
+    } else {
+        return;
+    }
+    // Apply snapping after updating the entity position. This may adjust x/y to
+    // align with nearby entity edges/corners when snapping is enabled.
+    apply_snapping(&mut document, index, snap_state.enabled);
     document.dirty = true;
 
-    let size = document
-        .entity_types
-        .get(&entity_type_name)
-        .map(|entity_type| entity_type.size())
-        .unwrap_or(Vec2::ZERO);
-    let render_position = entity_render_center(new_position, size);
+    // After snapping the document entity may have been adjusted. Read the
+    // current entity position from the document so the rendered sprite is
+    // updated immediately to match the snapped coordinates.
+    let (render_position, _) = if let Some(e) = document.level.entities.get(index) {
+        let size = document
+            .entity_types
+            .get(&e.entity_type)
+            .map(|entity_type| entity_type.size())
+            .unwrap_or(Vec2::ZERO);
+        (entity_render_center(Vec2::new(e.x, e.y), size), size)
+    } else {
+        (entity_render_center(new_position, Vec2::ZERO), Vec2::ZERO)
+    };
 
     for (rendered, mut transform) in &mut rendered_entities {
         if rendered.index == index {
@@ -1404,6 +1448,7 @@ fn move_selected_entity_with_keyboard(
         Without<RenderedZOverlay>,
     >,
     mut rendered_overlays: Query<(&RenderedZOverlay, &mut Transform), Without<RenderedLevelEntity>>,
+    snap_state: Res<SnapState>,
 ) {
     if ui_state.show_add_menu {
         capture_state.keyboard_move_active = false;
@@ -1456,16 +1501,22 @@ fn move_selected_entity_with_keyboard(
         entity.y += move_delta.y;
         (entity.x, entity.y)
     };
+    // Apply snapping after keyboard move to align to nearby edges/corners.
+    apply_snapping(&mut document, index, snap_state.enabled);
     document.dirty = true;
 
-    let size = document
-        .level
-        .entities
-        .get(index)
-        .and_then(|entity| document.entity_types.get(&entity.entity_type))
-        .map(|entity_type| entity_type.size())
-        .unwrap_or(Vec2::ZERO);
-    let render_position = entity_render_center(Vec2::new(new_x, new_y), size);
+    // After snapping, read the possibly adjusted entity position and update the
+    // rendered transforms so the image follows immediately.
+    let (render_position, _) = if let Some(e) = document.level.entities.get(index) {
+        let size = document
+            .entity_types
+            .get(&e.entity_type)
+            .map(|entity_type| entity_type.size())
+            .unwrap_or(Vec2::ZERO);
+        (entity_render_center(Vec2::new(e.x, e.y), size), size)
+    } else {
+        (entity_render_center(Vec2::new(new_x, new_y), Vec2::ZERO), Vec2::ZERO)
+    };
 
     for (rendered, mut transform) in &mut rendered_entities {
         if rendered.index == index {
@@ -1729,6 +1780,120 @@ fn entity_render_center(entity_bottom_left: Vec2, size: Vec2) -> Vec2 {
         entity_bottom_left.x + size.x * 0.5,
         entity_bottom_left.y + size.y * 0.5,
     )
+}
+
+/// Apply snapping to the entity at `index` within `document` when enabled.
+/// Snaps edges and corners to nearby entities when within `SNAP_THRESHOLD`.
+fn apply_snapping(document: &mut EditorDocument, index: usize, snap_enabled: bool) {
+    if !snap_enabled {
+        return;
+    }
+
+    let Some(entity) = document.level.entities.get(index).cloned() else {
+        return;
+    };
+
+    let size = document
+        .entity_types
+        .get(&entity.entity_type)
+        .map(|et| et.size())
+        .unwrap_or(Vec2::ZERO);
+
+    let a_left = entity.x;
+    let a_right = entity.x + size.x;
+    let a_bottom = entity.y;
+    let a_top = entity.y + size.y;
+
+    // Track best horizontal/vertical candidates. For horizontal we also remember
+    // which other entity produced the candidate so we can check corner-snapping
+    // along that same other entity after applying the edge snap.
+    let mut best_dx: Option<(f32, usize)> = None; // (dx, other_index)
+    let mut best_dy: Option<(f32, usize)> = None; // (dy, other_index)
+
+    for (j, other) in document.level.entities.iter().enumerate() {
+        if j == index {
+            continue;
+        }
+        let Some(ot) = document.entity_types.get(&other.entity_type) else { continue; };
+        let os = ot.size();
+        let b_left = other.x;
+        let b_right = other.x + os.x;
+        let b_bottom = other.y;
+        let b_top = other.y + os.y;
+
+        // horizontal candidates: align left/right edges in multiple combinations
+        let hx = [b_right - a_left, b_left - a_right, b_left - a_left, b_right - a_right];
+        for &dx in &hx {
+            if dx.abs() <= SNAP_THRESHOLD {
+                if best_dx.is_none() || dx.abs() < best_dx.unwrap().0.abs() {
+                    best_dx = Some((dx, j));
+                }
+            }
+        }
+
+        // vertical candidates: align bottom/top edges and parallels
+        let hy = [b_top - a_bottom, b_bottom - a_top, b_bottom - a_bottom, b_top - a_top];
+        for &dy in &hy {
+            if dy.abs() <= SNAP_THRESHOLD {
+                if best_dy.is_none() || dy.abs() < best_dy.unwrap().0.abs() {
+                    best_dy = Some((dy, j));
+                }
+            }
+        }
+    }
+
+    if best_dx.is_none() && best_dy.is_none() {
+        return;
+    }
+
+    // Apply best horizontal snap first (if any). Remember which other entity
+    // caused the snap so we can check for corner snapping along that edge.
+    let mut corner_dy: Option<f32> = None;
+    if let Some((dx, other_idx)) = best_dx {
+        if dx.abs() > f32::EPSILON {
+            if let Some(e) = document.level.entities.get_mut(index) {
+                e.x += dx;
+            }
+        }
+
+        // After an edge snap, check whether the corners are near the other's
+        // corners along that edge and snap vertically if so.
+        if let Some(other) = document.level.entities.get(other_idx) {
+            if let Some(ot) = document.entity_types.get(&other.entity_type) {
+                let os = ot.size();
+                let _b_left = other.x;
+                let _b_right = other.x + os.x;
+                let b_bottom = other.y;
+                let b_top = other.y + os.y;
+
+                if let Some(e) = document.level.entities.get(index) {
+                    let a_bottom = e.y;
+                    let a_top = e.y + size.y;
+
+                    // Candidate vertical adjustments between corners
+                    let corner_candidates = [b_top - a_top, b_bottom - a_bottom, b_top - a_bottom, b_bottom - a_top];
+                    for &dy in &corner_candidates {
+                        if dy.abs() <= SNAP_THRESHOLD {
+                            if corner_dy.is_none() || dy.abs() < corner_dy.unwrap().abs() {
+                                corner_dy = Some(dy);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Decide vertical snap: prefer corner-based dy from the same entity that
+    // produced the horizontal snap; otherwise fall back to the best independent dy.
+    let dy_to_apply = corner_dy.or(best_dy.map(|t| t.0));
+    if let Some(dy) = dy_to_apply {
+        if dy.abs() > f32::EPSILON {
+            if let Some(e) = document.level.entities.get_mut(index) {
+                e.y += dy;
+            }
+        }
+    }
 }
 
 fn level_size(level: &LevelFile, entity_types: &HashMap<String, EntityTypeDefinition>) -> Vec2 {

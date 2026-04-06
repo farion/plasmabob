@@ -26,6 +26,7 @@ pub(crate) fn control_moving_entities(
             &mut AnimationState,
             Option<&HitStateTimer>,
             Option<&MeleeAttackStateTimer>,
+            Option<&crate::game::components::animation::RangeAttackStateTimer>,
             Option<&Health>,
         ),
         With<Npc>,
@@ -40,6 +41,7 @@ pub(crate) fn control_moving_entities(
         mut state,
         hit_timer,
         fight_timer,
+        range_timer,
         health,
     ) in &mut entities
     {
@@ -97,7 +99,7 @@ pub(crate) fn control_moving_entities(
             EntityState::Default
         };
 
-        if can_set_state(&state, hit_timer, None, fight_timer, next_state) {
+        if can_set_state(&state, hit_timer, None, fight_timer, range_timer, next_state) {
             state.set(next_state);
         }
     }

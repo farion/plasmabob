@@ -8,10 +8,11 @@
   },
   "range_attack": {
     "damage": 10,
-    "speed": 500,
-    "frequency": 1000,
-    "max_range": 10000,
-    "aggro_range": 1000
+    "speed": 250,
+    "frequency": 2000,
+    "max_range": 1000,
+    "aggro_range": 1000,
+    "particle_effect": "fire"
   },
   "height": 128,
   "states": {
@@ -27,6 +28,11 @@
     },
     "melee_attack": {
       "animation": ["sprites/cockroach/cockroach-attack-1.png", "sprites/cockroach/cockroach-attack-2.png", "sprites/cockroach/cockroach-attack-3.png"],
+      "animation_frame_ms": 300,
+      "hitbox": [[7, 5], [159, 5], [159, 121], [7, 121]]
+    },
+    "range_attack": {
+      "animation": ["sprites/cockroach/cockroach-range_attack.png"],
       "animation_frame_ms": 300,
       "hitbox": [[7, 5], [159, 5], [159, 121], [7, 121]]
     },

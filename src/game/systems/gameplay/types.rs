@@ -39,6 +39,9 @@ pub(crate) struct RangeProjectile {
     pub(crate) velocity: Vec2,
     pub(crate) damage: i32,
     pub(crate) max_range: f32,
+    /// Accumulated travel distance since spawn. Used to reliably despawn projectiles
+    /// that did not hit anything once they've traveled their maximum range.
+    pub(crate) traveled: f32,
 }
 
 impl RangeProjectile {
@@ -56,7 +59,37 @@ impl RangeProjectile {
             velocity,
             damage: damage.max(0),
             max_range: max_range.max(1.0),
+            traveled: 0.0,
         }
     }
+}
+
+/// Marker for projectiles that use sprite animation (via AnimationPlayback).
+#[derive(Component)]
+pub(crate) struct RangeProjectileVisual;
+
+/// Identifies which particle effect a projectile emitter should spawn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ProjectileParticleKind {
+    Fire,
+    Poison,
+    Spit,
+}
+
+/// Attached to projectiles with `particle_effect` set; drives periodic particle spawning.
+#[derive(Component)]
+pub(crate) struct ProjectileEmitter {
+    pub(crate) kind: ProjectileParticleKind,
+    pub(crate) timer: Timer,
+}
+
+/// A particle emitted along a range-attack projectile's trail.
+/// Uses a `base_color` so its hue is preserved (unlike `DustParticle` which is always grey).
+#[derive(Component)]
+pub(crate) struct ProjectileEffectParticle {
+    pub(crate) velocity: Vec2,
+    pub(crate) lifetime: Timer,
+    pub(crate) start_size: f32,
+    pub(crate) base_color: Color,
 }
 

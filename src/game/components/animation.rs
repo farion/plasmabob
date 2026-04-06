@@ -9,6 +9,7 @@ pub(crate) enum EntityState {
     Jump,
     Fight,
     MeleeAttack,
+    RangeAttack,
     Hit,
     Die,
 }
@@ -21,6 +22,7 @@ impl EntityState {
             Self::Jump => "jump",
             Self::Fight => "fight",
             Self::MeleeAttack => "melee_attack",
+            Self::RangeAttack => "range_attack",
             Self::Hit => "hit",
             Self::Die => "die",
         }
@@ -143,12 +145,28 @@ impl MeleeAttackStateTimer {
 
 pub(crate) const MELEE_ATTACK_STATE_SECONDS: f32 = 0.6;
 
+#[derive(Component, Debug, Clone)]
+pub(crate) struct RangeAttackStateTimer {
+    pub(crate) timer: Timer,
+}
+
+impl RangeAttackStateTimer {
+    pub(crate) fn new(seconds: f32) -> Self {
+        Self {
+            timer: Timer::from_seconds(seconds, TimerMode::Once),
+        }
+    }
+}
+
+pub(crate) const RANGE_ATTACK_STATE_SECONDS: f32 = 1.0;
+
 /// Prevents low-priority state updates from cancelling the temporary `hit` or `fight` state.
 pub(crate) fn can_set_state(
     state: &AnimationState,
     hit_timer: Option<&HitStateTimer>,
     fight_timer: Option<&FightStateTimer>,
     melee_timer: Option<&MeleeAttackStateTimer>,
+    range_timer: Option<&RangeAttackStateTimer>,
     next: EntityState,
 ) -> bool {
     if state.current == EntityState::Die {
@@ -168,6 +186,10 @@ pub(crate) fn can_set_state(
     }
 
     if state.current == EntityState::MeleeAttack && melee_timer.is_some() {
+        return next != EntityState::Walk;
+    }
+
+    if state.current == EntityState::RangeAttack && range_timer.is_some() {
         return next != EntityState::Walk;
     }
 

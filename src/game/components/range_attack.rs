@@ -9,6 +9,12 @@ pub(crate) struct RangeAttack {
     pub(crate) max_range: f32,
     pub(crate) aggro_range: f32,
     pub(crate) cooldown: Timer,
+    /// Optional sprite frames for an animated projectile visual.
+    pub(crate) animation: Vec<String>,
+    /// Animation frame duration in ms (used when animation is set).
+    pub(crate) animation_frame_ms: Option<u64>,
+    /// Named particle effect: "fire" | "poison" | "spit".
+    pub(crate) particle_effect: Option<String>,
 }
 
 impl RangeAttack {
@@ -18,10 +24,13 @@ impl RangeAttack {
         frequency: f32,
         max_range: f32,
         aggro_range: f32,
+        animation: Vec<String>,
+        animation_frame_ms: Option<u64>,
+        particle_effect: Option<String>,
     ) -> Self {
-        let cadence_secs = (frequency.max(1.0)) / 1000.0;
+        let cadence_secs = frequency.max(1.0) / 1000.0;
         let mut cooldown = Timer::from_seconds(cadence_secs, TimerMode::Once);
-        // Start as ready so an entity can fire immediately when the player enters aggro range.
+        // Start already finished so the entity fires immediately on first aggro.
         cooldown.tick(std::time::Duration::from_secs_f32(cadence_secs));
 
         Self {
@@ -31,6 +40,9 @@ impl RangeAttack {
             max_range: max_range.max(1.0),
             aggro_range: aggro_range.max(1.0),
             cooldown,
+            animation,
+            animation_frame_ms,
+            particle_effect,
         }
     }
 }

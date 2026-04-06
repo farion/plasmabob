@@ -14,6 +14,7 @@ pub mod handle_range_projectile_impacts;
 pub mod helpers;
 pub mod maintain_player_fight_state;
 pub mod move_range_projectiles;
+pub mod projectile_emit_particles;
 pub mod set_hostile_fight_state_on_player_contact;
 pub mod shoot_plasma;
 pub mod sync_death_state_from_health;
@@ -23,7 +24,8 @@ pub mod tick_fight_state_timers;
 pub mod tick_hit_state_timers;
 pub mod tick_invincibility_timers;
 pub mod tick_melee_attack_state_timers;
+pub mod tick_range_attack_state_timers;
 pub mod types;
 pub mod update_grounded;
+pub mod update_range_projectile_animations;
 
-// Gameplay-level systems grouped under `gameplay`.

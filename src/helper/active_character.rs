@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::io;
 use crate::helper::settings::{load_field, save_field};
 
-const FILE_NAME: &str = "settings.json";
-
 #[derive(Resource, Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum ActiveCharacter {
