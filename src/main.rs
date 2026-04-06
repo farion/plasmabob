@@ -5,6 +5,8 @@ use crate::helper::audio_settings::AudioSettings;
 use crate::helper::fonts;
 use crate::helper::i18n;
 use crate::helper::key_bindings;
+use crate::helper::music::MusicPlugin;
+use crate::helper::sounds::SoundPlugin;
 use avian2d::{
     math::Vector,
     prelude::{Gravity, PhysicsPlugins},
@@ -175,6 +177,8 @@ fn main() {
         .add_plugins(fonts::FontsPlugin)
         .add_plugins(FramepacePlugin)
         .add_plugins(PhysicsPlugins::default().with_length_unit(100.0))
+        .add_plugins(MusicPlugin)
+        .add_plugins(SoundPlugin)
         .init_state::<AppState>()
         .add_systems(Startup, setup_camera)
         .add_systems(Startup, i18n::load_translations)

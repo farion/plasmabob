@@ -21,7 +21,7 @@
   "settings.section.language": "Sprache",
   "settings.volume.music": "Musik",
   "settings.volume.effects": "Effekte",
-  "settings.volume.quotes": "Quotes",
+  "settings.volume.sounds": "Sounds",
   "settings.error.key_already_bound": "Diese Taste ist bereits belegt!",
 
   "settings.language.label": "Sprache",
@@ -33,6 +33,8 @@
   "action.jump": "Springen",
   "action.shoot": "Schießen",
   "action.fullscreen": "Vollbild",
+  "action.toggle_mute": "Musik stummschalten",
+  "action.toggle_sound": "Sound stummschalten",
 
   "story.hint": "Enter / Schießen / Springen: Weiter",
   "story.asset_read_error": "Asset '{asset}' konnte nicht gelesen werden: {error}",

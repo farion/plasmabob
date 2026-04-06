@@ -39,4 +39,9 @@ pub(crate) fn cleanup_game_view(
     for entity in &level_entities {
         commands.entity(entity).despawn();
     }
+
+    // Restore menu music by requesting PlayMenu on the central player
+    commands.insert_resource(crate::helper::music::MusicRequest(Some(
+        crate::helper::music::MusicRequestKind::PlayMenu,
+    )));
 }

@@ -4,27 +4,24 @@ use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 use crate::helper::settings::{load_field, save_field};
 const DEFAULT_MUSIC_VOLUME: f32 = 0.2;
-const DEFAULT_EFFECTS_VOLUME: f32 = 0.5;
-const DEFAULT_QUOTES_VOLUME: f32 = 1.0;
+const DEFAULT_SOUNDS_VOLUME: f32 = 0.5;
 
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct AudioSettings {
     pub(crate) music_volume: f32,
-    pub(crate) effects_volume: f32,
-    #[serde(default = "default_quotes_volume")]
-    pub(crate) quotes_volume: f32,
+    #[serde(default = "default_sounds_volume")]
+    pub(crate) sounds_volume: f32,
 }
 
-fn default_quotes_volume() -> f32 {
-    DEFAULT_QUOTES_VOLUME
+fn default_sounds_volume() -> f32 {
+    DEFAULT_SOUNDS_VOLUME
 }
 
 impl Default for AudioSettings {
     fn default() -> Self {
         Self {
             music_volume: DEFAULT_MUSIC_VOLUME,
-            effects_volume: DEFAULT_EFFECTS_VOLUME,
-            quotes_volume: DEFAULT_QUOTES_VOLUME,
+            sounds_volume: DEFAULT_SOUNDS_VOLUME,
         }
     }
 }
@@ -49,28 +46,18 @@ impl AudioSettings {
         true
     }
 
-    pub(crate) fn set_effects_volume(&mut self, value: f32) -> bool {
+    pub(crate) fn set_sounds_volume(&mut self, value: f32) -> bool {
         let clamped = clamp_volume(value);
-        if (self.effects_volume - clamped).abs() < f32::EPSILON {
+        if (self.sounds_volume - clamped).abs() < f32::EPSILON {
             return false;
         }
-        self.effects_volume = clamped;
-        true
-    }
-
-    pub(crate) fn set_quotes_volume(&mut self, value: f32) -> bool {
-        let clamped = clamp_volume(value);
-        if (self.quotes_volume - clamped).abs() < f32::EPSILON {
-            return false;
-        }
-        self.quotes_volume = clamped;
+        self.sounds_volume = clamped;
         true
     }
 
     fn sanitize(&mut self) {
         self.music_volume = clamp_volume(self.music_volume);
-        self.effects_volume = clamp_volume(self.effects_volume);
-        self.quotes_volume = clamp_volume(self.quotes_volume);
+        self.sounds_volume = clamp_volume(self.sounds_volume);
     }
 }
 

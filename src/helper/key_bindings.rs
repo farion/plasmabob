@@ -11,6 +11,8 @@ pub(crate) enum KeyAction {
     Jump,
     Shoot,
     Fullscreen,
+    ToggleMute,
+    ToggleSound,
 }
 
 impl KeyAction {
@@ -22,17 +24,21 @@ impl KeyAction {
             Self::Jump => "action.jump",
             Self::Shoot => "action.shoot",
             Self::Fullscreen => "action.fullscreen",
+            Self::ToggleMute => "action.toggle_mute",
+            Self::ToggleSound => "action.toggle_sound",
         }
     }
 
-    pub(crate) fn all() -> [KeyAction; 5] {
-        [
-            Self::MoveLeft,
-            Self::MoveRight,
-            Self::Jump,
-            Self::Shoot,
-            Self::Fullscreen,
-        ]
+    pub(crate) fn all() -> [KeyAction; 7] {
+                [
+                    Self::MoveLeft,
+                    Self::MoveRight,
+                    Self::Jump,
+                    Self::Shoot,
+                    Self::Fullscreen,
+                    Self::ToggleMute,
+                    Self::ToggleSound,
+                ]
     }
 }
 
@@ -48,6 +54,10 @@ pub(crate) struct KeyBindings {
     pub(crate) shoot: KeyCode,
     #[serde(with = "keycode_serde")]
     pub(crate) fullscreen: KeyCode,
+    #[serde(with = "keycode_serde")]
+    pub(crate) toggle_mute: KeyCode,
+    #[serde(with = "keycode_serde")]
+    pub(crate) toggle_sound: KeyCode,
 }
 
 impl Default for KeyBindings {
@@ -58,6 +68,8 @@ impl Default for KeyBindings {
             jump: KeyCode::ArrowUp,
             shoot: KeyCode::Space,
             fullscreen: KeyCode::KeyF,
+            toggle_mute: KeyCode::KeyM,
+            toggle_sound: KeyCode::KeyS,
         }
     }
 }
@@ -78,6 +90,8 @@ impl KeyBindings {
             KeyAction::Jump => self.jump,
             KeyAction::Shoot => self.shoot,
             KeyAction::Fullscreen => self.fullscreen,
+            KeyAction::ToggleMute => self.toggle_mute,
+            KeyAction::ToggleSound => self.toggle_sound,
         }
     }
 
@@ -88,6 +102,8 @@ impl KeyBindings {
             KeyAction::Jump => self.jump = key,
             KeyAction::Shoot => self.shoot = key,
             KeyAction::Fullscreen => self.fullscreen = key,
+            KeyAction::ToggleMute => self.toggle_mute = key,
+            KeyAction::ToggleSound => self.toggle_sound = key,
         }
     }
 

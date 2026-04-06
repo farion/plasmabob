@@ -8,6 +8,7 @@ use crate::game::components::npc::Npc;
 use crate::game::systems::gameplay::types::DeathQuotePlayed;
 use crate::game::systems::systems_api::{GameViewEntity, LevelQuotes};
 use crate::helper::audio_settings::AudioSettings;
+use crate::helper::sounds::{SfxEntity, VoiceSfx};
 
 pub(crate) fn play_hostile_death_quotes(
     mut commands: Commands,
@@ -59,12 +60,14 @@ pub(crate) fn play_hostile_death_quotes(
 
         commands.spawn((
             AudioPlayer::new(quote_handle),
-            PlaybackSettings {
-                mode: bevy::audio::PlaybackMode::Despawn,
-                volume: bevy::audio::Volume::Linear(audio_settings.quotes_volume),
-                ..default()
-            },
+                PlaybackSettings {
+                    mode: bevy::audio::PlaybackMode::Despawn,
+                    volume: bevy::audio::Volume::Linear(audio_settings.sounds_volume),
+                    ..default()
+                },
             GameViewEntity,
+            SfxEntity,
+            VoiceSfx,
         ));
 
         cooldown.0.reset();

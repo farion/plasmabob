@@ -12,6 +12,7 @@ use bevy::prelude::*;
 
 use crate::game::systems::systems_api::CombatSoundEffects;
 use crate::game::systems::systems_api::GameViewEntity;
+use crate::helper::sounds::{SfxEntity, CombatSfx};
 
 use crate::game::systems::gameplay::helpers::{
     ensure_plasma_particle_image, hash_to_unit, plasma_origin_from_player,
@@ -166,15 +167,17 @@ pub(crate) fn shoot_plasma(
         );
 
         if let Some(combat_sfx) = combat_sfx.as_ref() {
-            commands.spawn((
-                AudioPlayer::new(combat_sfx.plasma_shot.clone()),
-                PlaybackSettings {
-                    mode: bevy::audio::PlaybackMode::Despawn,
-                    volume: bevy::audio::Volume::Linear(audio_settings.effects_volume),
-                    ..default()
-                },
-                GameViewEntity,
-            ));
+                commands.spawn((
+                    AudioPlayer::new(combat_sfx.plasma_shot.clone()),
+                    PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Despawn,
+                        volume: bevy::audio::Volume::Linear(audio_settings.sounds_volume),
+                        ..default()
+                    },
+                    GameViewEntity,
+                    SfxEntity,
+                    CombatSfx,
+                ));
         }
     }
 }

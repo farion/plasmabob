@@ -12,6 +12,7 @@ use crate::game::components::hostile::Hostile;
 use crate::game::components::player::Player;
 use crate::game::systems::systems_api::CombatSoundEffects;
 use crate::game::systems::systems_api::GameViewEntity;
+use crate::helper::sounds::{SfxEntity, CombatSfx};
 
 use crate::game::systems::gameplay::helpers::{
     ensure_plasma_particle_image, plasma_origin_from_player, spawn_plasma_impact_explosion,
@@ -119,11 +120,13 @@ pub(crate) fn update_plasma_beams(
                                         PlaybackSettings {
                                             mode: bevy::audio::PlaybackMode::Despawn,
                                             volume: bevy::audio::Volume::Linear(
-                                                audio_settings.effects_volume,
+                                                audio_settings.sounds_volume,
                                             ),
                                             ..default()
                                         },
                                         GameViewEntity,
+                                        SfxEntity,
+                                        CombatSfx,
                                     ));
                                 }
                             }

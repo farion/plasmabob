@@ -6,3 +6,5 @@ pub mod fonts;
 pub mod i18n;
 pub mod key_bindings;
 pub mod particles;
+pub mod music;
+pub mod sounds;

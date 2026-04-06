@@ -221,17 +221,8 @@ pub fn setup_main_menu(
     // Refresh world catalog early so the main menu can make decisions.
     world_catalog.refresh(&asset_server);
 
-    if menu_music_entities.iter().next().is_none() {
-        commands.spawn((
-            bevy::audio::AudioPlayer::new(asset_server.load(active_character.menu_music_path())),
-            bevy::audio::PlaybackSettings {
-                mode: bevy::audio::PlaybackMode::Loop,
-                volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
-                ..default()
-            },
-            MenuMusicEntity,
-        ));
-    }
+    // Music is now managed centrally by `helper::music::MusicPlugin`.
+    // The menu view no longer spawns or manages music entities.
 
     // Spawn the visual UI (logo, sidebar, footer)
     spawn_main_menu_ui(&mut commands, &asset_server, &active_character);
@@ -250,9 +241,8 @@ pub(crate) fn stop_menu_music(
     mut commands: Commands,
     music_entities: Query<Entity, With<MenuMusicEntity>>,
 ) {
-    for entity in &music_entities {
-        commands.entity(entity).despawn();
-    }
+    // audio is managed centrally now; do nothing here to avoid stopping background music
+    let _ = (&commands, &music_entities);
 }
 
 pub(crate) fn stop_menu_music_on_main_exit(
@@ -272,10 +262,8 @@ pub(crate) fn stop_menu_music_on_main_exit(
     if !should_stop {
         return;
     }
-
-    for entity in &music_entities {
-        commands.entity(entity).despawn();
-    }
+    // Music lifecycle is handled globally; do nothing here.
+    let _ = (&commands, &music_entities);
 }
 
 pub(crate) fn menu_keyboard_navigation(
@@ -437,19 +425,8 @@ fn sync_main_menu_theme(
         text.0 = active_character.toggle_menu_label().to_string();
     }
 
-    for entity in &music_entities {
-        commands.entity(entity).despawn();
-    }
-
-    commands.spawn((
-        bevy::audio::AudioPlayer::new(asset_server.load(active_character.menu_music_path())),
-        bevy::audio::PlaybackSettings {
-            mode: bevy::audio::PlaybackMode::Loop,
-            volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
-            ..default()
-        },
-        MenuMusicEntity,
-    ));
+    // Music is now managed centrally by `helper::music::MusicPlugin`.
+    // Do not spawn/despawn menu music here.
 
     // Replace the main menu logo so it reflects the current character.
     let logos: Vec<Entity> = logo_entities.iter().collect();

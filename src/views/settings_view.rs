@@ -13,8 +13,7 @@ const VOLUME_STEP: f32 = 0.05;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum VolumeSetting {
     Music,
-    Effects,
-    Quotes,
+    Sounds,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -24,17 +23,17 @@ enum SettingsItem {
     Language,
 }
 
-const ALL_ITEMS: [SettingsItem; 9] = [
-    SettingsItem::Volume(VolumeSetting::Music),
-    SettingsItem::Volume(VolumeSetting::Effects),
-    SettingsItem::Volume(VolumeSetting::Quotes),
-    SettingsItem::Key(KeyAction::MoveLeft),
-    SettingsItem::Key(KeyAction::MoveRight),
-    SettingsItem::Key(KeyAction::Jump),
-    SettingsItem::Key(KeyAction::Shoot),
-    SettingsItem::Key(KeyAction::Fullscreen),
-    SettingsItem::Language,
-];
+// Build the navigation list dynamically so it always matches available KeyActions.
+fn all_settings_items() -> Vec<SettingsItem> {
+    let mut items = Vec::new();
+    items.push(SettingsItem::Volume(VolumeSetting::Music));
+    items.push(SettingsItem::Volume(VolumeSetting::Sounds));
+    for action in KeyAction::all() {
+        items.push(SettingsItem::Key(action));
+    }
+    items.push(SettingsItem::Language);
+    items
+}
 
 #[derive(Component)]
 struct SettingsViewEntity;
@@ -257,13 +256,9 @@ fn setup_settings_view(
             ));
 
             spawn_section_header(parent, "settings.section.volume");
-            spawn_volume_row(parent, VolumeSetting::Music, audio_settings.music_volume);
-            spawn_volume_row(
-                parent,
-                VolumeSetting::Effects,
-                audio_settings.effects_volume,
-            );
-            spawn_volume_row(parent, VolumeSetting::Quotes, audio_settings.quotes_volume);
+                    spawn_volume_row(parent, VolumeSetting::Music, audio_settings.music_volume);
+                                    // Effects merged into Sounds — no separate row
+                            spawn_volume_row(parent, VolumeSetting::Sounds, audio_settings.sounds_volume);
 
             spawn_section_header(parent, "settings.section.keybindings");
             for action in KeyAction::all() {
@@ -294,8 +289,7 @@ fn spawn_section_header(parent: &mut ChildSpawnerCommands, key: &str) {
 fn spawn_volume_row(parent: &mut ChildSpawnerCommands, setting: VolumeSetting, value: f32) {
     let label_key = match setting {
         VolumeSetting::Music => "settings.volume.music",
-        VolumeSetting::Effects => "settings.volume.effects",
-        VolumeSetting::Quotes => "settings.volume.quotes",
+        VolumeSetting::Sounds => "settings.volume.sounds",
     };
     parent
         .spawn((
@@ -648,11 +642,9 @@ fn keyboard_controls(
         0
     };
     if nav != 0 {
-        let idx = ALL_ITEMS
-            .iter()
-            .position(|&i| i == selection.item)
-            .unwrap_or(0);
-        selection.item = ALL_ITEMS[(idx as i32 + nav).rem_euclid(ALL_ITEMS.len() as i32) as usize];
+        let items = all_settings_items();
+        let idx = items.iter().position(|i| *i == selection.item).unwrap_or(0);
+        selection.item = items[(idx as i32 + nav).rem_euclid(items.len() as i32) as usize];
     }
 
     // Lautstärke anpassen
@@ -901,8 +893,7 @@ fn refresh_settings_ui(
     for (vt, mut text) in &mut volume_texts {
         let value = match vt.setting {
             VolumeSetting::Music => audio_settings.music_volume,
-            VolumeSetting::Effects => audio_settings.effects_volume,
-            VolumeSetting::Quotes => audio_settings.quotes_volume,
+            VolumeSetting::Sounds => audio_settings.sounds_volume,
         };
         *text = Text::new(format_percent(value));
     }
@@ -1057,11 +1048,9 @@ fn apply_volume_delta(audio_settings: &mut AudioSettings, setting: VolumeSetting
         VolumeSetting::Music => {
             audio_settings.set_music_volume(audio_settings.music_volume + delta);
         }
-        VolumeSetting::Effects => {
-            audio_settings.set_effects_volume(audio_settings.effects_volume + delta);
-        }
-        VolumeSetting::Quotes => {
-            audio_settings.set_quotes_volume(audio_settings.quotes_volume + delta);
+        // Effects removed — merged into Sounds.
+        VolumeSetting::Sounds => {
+            audio_settings.set_sounds_volume(audio_settings.sounds_volume + delta);
         }
     }
 }

@@ -21,7 +21,7 @@
   "settings.section.language": "Language",
   "settings.volume.music": "Music",
   "settings.volume.effects": "Effects",
-  "settings.volume.quotes": "Quotes",
+  "settings.volume.sounds": "Sounds",
   "settings.error.key_already_bound": "This key is already bound!",
 
   "settings.language.label": "Language",
@@ -33,6 +33,8 @@
   "action.jump": "Jump",
   "action.shoot": "Shoot",
   "action.fullscreen": "Fullscreen",
+  "action.toggle_mute": "Toggle music mute",
+  "action.toggle_sound": "Toggle sound mute",
 
   "story.hint": "Enter / Shoot / Jump: Continue",
   "story.asset_read_error": "Asset '{asset}' could not be read: {error}",

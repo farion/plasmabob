@@ -1,4 +1,3 @@
-use bevy::audio::{AudioPlayer, PlaybackSettings};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -10,14 +9,12 @@ use crate::game::systems::systems_api::{
     ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LevelQuotes, QuoteCooldown,
     TerrainBackgroundConfig,
 };
-use crate::helper::audio_settings::AudioSettings;
 use crate::level::{CachedLevelDefinition, bottom_left_to_world, clamp_level_position};
 use crate::{LevelSelection, LevelStats};
 
 pub(crate) fn setup_game_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    audio_settings: Res<AudioSettings>,
     cached_level_definition: Res<CachedLevelDefinition>,
     level_selection: Res<LevelSelection>,
     mut stats: ResMut<LevelStats>,
@@ -72,15 +69,13 @@ pub(crate) fn setup_game_view(
                     music_asset_path
                 ));
             } else {
-                commands.spawn((
-                    AudioPlayer::new(asset_server.load(music_asset_path.to_string())),
-                    PlaybackSettings {
-                        mode: bevy::audio::PlaybackMode::Loop,
-                        volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
-                        ..default()
-                    },
-                    GameViewEntity,
-                ));
+                // Request the central music player to play the level music
+                // This avoids spawning music locally and keeps global playback in one place.
+                commands.insert_resource(crate::helper::music::MusicRequest(Some(
+                    crate::helper::music::MusicRequestKind::Play(
+                        music_asset_path.to_string(),
+                    ),
+                )));
             }
 
             for quote_asset_path in level_definition.quote_asset_paths() {
