@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+use crate::MainCamera;
 use crate::game::components::player::Player;
 use crate::game::systems::presentation::helpers::update_camera_x;
-use crate::MainCamera;
 use crate::game::systems::systems_api::ActiveLevelBounds;
 
 pub(crate) fn follow_player_with_camera(
@@ -19,7 +19,9 @@ pub(crate) fn follow_player_with_camera(
         return;
     };
 
-    let Ok(window) = windows.single() else { return; };
+    let Ok(window) = windows.single() else {
+        return;
+    };
     update_camera_x(
         &mut camera_transform,
         player_transform.translation.x,
@@ -27,4 +29,3 @@ pub(crate) fn follow_player_with_camera(
         active_level_bounds.as_deref().copied(),
     );
 }
-

@@ -1,7 +1,9 @@
-use bevy::prelude::*;
-use crate::game::systems::presentation::types::{PlayerHealthBarFill, PlayerHealthPercentText, PlayerPlasmaCooldownBarFill, PlayerPlasmaCooldownPercentText};
+use crate::game::systems::presentation::types::{
+    PlayerHealthBarFill, PlayerHealthPercentText, PlayerPlasmaCooldownBarFill,
+    PlayerPlasmaCooldownPercentText,
+};
 use crate::game::systems::systems_api::GameViewEntity;
-
+use bevy::prelude::*;
 
 const PLAYER_HEALTH_BAR_WIDTH: f32 = 260.0;
 const HUD_BAR_HEIGHT: f32 = 24.0;
@@ -38,10 +40,10 @@ pub(crate) fn spawn_player_health_hud(mut commands: Commands) {
                 .with_children(|row| {
                     row.spawn((
                         Node {
-                        width: Val::Px(PLAYER_HEALTH_BAR_WIDTH),
-                        height: Val::Px(HUD_BAR_HEIGHT),
-                        border: UiRect::all(Val::Px(HUD_BAR_BORDER_WIDTH)),
-                        padding: UiRect::all(Val::Px(HUD_BAR_BORDER_WIDTH)),
+                            width: Val::Px(PLAYER_HEALTH_BAR_WIDTH),
+                            height: Val::Px(HUD_BAR_HEIGHT),
+                            border: UiRect::all(Val::Px(HUD_BAR_BORDER_WIDTH)),
+                            padding: UiRect::all(Val::Px(HUD_BAR_BORDER_WIDTH)),
                             ..default()
                         },
                         BorderColor::all(Color::WHITE),
@@ -64,7 +66,7 @@ pub(crate) fn spawn_player_health_hud(mut commands: Commands) {
                             inner.spawn((
                                 Node {
                                     width: Val::Px(HUD_BAR_INNER_WIDTH),
-                                    height: Val::Px(HUD_BAR_INNER_HEIGHT-1.0),
+                                    height: Val::Px(HUD_BAR_INNER_HEIGHT - 1.0),
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(-3.0),
                                     top: Val::Px(-3.0),
@@ -89,7 +91,10 @@ pub(crate) fn spawn_player_health_hud(mut commands: Commands) {
                     .with_children(|text_parent| {
                         text_parent.spawn((
                             Text::new("100%"),
-                            crate::TextFont { font_size: 20.0, ..default() },
+                            crate::TextFont {
+                                font_size: 20.0,
+                                ..default()
+                            },
                             crate::TextColor(Color::WHITE),
                             PlayerHealthPercentText,
                             GameViewEntity,
@@ -136,7 +141,7 @@ pub(crate) fn spawn_player_health_hud(mut commands: Commands) {
                             inner.spawn((
                                 Node {
                                     width: Val::Px(HUD_BAR_INNER_WIDTH),
-                                    height: Val::Px(HUD_BAR_INNER_HEIGHT-1.0),
+                                    height: Val::Px(HUD_BAR_INNER_HEIGHT - 1.0),
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(-3.0),
                                     top: Val::Px(-3.0),
@@ -161,7 +166,10 @@ pub(crate) fn spawn_player_health_hud(mut commands: Commands) {
                     .with_children(|text_parent| {
                         text_parent.spawn((
                             Text::new("100%"),
-                            crate::TextFont { font_size: 20.0, ..default() },
+                            crate::TextFont {
+                                font_size: 20.0,
+                                ..default()
+                            },
                             crate::TextColor(Color::WHITE),
                             PlayerPlasmaCooldownPercentText,
                             GameViewEntity,
@@ -170,4 +178,3 @@ pub(crate) fn spawn_player_health_hud(mut commands: Commands) {
                 });
         });
 }
-

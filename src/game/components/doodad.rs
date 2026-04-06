@@ -6,4 +6,3 @@ pub(crate) struct Doodad;
 pub(crate) fn insert(entity: &mut EntityCommands) {
     entity.insert(Doodad);
 }
-

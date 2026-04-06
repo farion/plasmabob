@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
 use crate::game::components::SpawnedLevelEntity;
-use crate::game::components::player::Player;
-use crate::game::components::npc::Npc;
 use crate::game::components::health::Health;
+use crate::game::components::npc::Npc;
+use crate::game::components::player::Player;
 
 pub(crate) fn despawn_dead_entities(
     mut commands: Commands,
@@ -16,4 +16,3 @@ pub(crate) fn despawn_dead_entities(
         }
     }
 }
-

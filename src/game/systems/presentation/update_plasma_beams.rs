@@ -1,17 +1,22 @@
-use bevy::prelude::*;
 use crate::helper::audio_settings::AudioSettings;
+use bevy::prelude::*;
 
-use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::plasma::PLASMA_EXPAND_SPEED;
+use crate::game::components::plasma::PlasmaBeam;
 
-use crate::game::components::hostile::Hostile;
+use crate::game::components::animation::{
+    AnimationState, EntityState, HIT_STATE_SECONDS, HitStateTimer,
+};
 use crate::game::components::health::Health;
-use crate::game::components::animation::{AnimationState, EntityState, HitStateTimer, HIT_STATE_SECONDS};
+use crate::game::components::hostile::Hostile;
 use crate::game::components::player::Player;
 use crate::game::systems::systems_api::CombatSoundEffects;
 use crate::game::systems::systems_api::GameViewEntity;
 
-use crate::game::systems::gameplay::helpers::{ensure_plasma_particle_image, plasma_origin_from_player, spawn_plasma_impact_explosion, update_beam_particles};
+use crate::game::systems::gameplay::helpers::{
+    ensure_plasma_particle_image, plasma_origin_from_player, spawn_plasma_impact_explosion,
+    update_beam_particles,
+};
 use crate::game::systems::gameplay::types::PlasmaBeamParticle;
 
 pub(crate) fn update_plasma_beams(
@@ -22,12 +27,29 @@ pub(crate) fn update_plasma_beams(
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
     mut beams: Query<(Entity, &mut PlasmaBeam, &mut Transform, &Children), Without<Player>>,
-    player_query: Query<(&Transform, &Sprite), (With<Player>, Without<PlasmaBeam>, Without<PlasmaBeamParticle>)>,
-    mut beam_particles: Query<(&PlasmaBeamParticle, &mut Transform, &mut Sprite), (Without<Player>, Without<PlasmaBeam>)>,
-    mut health_query: Query<(Entity, &mut Health, &mut AnimationState, &crate::game::components::LevelEntityType), With<Hostile>>,
+    player_query: Query<
+        (&Transform, &Sprite),
+        (
+            With<Player>,
+            Without<PlasmaBeam>,
+            Without<PlasmaBeamParticle>,
+        ),
+    >,
+    mut beam_particles: Query<
+        (&PlasmaBeamParticle, &mut Transform, &mut Sprite),
+        (Without<Player>, Without<PlasmaBeam>),
+    >,
+    mut health_query: Query<
+        (
+            Entity,
+            &mut Health,
+            &mut AnimationState,
+            &crate::game::components::LevelEntityType,
+        ),
+        With<Hostile>,
+    >,
     mut stats: ResMut<crate::LevelStats>,
 ) {
-
     let particle_image = ensure_plasma_particle_image(&mut plasma_particle_image, &mut images);
 
     for (entity, mut beam, mut transform, children) in &mut beams {
@@ -42,31 +64,29 @@ pub(crate) fn update_plasma_beams(
                 }
             };
 
-            beam.current_length = (beam.current_length + PLASMA_EXPAND_SPEED * time.delta_secs()).min(beam.max_length);
+            beam.current_length = (beam.current_length + PLASMA_EXPAND_SPEED * time.delta_secs())
+                .min(beam.max_length);
 
             transform.translation.x = current_origin.x;
             transform.translation.y = current_origin.y;
 
-            update_beam_particles(
-                &time,
-                &beam,
-                children,
-                &mut beam_particles,
-                1.0,
-            );
+            update_beam_particles(&time, &beam, children, &mut beam_particles, 1.0);
 
             if beam.current_length >= beam.max_length {
                 beam.stopped = true;
 
                 if beam.target_entity.is_some() && !beam.impact_spawned {
-                    let impact_position = current_origin + Vec2::new(beam.direction * beam.max_length, 0.0);
+                    let impact_position =
+                        current_origin + Vec2::new(beam.direction * beam.max_length, 0.0);
                     spawn_plasma_impact_explosion(&mut commands, &particle_image, impact_position);
                     beam.impact_spawned = true;
                 }
 
                 if !beam.damage_applied {
                     if let Some(target) = beam.target_entity {
-                        if let Ok((target_entity, mut health, mut state, level_entity_type)) = health_query.get_mut(target) {
+                        if let Ok((target_entity, mut health, mut state, level_entity_type)) =
+                            health_query.get_mut(target)
+                        {
                             if health.is_dead() {
                                 beam.damage_applied = true;
                                 continue;
@@ -74,12 +94,16 @@ pub(crate) fn update_plasma_beams(
 
                             let was_alive = !health.is_dead();
                             health.take_damage(beam.damage);
-                            commands.entity(target_entity).insert(super::health_floating::RecentHealthChange(-(beam.damage)));
+                            commands
+                                .entity(target_entity)
+                                .insert(super::health_floating::RecentHealthChange(-(beam.damage)));
                             beam.damage_applied = true;
 
                             if !health.is_dead() {
                                 state.set(EntityState::Hit);
-                                commands.entity(target_entity).insert(HitStateTimer::new(HIT_STATE_SECONDS, state.version));
+                                commands
+                                    .entity(target_entity)
+                                    .insert(HitStateTimer::new(HIT_STATE_SECONDS, state.version));
                             }
 
                             if was_alive && level_entity_type.0 == "cockroach" {
@@ -94,7 +118,9 @@ pub(crate) fn update_plasma_beams(
                                         AudioPlayer::new(sound),
                                         PlaybackSettings {
                                             mode: bevy::audio::PlaybackMode::Despawn,
-                                            volume: bevy::audio::Volume::Linear(audio_settings.effects_volume),
+                                            volume: bevy::audio::Volume::Linear(
+                                                audio_settings.effects_volume,
+                                            ),
                                             ..default()
                                         },
                                         GameViewEntity,
@@ -102,7 +128,10 @@ pub(crate) fn update_plasma_beams(
                                 }
                             }
 
-                            info!("Plasma hit hostile for {} damage - HP: {}/{}", beam.damage, health.current, health.max);
+                            info!(
+                                "Plasma hit hostile for {} damage - HP: {}/{}",
+                                beam.damage, health.current, health.max
+                            );
                             stats.hits = stats.hits.saturating_add(1);
                         }
                     }
@@ -120,7 +149,3 @@ pub(crate) fn update_plasma_beams(
         }
     }
 }
-
-
-
-

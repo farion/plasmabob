@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use crate::helper::fonts::BoldText;
 use crate::game::components::player::Player;
+use crate::helper::fonts::BoldText;
+use bevy::prelude::*;
 
 /// Component briefly attached to an entity to signal that it recently had a
 /// health change. Systems watch for newly added instances and spawn the
@@ -25,13 +25,16 @@ impl FloatingHealthText {
 /// entity.
 pub(crate) fn spawn_on_health_change(
     mut commands: Commands,
-    changed: Query<(
-        Entity,
-        &RecentHealthChange,
-        &Transform,
-        Option<&Sprite>,
-        Option<&Player>,
-    ), Added<RecentHealthChange>>,
+    changed: Query<
+        (
+            Entity,
+            &RecentHealthChange,
+            &Transform,
+            Option<&Sprite>,
+            Option<&Player>,
+        ),
+        Added<RecentHealthChange>,
+    >,
 ) {
     for (entity, recent, transform, sprite_opt, player_opt) in &changed {
         let base_y = transform.translation.y;
@@ -81,7 +84,13 @@ pub(crate) fn spawn_on_health_change(
 pub(crate) fn animate_floating_texts(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut FloatingHealthText, &mut Transform, &mut Text2d, &mut TextColor)>,
+    mut query: Query<(
+        Entity,
+        &mut FloatingHealthText,
+        &mut Transform,
+        &mut Text2d,
+        &mut TextColor,
+    )>,
 ) {
     for (entity, mut ft, mut transform, mut _text2d, mut text_color) in &mut query {
         ft.timer.tick(time.delta());
@@ -98,6 +107,3 @@ pub(crate) fn animate_floating_texts(
         }
     }
 }
-
-
-

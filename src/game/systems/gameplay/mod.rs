@@ -17,11 +17,10 @@ pub mod sync_death_state_from_health;
 pub mod sync_player_hitbox_orientation;
 pub mod sync_state_hitboxes;
 pub mod tick_fight_state_timers;
-pub mod tick_melee_attack_state_timers;
 pub mod tick_hit_state_timers;
 pub mod tick_invincibility_timers;
+pub mod tick_melee_attack_state_timers;
 pub mod types;
 pub mod update_grounded;
 
 // Gameplay-level systems grouped under `gameplay`.
-

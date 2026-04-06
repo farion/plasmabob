@@ -22,4 +22,3 @@ pub(crate) fn tick_hit_state_timers(
         commands.entity(entity).remove::<HitStateTimer>();
     }
 }
-

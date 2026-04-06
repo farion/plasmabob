@@ -14,7 +14,8 @@ use crate::game::systems::systems_api::PLAYER_INVINCIBILITY_SECONDS;
 pub(crate) fn apply_meele_attack_contact_damage(
     mut commands: Commands,
     _time: Res<Time>,
-    mut enemy: Query<(
+    mut enemy: Query<
+        (
             Entity,
             &MeleeAttack,
             &Transform,
@@ -22,7 +23,9 @@ pub(crate) fn apply_meele_attack_contact_damage(
             Option<&HitStateTimer>,
             Option<&MeleeAttackStateTimer>,
             Option<&LevelEntityType>,
-        ), (With<MeleeAttack>, Without<Player>)>,
+        ),
+        (With<MeleeAttack>, Without<Player>),
+    >,
     mut player_query: Query<
         (
             Entity,
@@ -33,7 +36,11 @@ pub(crate) fn apply_meele_attack_contact_damage(
             &mut AnimationState,
             Option<&PlasmaAttack>,
         ),
-        (With<Player>, Without<InvincibilityTimer>, Without<MeleeAttack>),
+        (
+            With<Player>,
+            Without<InvincibilityTimer>,
+            Without<MeleeAttack>,
+        ),
     >,
 ) {
     for (

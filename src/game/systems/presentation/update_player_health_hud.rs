@@ -2,27 +2,44 @@ use bevy::prelude::*;
 
 use crate::game::components::player::PlasmaAttack;
 use crate::game::components::player::Player;
-use crate::game::systems::presentation::helpers::{cooldown_fraction, filled_bar_width, health_fraction, percentage_text};
-use crate::game::systems::presentation::types::{PlayerHealthBarFill, PlayerHealthPercentText, PlayerPlasmaCooldownBarFill, PlayerPlasmaCooldownPercentText};
+use crate::game::systems::presentation::helpers::{
+    cooldown_fraction, filled_bar_width, health_fraction, percentage_text,
+};
+use crate::game::systems::presentation::types::{
+    PlayerHealthBarFill, PlayerHealthPercentText, PlayerPlasmaCooldownBarFill,
+    PlayerPlasmaCooldownPercentText,
+};
 
 pub(crate) fn update_player_health_hud(
     player_query: Query<(&crate::game::components::health::Health, &PlasmaAttack), With<Player>>,
     // Beide Füllbalken tragen unterschiedliche Marker und dürfen nie dieselbe UI-Entity matchen.
     mut bar_fill_query: Query<
         &mut Node,
-        (With<PlayerHealthBarFill>, Without<PlayerPlasmaCooldownBarFill>),
+        (
+            With<PlayerHealthBarFill>,
+            Without<PlayerPlasmaCooldownBarFill>,
+        ),
     >,
     mut health_percent_text_query: Query<
         &mut Text,
-        (With<PlayerHealthPercentText>, Without<PlayerPlasmaCooldownPercentText>),
+        (
+            With<PlayerHealthPercentText>,
+            Without<PlayerPlasmaCooldownPercentText>,
+        ),
     >,
     mut plasma_cooldown_bar_fill_query: Query<
         &mut Node,
-        (With<PlayerPlasmaCooldownBarFill>, Without<PlayerHealthBarFill>),
+        (
+            With<PlayerPlasmaCooldownBarFill>,
+            Without<PlayerHealthBarFill>,
+        ),
     >,
     mut plasma_percent_text_query: Query<
         &mut Text,
-        (With<PlayerPlasmaCooldownPercentText>, Without<PlayerHealthPercentText>),
+        (
+            With<PlayerPlasmaCooldownPercentText>,
+            Without<PlayerHealthPercentText>,
+        ),
     >,
 ) {
     let Some((health, plasma_attack)) = player_query.iter().next() else {
@@ -52,4 +69,3 @@ pub(crate) fn update_player_health_hud(
         percent_text.0 = plasma_percentage_text.clone();
     }
 }
-

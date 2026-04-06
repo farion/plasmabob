@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::app_model::AppState;
 use crate::CampaignProgress;
+use crate::app_model::AppState;
 use crate::i18n::LocalizedText;
 
 pub struct LoseViewPlugin;
@@ -43,7 +43,9 @@ fn setup_lose_view(mut commands: Commands) {
                     ..default()
                 },
                 TextColor(Color::WHITE),
-                LocalizedText { key: "lose.title".to_string() },
+                LocalizedText {
+                    key: "lose.title".to_string(),
+                },
                 LoseViewEntity,
             ));
             parent.spawn((
@@ -53,7 +55,9 @@ fn setup_lose_view(mut commands: Commands) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                LocalizedText { key: "lose.repeat".to_string() },
+                LocalizedText {
+                    key: "lose.repeat".to_string(),
+                },
                 LoseViewEntity,
             ));
             parent.spawn((
@@ -63,7 +67,9 @@ fn setup_lose_view(mut commands: Commands) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                LocalizedText { key: "lose.cancel".to_string() },
+                LocalizedText {
+                    key: "lose.cancel".to_string(),
+                },
                 LoseViewEntity,
             ));
         });
@@ -86,9 +92,11 @@ fn restart_level(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextSta
     }
 }
 
-fn cleanup_lose_view(mut commands: Commands, entities: Query<Entity, (With<LoseViewEntity>, Without<ChildOf>)>) {
+fn cleanup_lose_view(
+    mut commands: Commands,
+    entities: Query<Entity, (With<LoseViewEntity>, Without<ChildOf>)>,
+) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
 }
-

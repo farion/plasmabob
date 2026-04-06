@@ -1,19 +1,21 @@
+use crate::LevelStats;
+use crate::game::components::animation::{EntityState, can_set_state};
+use crate::game::components::collision::Collision;
+use crate::game::components::hostile::Hostile;
+use crate::game::components::plasma::{PLASMA_BEAM_PARTICLE_COUNT, PLASMA_Z, PlasmaBeam};
+use crate::game::components::player::Player;
+use crate::helper::audio_settings::AudioSettings;
+use crate::key_bindings::KeyBindings;
 use avian2d::prelude::SpatialQueryFilter;
 use bevy::math::Dir2;
 use bevy::prelude::*;
-use crate::game::components::animation::{can_set_state, EntityState};
-use crate::game::components::collision::Collision;
-use crate::game::components::hostile::Hostile;
-use crate::game::components::player::Player;
-use crate::game::components::plasma::{PlasmaBeam, PLASMA_BEAM_PARTICLE_COUNT, PLASMA_Z};
-use crate::helper::audio_settings::AudioSettings;
-use crate::key_bindings::KeyBindings;
-use crate::LevelStats;
 
 use crate::game::systems::systems_api::CombatSoundEffects;
 use crate::game::systems::systems_api::GameViewEntity;
 
-use crate::game::systems::gameplay::helpers::{ensure_plasma_particle_image, hash_to_unit, plasma_origin_from_player};
+use crate::game::systems::gameplay::helpers::{
+    ensure_plasma_particle_image, hash_to_unit, plasma_origin_from_player,
+};
 use crate::game::systems::gameplay::types::PlasmaBeamParticle;
 
 pub(crate) fn shoot_plasma(
@@ -26,8 +28,16 @@ pub(crate) fn shoot_plasma(
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
     spatial_query: avian2d::prelude::SpatialQuery,
-    mut players: Query<(
-        Entity, &Transform, &Sprite, &crate::game::components::health::Health, &mut crate::game::components::player::PlasmaAttack, &mut crate::game::components::animation::AnimationState, Option<&crate::game::components::animation::HitStateTimer>),
+    mut players: Query<
+        (
+            Entity,
+            &Transform,
+            &Sprite,
+            &crate::game::components::health::Health,
+            &mut crate::game::components::player::PlasmaAttack,
+            &mut crate::game::components::animation::AnimationState,
+            Option<&crate::game::components::animation::HitStateTimer>,
+        ),
         With<Player>,
     >,
     collision_query: Query<Entity, With<Collision>>,
@@ -36,7 +46,9 @@ pub(crate) fn shoot_plasma(
 ) {
     let particle_image = ensure_plasma_particle_image(&mut plasma_particle_image, &mut images);
 
-    for (player_entity, transform, sprite, health, mut plasma_attack, mut state, hit_timer) in &mut players {
+    for (player_entity, transform, sprite, health, mut plasma_attack, mut state, hit_timer) in
+        &mut players
+    {
         if health.is_dead() {
             continue;
         }
@@ -69,7 +81,11 @@ pub(crate) fn shoot_plasma(
         let (max_length, target_entity) = hits
             .iter()
             .filter(|hit| collision_query.contains(hit.entity))
-            .min_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal))
+            .min_by(|a, b| {
+                a.distance
+                    .partial_cmp(&b.distance)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|hit| {
                 let target = if hostile_query.contains(hit.entity) {
                     Some(hit.entity)
@@ -129,7 +145,11 @@ pub(crate) fn shoot_plasma(
                         custom_size: Some(Vec2::splat(glow_size)),
                         ..Sprite::from_image(particle_image.clone())
                     },
-                    Transform::from_xyz(0.0, 0.0, -0.1 + hash_to_unit(seed.wrapping_mul(17)) * 0.15),
+                    Transform::from_xyz(
+                        0.0,
+                        0.0,
+                        -0.1 + hash_to_unit(seed.wrapping_mul(17)) * 0.15,
+                    ),
                     PlasmaBeamParticle {
                         normalized_distance,
                         lane,
@@ -158,4 +178,3 @@ pub(crate) fn shoot_plasma(
         }
     }
 }
-

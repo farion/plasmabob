@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use avian2d::prelude::Collider;
+use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::level::{EntityTypeDefinition, EntityTypeError};
@@ -72,18 +72,25 @@ impl PolygonHitbox {
     }
 
     pub(crate) fn mirrored_points(&self) -> Vec<Vec2> {
-        self.points.iter().rev().map(|point| Vec2::new(-point.x, point.y)).collect()
+        self.points
+            .iter()
+            .rev()
+            .map(|point| Vec2::new(-point.x, point.y))
+            .collect()
     }
-
 }
 
-pub(crate) fn from_entity_type(entity_type: &EntityTypeDefinition) -> Result<PolygonHitbox, EntityTypeError> {
+pub(crate) fn from_entity_type(
+    entity_type: &EntityTypeDefinition,
+) -> Result<PolygonHitbox, EntityTypeError> {
     Ok(PolygonHitbox {
         points: entity_type.centered_hitbox_polygon()?,
     })
 }
 
-pub(crate) fn from_entity_type_by_state(entity_type: &EntityTypeDefinition) -> Result<StateHitboxCatalog, EntityTypeError> {
+pub(crate) fn from_entity_type_by_state(
+    entity_type: &EntityTypeDefinition,
+) -> Result<StateHitboxCatalog, EntityTypeError> {
     let polygons = entity_type.centered_hitbox_polygons_by_state()?;
     let catalog = polygons
         .into_iter()
@@ -100,5 +107,3 @@ pub(crate) fn collider_from_points(points: Vec<Vec2>) -> Collider {
 
     Collider::convex_decomposition(points, indices)
 }
-
-

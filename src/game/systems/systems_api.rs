@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use bevy::audio::AudioSource;
+use bevy::prelude::*;
 
 // Shared types and constants that form the internal crate API between the
 // `game_view` module and the `game::systems` modules. Keep this minimal and
@@ -84,5 +84,3 @@ impl Default for QuoteCooldown {
         Self(timer)
     }
 }
-
-

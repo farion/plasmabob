@@ -10,4 +10,3 @@ pub(crate) fn sync_death_state_from_health(mut entities: Query<(&Health, &mut An
         }
     }
 }
-

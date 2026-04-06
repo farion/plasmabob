@@ -30,4 +30,3 @@ pub(crate) struct DustParticle {
     pub(crate) lifetime: Timer,
     pub(crate) start_size: f32,
 }
-

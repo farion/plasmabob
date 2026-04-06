@@ -19,4 +19,3 @@ pub(crate) fn toggle_debug_overlay(
         }
     }
 }
-

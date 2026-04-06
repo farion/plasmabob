@@ -14,4 +14,3 @@ pub(crate) fn tick_invincibility_timers(
         }
     }
 }
-

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::app_model::{AppState, StartScreenBackground};
+use crate::helper::active_character::ActiveCharacter;
 use crate::helper::i18n::LocalizedText;
 
 pub struct AboutViewPlugin;
@@ -19,10 +20,14 @@ impl Plugin for AboutViewPlugin {
     }
 }
 
-fn setup_about_view(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Use the same background image as the main menu for visual consistency.
+fn setup_about_view(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
+) {
+    // Use the same background image as the main menu for visual consistency and character theme.
     commands.spawn((
-        Sprite::from_image(asset_server.load("start.png")),
+        Sprite::from_image(asset_server.load(active_character.menu_background_path())),
         Transform::from_xyz(0.0, 0.0, -1.0),
         StartScreenBackground,
         AboutViewEntity,
@@ -54,7 +59,9 @@ fn setup_about_view(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 TextColor(Color::WHITE),
-                LocalizedText { key: "about.title".to_string() },
+                LocalizedText {
+                    key: "about.title".to_string(),
+                },
                 AboutViewEntity,
             ));
             parent.spawn((
@@ -64,7 +71,9 @@ fn setup_about_view(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.85)),
-                LocalizedText { key: "about.blurb".to_string() },
+                LocalizedText {
+                    key: "about.blurb".to_string(),
+                },
                 AboutViewEntity,
             ));
             parent.spawn((
@@ -74,21 +83,28 @@ fn setup_about_view(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                LocalizedText { key: "about.hint".to_string() },
+                LocalizedText {
+                    key: "about.hint".to_string(),
+                },
                 AboutViewEntity,
             ));
         });
 }
 
-fn return_to_main_menu(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn return_to_main_menu(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if keys.just_pressed(KeyCode::Escape) {
         next_state.set(AppState::MainMenu);
     }
 }
 
-fn cleanup_about_view(mut commands: Commands, entities: Query<Entity, (With<AboutViewEntity>, Without<ChildOf>)>) {
+fn cleanup_about_view(
+    mut commands: Commands,
+    entities: Query<Entity, (With<AboutViewEntity>, Without<ChildOf>)>,
+) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
 }
-

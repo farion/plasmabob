@@ -1,26 +1,28 @@
 use std::collections::HashMap;
 
-use avian2d::prelude::{CollidingEntities, LinearVelocity, LockedAxes, RigidBody, CollisionLayers, LayerMask};
+use avian2d::prelude::{
+    CollidingEntities, CollisionLayers, LayerMask, LinearVelocity, LockedAxes, RigidBody,
+};
 use bevy::prelude::*;
 
 use crate::level::{EntityDefinition, EntityTypeDefinition};
 
+pub(crate) mod animation;
+pub(crate) mod collectible;
 pub(crate) mod collision;
 pub(crate) mod doodad;
+pub(crate) mod effect_heal;
 pub(crate) mod exit;
 pub(crate) mod floor;
 pub(crate) mod health;
-pub(crate) mod hostile;
 pub(crate) mod hitbox;
-pub(crate) mod animation;
+pub(crate) mod hostile;
+pub(crate) mod melee_attack;
 pub(crate) mod moving;
 pub(crate) mod npc;
 pub(crate) mod plasma;
 pub(crate) mod player;
-pub(crate) mod collectible;
-pub(crate) mod effect_heal;
-  pub(crate) mod melee_attack;
-  pub(crate) mod range_attack;
+pub(crate) mod range_attack;
 
 #[derive(Component)]
 pub(crate) struct SpawnedLevelEntity;
@@ -93,9 +95,7 @@ pub(crate) fn spawn_entity(
                 has_moving = true;
                 moving::insert(&mut entity_commands, world_position.x)
             }
-            "collectible" => {
-                collectible::insert(&mut entity_commands)
-            }
+            "collectible" => collectible::insert(&mut entity_commands),
             "effect_heal" => {
                 // Prefer per-entity override `effect_heal.heal` from the level JSON when present.
                 let overridden_amount = entity_definition
@@ -126,20 +126,21 @@ pub(crate) fn spawn_entity(
             }
             "health" => {
                 // Prefer per-entity override `health.health` from the level JSON when present.
-                let overridden_amount = entity_definition
-                    .overrides
-                    .get("health.health")
-                    .and_then(|v| {
-                        if let Some(i) = v.as_i64() {
-                            Some(i as i32)
-                        } else if let Some(u) = v.as_u64() {
-                            Some(u as i32)
-                        } else if let Some(f) = v.as_f64() {
-                            Some(f.round() as i32)
-                        } else {
-                            None
-                        }
-                    });
+                let overridden_amount =
+                    entity_definition
+                        .overrides
+                        .get("health.health")
+                        .and_then(|v| {
+                            if let Some(i) = v.as_i64() {
+                                Some(i as i32)
+                            } else if let Some(u) = v.as_u64() {
+                                Some(u as i32)
+                            } else if let Some(f) = v.as_f64() {
+                                Some(f.round() as i32)
+                            } else {
+                                None
+                            }
+                        });
 
                 // Prefer per-entity override; otherwise prefer nested entity type health.health if present,
                 // then fall back to 0.
@@ -182,7 +183,8 @@ pub(crate) fn spawn_entity(
             }
         });
 
-    if let Some(dmg) = overridden_melee.or(entity_type.melee_attack.as_ref().and_then(|m| m.damage)) {
+    if let Some(dmg) = overridden_melee.or(entity_type.melee_attack.as_ref().and_then(|m| m.damage))
+    {
         entity_commands.insert(melee_attack::MeleeAttack::new(dmg));
     }
 
@@ -197,7 +199,10 @@ pub(crate) fn spawn_entity(
     let state_hitbox_catalog = match hitbox::from_entity_type_by_state(entity_type) {
         Ok(catalog) => catalog,
         Err(error) => {
-            warnings.push(format!("{} has invalid hitbox: {error}", entity_definition.id));
+            warnings.push(format!(
+                "{} has invalid hitbox: {error}",
+                entity_definition.id
+            ));
             return warnings;
         }
     };
@@ -206,17 +211,15 @@ pub(crate) fn spawn_entity(
         Ok(polygon_hitbox) => {
             entity_commands.insert(state_hitbox_catalog);
             if has_player || has_moving {
-                let precomputed_hitbox = hitbox::PrecomputedPlayerHitbox::from_polygon_hitbox(&polygon_hitbox);
+                let precomputed_hitbox =
+                    hitbox::PrecomputedPlayerHitbox::from_polygon_hitbox(&polygon_hitbox);
                 let collider = precomputed_hitbox.collider(false);
 
                 entity_commands.insert((polygon_hitbox, precomputed_hitbox));
 
                 let collision_layers = if has_moving && has_collision {
                     entity_commands.insert(NpcMoving);
-                    CollisionLayers::new(
-                        LayerMask(0b0010),
-                        LayerMask(0b1101),
-                    )
+                    CollisionLayers::new(LayerMask(0b0010), LayerMask(0b1101))
                 } else {
                     CollisionLayers::default()
                 };
@@ -239,7 +242,10 @@ pub(crate) fn spawn_entity(
             }
         }
         Err(error) => {
-            warnings.push(format!("{} has invalid hitbox: {error}", entity_definition.id));
+            warnings.push(format!(
+                "{} has invalid hitbox: {error}",
+                entity_definition.id
+            ));
         }
     }
 
@@ -253,7 +259,10 @@ fn sprite_for_entity(asset_server: &AssetServer, entity_type: &EntityTypeDefinit
             sprite.custom_size = Some(entity_type.size());
             sprite
         }
-        None => placeholder_sprite(color_for_components(&entity_type.components), entity_type.size()),
+        None => placeholder_sprite(
+            color_for_components(&entity_type.components),
+            entity_type.size(),
+        ),
     }
 }
 

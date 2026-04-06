@@ -1,13 +1,18 @@
-use bevy::prelude::*;
 use avian2d::prelude::ShapeCaster;
+use bevy::prelude::*;
 
 use crate::game::components::hitbox::PrecomputedPlayerHitbox;
-use crate::game::components::player::Player;
 use crate::game::components::moving::Moving;
+use crate::game::components::player::Player;
 
 pub(crate) fn sync_player_hitbox_orientation(
     mut players: Query<
-        (&Sprite, &PrecomputedPlayerHitbox, &mut avian2d::prelude::Collider, Option<&mut ShapeCaster>),
+        (
+            &Sprite,
+            &PrecomputedPlayerHitbox,
+            &mut avian2d::prelude::Collider,
+            Option<&mut ShapeCaster>,
+        ),
         (Or<(With<Player>, With<Moving>)>, Changed<Sprite>),
     >,
 ) {
@@ -21,4 +26,3 @@ pub(crate) fn sync_player_hitbox_orientation(
         }
     }
 }
-

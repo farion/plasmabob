@@ -5,7 +5,12 @@ use crate::game::systems::gameplay::types::PlasmaImpactParticle;
 pub(crate) fn update_plasma_impact_particles(
     mut commands: Commands,
     time: Res<Time>,
-    mut particles: Query<(Entity, &mut PlasmaImpactParticle, &mut Transform, &mut Sprite)>,
+    mut particles: Query<(
+        Entity,
+        &mut PlasmaImpactParticle,
+        &mut Transform,
+        &mut Sprite,
+    )>,
 ) {
     for (entity, mut particle, mut transform, mut sprite) in &mut particles {
         transform.translation.x += particle.velocity.x * time.delta_secs();
@@ -24,4 +29,3 @@ pub(crate) fn update_plasma_impact_particles(
         }
     }
 }
-

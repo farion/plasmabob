@@ -1,12 +1,23 @@
 use bevy::prelude::*;
 
 // Keys into the i18n JSON files for the main menu.
-pub(crate) const MENU_ITEMS: [(&str, MenuAction); 4] = [
-    ("menu.start", MenuAction::Start),
-    ("menu.settings", MenuAction::Settings),
-    ("menu.about", MenuAction::About),
-    ("menu.exit", MenuAction::Exit),
+pub(crate) const MENU_ITEMS: [MenuAction; 5] = [
+    MenuAction::Start,
+    MenuAction::ToggleCharacter,
+    MenuAction::Settings,
+    MenuAction::About,
+    MenuAction::Exit,
 ];
+
+pub(crate) fn menu_action_label_key(action: MenuAction) -> Option<&'static str> {
+    match action {
+        MenuAction::Start => Some("menu.start"),
+        MenuAction::ToggleCharacter => None,
+        MenuAction::Settings => Some("menu.settings"),
+        MenuAction::About => Some("menu.about"),
+        MenuAction::Exit => Some("menu.exit"),
+    }
+}
 
 pub(crate) const EXIT_CONFIRM_ITEMS: [(&str, ExitConfirmAction); 2] = [
     ("modal.exit.yes", ExitConfirmAction::Confirm),
@@ -31,6 +42,7 @@ pub(crate) enum AppState {
 #[derive(Clone, Copy)]
 pub(crate) enum MenuAction {
     Start,
+    ToggleCharacter,
     Settings,
     About,
     Exit,
@@ -77,4 +89,3 @@ pub(crate) struct ExitConfirmButton {
 
 #[derive(Component)]
 pub(crate) struct StartScreenBackground;
-

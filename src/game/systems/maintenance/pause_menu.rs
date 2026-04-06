@@ -2,10 +2,10 @@ use bevy::prelude::*;
 use bevy::time::Virtual;
 use bevy::ui::FocusPolicy;
 
-use crate::app_model::AppState;
 use crate::CampaignProgress;
+use crate::app_model::AppState;
 use crate::game::game_view::PauseMenuState;
-use crate::game::systems::maintenance::types::{PauseMenuAction, PAUSE_MENU_ITEMS};
+use crate::game::systems::maintenance::types::{PAUSE_MENU_ITEMS, PauseMenuAction};
 use crate::game::systems::systems_api::GameViewEntity;
 
 #[derive(Component)]
@@ -168,7 +168,9 @@ fn spawn_pause_menu(commands: &mut Commands) {
                             ..default()
                         },
                         TextColor(Color::WHITE),
-                        crate::i18n::LocalizedText { key: "pause.title".to_string() },
+                        crate::i18n::LocalizedText {
+                            key: "pause.title".to_string(),
+                        },
                         GameViewEntity,
                     ));
                     panel.spawn((
@@ -178,7 +180,9 @@ fn spawn_pause_menu(commands: &mut Commands) {
                             ..default()
                         },
                         TextColor(Color::srgb(0.72, 0.72, 0.72)),
-                        crate::i18n::LocalizedText { key: "pause.hint".to_string() },
+                        crate::i18n::LocalizedText {
+                            key: "pause.hint".to_string(),
+                        },
                         GameViewEntity,
                     ));
 
@@ -193,7 +197,8 @@ fn spawn_pause_menu(commands: &mut Commands) {
                             GameViewEntity,
                         ))
                         .with_children(|button_list| {
-                            for (index, (label, action)) in PAUSE_MENU_ITEMS.into_iter().enumerate() {
+                            for (index, (label, action)) in PAUSE_MENU_ITEMS.into_iter().enumerate()
+                            {
                                 button_list
                                     .spawn((
                                         Button,
@@ -214,7 +219,9 @@ fn spawn_pause_menu(commands: &mut Commands) {
                                                 ..default()
                                             },
                                             TextColor(Color::WHITE),
-                                            crate::i18n::LocalizedText { key: label.to_string() },
+                                            crate::i18n::LocalizedText {
+                                                key: label.to_string(),
+                                            },
                                             GameViewEntity,
                                         ));
                                     });
@@ -258,4 +265,3 @@ fn execute_action(
         }
     }
 }
-

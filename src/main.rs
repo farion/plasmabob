@@ -1,20 +1,24 @@
 // audio imports for menu music are handled in `views::main_view` now
+use crate::app_model::{AppState, ExitConfirmModalState, MenuSelection};
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::audio_settings::AudioSettings;
+use crate::helper::fonts;
+use crate::helper::i18n;
+use crate::helper::key_bindings;
+use avian2d::{
+    math::Vector,
+    prelude::{Gravity, PhysicsPlugins},
+};
 use bevy::prelude::*;
 use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
-use avian2d::{math::Vector, prelude::{Gravity, PhysicsPlugins}};
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
-use crate::helper::audio_settings::AudioSettings;
 use world::WorldCatalog;
-use crate::helper::key_bindings as key_bindings;
-use crate::helper::i18n as i18n;
-use crate::helper::fonts as fonts;
-use crate::app_model::{AppState, ExitConfirmModalState, MenuSelection};
 
 mod app_model;
-mod helper;
 mod game;
-mod views;
+mod helper;
 pub(crate) mod level;
+mod views;
 pub(crate) mod world;
 
 const SHOW_HITBOX_DEBUG_LINES: bool = false;
@@ -128,6 +132,7 @@ fn main() {
     let level_selection = LevelSelection::from_cli_arg(std::env::args().nth(1));
     let cached_level_definition = level::CachedLevelDefinition::empty();
     let audio_settings = AudioSettings::load_from_disk();
+    let active_character = ActiveCharacter::load_from_disk();
     let key_bindings = key_bindings::KeyBindings::load_from_disk();
 
     App::new()
@@ -154,6 +159,7 @@ fn main() {
         .insert_resource(WorldCatalog::default())
         .insert_resource(cached_level_definition)
         .insert_resource(audio_settings)
+        .insert_resource(active_character)
         .insert_resource(key_bindings)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

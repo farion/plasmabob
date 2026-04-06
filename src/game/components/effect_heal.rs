@@ -7,4 +7,3 @@ pub(crate) struct EffectHeal(pub(crate) i32);
 pub(crate) fn insert(entity: &mut EntityCommands, amount: i32) {
     entity.insert(EffectHeal(amount));
 }
-

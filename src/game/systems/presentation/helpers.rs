@@ -37,7 +37,6 @@ fn clamp_camera_x_to_bounds(target_x: f32, viewport_width: f32, bounds: ActiveLe
     }
 }
 
-
 pub(crate) fn health_fraction(current: i32, max: i32) -> f32 {
     if max <= 0 {
         return 0.0;
@@ -55,7 +54,9 @@ pub(crate) fn filled_bar_width(fraction: f32) -> f32 {
     HUD_BAR_INNER_WIDTH * fraction.clamp(0.0, 1.0)
 }
 
-pub(crate) fn cooldown_fraction(plasma_attack: &crate::game::components::player::PlasmaAttack) -> f32 {
+pub(crate) fn cooldown_fraction(
+    plasma_attack: &crate::game::components::player::PlasmaAttack,
+) -> f32 {
     plasma_attack.cooldown.fraction().clamp(0.0, 1.0)
 }
 
@@ -141,5 +142,3 @@ mod tests {
         assert_eq!(camera_x, -100.0);
     }
 }
-
-

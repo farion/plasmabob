@@ -10,4 +10,3 @@ impl MeleeAttack {
         Self { damage }
     }
 }
-

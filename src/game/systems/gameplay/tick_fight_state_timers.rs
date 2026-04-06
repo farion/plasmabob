@@ -17,4 +17,3 @@ pub(crate) fn tick_fight_state_timers(
         }
     }
 }
-

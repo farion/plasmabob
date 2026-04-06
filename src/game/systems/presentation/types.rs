@@ -35,4 +35,3 @@ pub(crate) struct ParallaxAnchor {
     pub(crate) base_x: f32,
     pub(crate) speed: f32,
 }
-

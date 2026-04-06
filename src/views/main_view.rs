@@ -3,13 +3,20 @@ use bevy::ui::ZIndex;
 use bevy::window::PrimaryWindow;
 
 use crate::app_model::{
-    AppState, ExitConfirmAction, ExitConfirmButton, ExitConfirmModalRoot, ExitConfirmModalState,
-    MainMenuEntity, MenuAction, MenuButton, MenuMusicEntity, MenuSelection, StartScreenBackground,
-    EXIT_CONFIRM_ITEMS, MENU_ITEMS,
+    AppState, EXIT_CONFIRM_ITEMS, ExitConfirmAction, ExitConfirmButton, ExitConfirmModalRoot,
+    ExitConfirmModalState, MENU_ITEMS, MainMenuEntity, MenuAction, MenuButton, MenuMusicEntity,
+    MenuSelection, StartScreenBackground, menu_action_label_key,
 };
+use crate::helper::active_character::ActiveCharacter;
 use crate::helper::i18n;
 
 pub struct MainViewPlugin;
+
+#[derive(Component)]
+struct CharacterToggleLabel;
+
+#[derive(Component)]
+struct MainMenuLogo;
 
 impl Plugin for MainViewPlugin {
     fn build(&self, app: &mut App) {
@@ -53,20 +60,14 @@ impl Plugin for MainViewPlugin {
             // Modal: input specific to the exit-confirm modal
             .add_systems(
                 Update,
-                (
-                    modal_keyboard_navigation,
-                    modal_pointer_input,
-                )
+                (modal_keyboard_navigation, modal_pointer_input)
                     .in_set(MainMenuSet::Modal)
                     .run_if(in_state(AppState::MainMenu)),
             )
             // Action: activation systems that perform state changes
             .add_systems(
                 Update,
-                (
-                    activate_selected_menu_item,
-                    activate_selected_modal_item,
-                )
+                (activate_selected_menu_item, activate_selected_modal_item)
                     .in_set(MainMenuSet::Action)
                     .run_if(in_state(AppState::MainMenu)),
             )
@@ -75,6 +76,7 @@ impl Plugin for MainViewPlugin {
                 Update,
                 (
                     update_menu_visuals,
+                    sync_main_menu_theme,
                     update_modal_visuals,
                     sync_exit_modal,
                 )
@@ -89,10 +91,11 @@ impl Plugin for MainViewPlugin {
 pub fn spawn_main_menu_ui(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    active_character: &ActiveCharacter,
 ) {
     // Background image
     commands.spawn((
-        Sprite::from_image(asset_server.load("start.png")),
+        Sprite::from_image(asset_server.load(active_character.menu_background_path())),
         Transform::from_xyz(0.0, 0.0, -1.0),
         MainMenuEntity,
         StartScreenBackground,
@@ -108,9 +111,10 @@ pub fn spawn_main_menu_ui(
             left: Val::Px(50.0),
             ..default()
         },
-        ImageNode::new(asset_server.load("logo.png")),
+        ImageNode::new(asset_server.load(active_character.menu_logo_path())),
         ZIndex(200),
         MainMenuEntity,
+        MainMenuLogo,
     ));
 
     // Sidebar with menu buttons
@@ -134,7 +138,7 @@ pub fn spawn_main_menu_ui(
             MainMenuEntity,
         ))
         .with_children(|parent| {
-            for (index, (label, action)) in MENU_ITEMS.into_iter().enumerate() {
+            for (index, action) in MENU_ITEMS.into_iter().enumerate() {
                 parent
                     .spawn((
                         Button,
@@ -148,13 +152,31 @@ pub fn spawn_main_menu_ui(
                         MainMenuEntity,
                     ))
                     .with_children(|button| {
-                        button.spawn((
-                            Text::new(""),
-                            TextFont { font_size: 46.0, ..default() },
-                            TextColor(Color::WHITE),
-                            i18n::LocalizedText { key: label.to_string() },
-                            MainMenuEntity,
-                        ));
+                        if let Some(label) = menu_action_label_key(action) {
+                            button.spawn((
+                                Text::new(""),
+                                TextFont {
+                                    font_size: 46.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                                i18n::LocalizedText {
+                                    key: label.to_string(),
+                                },
+                                MainMenuEntity,
+                            ));
+                        } else {
+                            button.spawn((
+                                Text::new(active_character.toggle_menu_label()),
+                                TextFont {
+                                    font_size: 46.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                                CharacterToggleLabel,
+                                MainMenuEntity,
+                            ));
+                        }
                     });
             }
         });
@@ -185,6 +207,7 @@ pub fn setup_main_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     audio_settings: Res<crate::helper::audio_settings::AudioSettings>,
+    active_character: Res<ActiveCharacter>,
     mut selection: ResMut<MenuSelection>,
     mut modal_state: ResMut<ExitConfirmModalState>,
     mut world_catalog: ResMut<crate::world::WorldCatalog>,
@@ -200,7 +223,7 @@ pub fn setup_main_menu(
 
     if menu_music_entities.iter().next().is_none() {
         commands.spawn((
-            bevy::audio::AudioPlayer::new(asset_server.load("music/start.ogg")),
+            bevy::audio::AudioPlayer::new(asset_server.load(active_character.menu_music_path())),
             bevy::audio::PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Loop,
                 volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
@@ -211,7 +234,7 @@ pub fn setup_main_menu(
     }
 
     // Spawn the visual UI (logo, sidebar, footer)
-    spawn_main_menu_ui(&mut commands, &asset_server);
+    spawn_main_menu_ui(&mut commands, &asset_server, &active_character);
 }
 
 pub(crate) fn cleanup_main_menu(
@@ -289,6 +312,7 @@ pub(crate) fn menu_pointer_input(
     world_catalog: Res<crate::world::WorldCatalog>,
     mut progress: ResMut<crate::CampaignProgress>,
     mut modal_state: ResMut<ExitConfirmModalState>,
+    mut active_character: ResMut<ActiveCharacter>,
 ) {
     if modal_state.is_open {
         return;
@@ -308,6 +332,7 @@ pub(crate) fn menu_pointer_input(
                     &world_catalog,
                     &mut progress,
                     &mut modal_state,
+                    &mut active_character,
                 );
             }
             Interaction::None => {}
@@ -323,6 +348,7 @@ pub(crate) fn activate_selected_menu_item(
     world_catalog: Res<crate::world::WorldCatalog>,
     mut progress: ResMut<crate::CampaignProgress>,
     mut modal_state: ResMut<ExitConfirmModalState>,
+    mut active_character: ResMut<ActiveCharacter>,
 ) {
     if modal_state.is_open {
         return;
@@ -339,7 +365,7 @@ pub(crate) fn activate_selected_menu_item(
         return;
     }
 
-    let (_, action) = MENU_ITEMS[selection.index];
+    let action = MENU_ITEMS[selection.index];
     activate_action(
         action,
         &mut next_state,
@@ -347,6 +373,7 @@ pub(crate) fn activate_selected_menu_item(
         &world_catalog,
         &mut progress,
         &mut modal_state,
+        &mut active_character,
     );
 }
 
@@ -357,6 +384,7 @@ fn activate_action(
     world_catalog: &Res<crate::world::WorldCatalog>,
     progress: &mut ResMut<crate::CampaignProgress>,
     modal_state: &mut ResMut<ExitConfirmModalState>,
+    active_character: &mut ResMut<ActiveCharacter>,
 ) {
     match action {
         MenuAction::Start => {
@@ -370,6 +398,12 @@ fn activate_action(
                 next_state.set(AppState::StartView);
             }
         }
+        MenuAction::ToggleCharacter => {
+            active_character.toggle();
+            if let Err(error) = active_character.save_to_disk() {
+                eprintln!("Failed to save active character: {error}");
+            }
+        }
         MenuAction::Settings => next_state.set(AppState::SettingsView),
         MenuAction::About => next_state.set(AppState::AboutView),
         MenuAction::Exit => {
@@ -379,6 +413,64 @@ fn activate_action(
             modal_state.suppress_enter_until_release = true;
         }
     }
+}
+
+fn sync_main_menu_theme(
+    mut commands: Commands,
+    active_character: Res<ActiveCharacter>,
+    asset_server: Res<AssetServer>,
+    audio_settings: Res<crate::helper::audio_settings::AudioSettings>,
+    music_entities: Query<Entity, With<MenuMusicEntity>>,
+    mut backgrounds: Query<&mut Sprite, With<StartScreenBackground>>,
+    mut toggle_labels: Query<&mut Text, With<CharacterToggleLabel>>,
+    logo_entities: Query<Entity, With<MainMenuLogo>>,
+) {
+    if !active_character.is_changed() {
+        return;
+    }
+
+    for mut sprite in &mut backgrounds {
+        sprite.image = asset_server.load(active_character.menu_background_path());
+    }
+
+    for mut text in &mut toggle_labels {
+        text.0 = active_character.toggle_menu_label().to_string();
+    }
+
+    for entity in &music_entities {
+        commands.entity(entity).despawn();
+    }
+
+    commands.spawn((
+        bevy::audio::AudioPlayer::new(asset_server.load(active_character.menu_music_path())),
+        bevy::audio::PlaybackSettings {
+            mode: bevy::audio::PlaybackMode::Loop,
+            volume: bevy::audio::Volume::Linear(audio_settings.music_volume),
+            ..default()
+        },
+        MenuMusicEntity,
+    ));
+
+    // Replace the main menu logo so it reflects the current character.
+    let logos: Vec<Entity> = logo_entities.iter().collect();
+    for e in logos {
+        commands.entity(e).despawn();
+    }
+
+    commands.spawn((
+        Node {
+            width: Val::Px(400.0),
+            height: Val::Auto,
+            position_type: PositionType::Absolute,
+            top: Val::Px(80.0),
+            left: Val::Px(50.0),
+            ..default()
+        },
+        ImageNode::new(asset_server.load(active_character.menu_logo_path())),
+        ZIndex(200),
+        MainMenuEntity,
+        MainMenuLogo,
+    ));
 }
 
 pub(crate) fn open_or_close_exit_modal_with_escape(
@@ -569,7 +661,9 @@ pub(crate) fn sync_exit_modal(
                                 MainMenuEntity,
                             ))
                             .with_children(|button_list| {
-                                for (index, (label, action)) in EXIT_CONFIRM_ITEMS.into_iter().enumerate() {
+                                for (index, (label, action)) in
+                                    EXIT_CONFIRM_ITEMS.into_iter().enumerate()
+                                {
                                     button_list
                                         .spawn((
                                             Button,
@@ -610,10 +704,7 @@ pub(crate) fn sync_exit_modal(
 
 pub(crate) fn update_modal_visuals(
     modal_state: Res<ExitConfirmModalState>,
-    mut button_query: Query<
-        (&ExitConfirmButton, &Children, &mut BackgroundColor),
-        With<Button>,
-    >,
+    mut button_query: Query<(&ExitConfirmButton, &Children, &mut BackgroundColor), With<Button>>,
     mut text_colors: Query<&mut TextColor>,
 ) {
     if !modal_state.is_open {
@@ -694,4 +785,3 @@ pub(crate) fn fit_background_to_window(
         transform.translation.y = 0.0;
     }
 }
-

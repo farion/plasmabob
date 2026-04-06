@@ -27,4 +27,3 @@ pub(crate) fn tick_level_time(
         text.0 = time_str;
     }
 }
-

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde_json::Value;
+use std::collections::HashMap;
 
 use bevy::asset::io::AssetSourceId;
 use bevy::prelude::*;
@@ -30,7 +30,9 @@ impl CachedLevelDefinition {
     pub(crate) fn empty() -> Self {
         Self {
             asset_path: String::new(),
-            loaded_level: Err(LoadLevelError::NotLoaded("Level has not been loaded yet".to_string())),
+            loaded_level: Err(LoadLevelError::NotLoaded(
+                "Level has not been loaded yet".to_string(),
+            )),
         }
     }
 
@@ -243,7 +245,13 @@ impl EntityTypeDefinition {
             .get("default")
             .and_then(|frames| frames.first())
             .cloned()
-            .or_else(|| animations.values().flat_map(|frames| frames.iter()).next().cloned())
+            .or_else(|| {
+                animations
+                    .values()
+                    .flat_map(|frames| frames.iter())
+                    .next()
+                    .cloned()
+            })
     }
 
     pub(crate) fn size(&self) -> Vec2 {
@@ -254,7 +262,10 @@ impl EntityTypeDefinition {
         self.centered_hitbox_polygon_for_state("default")
     }
 
-    pub(crate) fn centered_hitbox_polygon_for_state(&self, state_name: &str) -> Result<Vec<Vec2>, EntityTypeError> {
+    pub(crate) fn centered_hitbox_polygon_for_state(
+        &self,
+        state_name: &str,
+    ) -> Result<Vec<Vec2>, EntityTypeError> {
         let state_hitbox = self.state_hitbox_points(state_name);
         let points: Vec<[f32; 2]> = if state_hitbox.is_empty() {
             vec![
@@ -268,7 +279,9 @@ impl EntityTypeDefinition {
         };
 
         if points.len() < 3 {
-            return Err(EntityTypeError::InvalidHitbox("hitbox polygon requires at least 3 points".to_string()));
+            return Err(EntityTypeError::InvalidHitbox(
+                "hitbox polygon requires at least 3 points".to_string(),
+            ));
         }
 
         let half_width = self.width * 0.5;
@@ -302,7 +315,9 @@ impl EntityTypeDefinition {
         durations
     }
 
-    pub(crate) fn centered_hitbox_polygons_by_state(&self) -> Result<HashMap<String, Vec<Vec2>>, EntityTypeError> {
+    pub(crate) fn centered_hitbox_polygons_by_state(
+        &self,
+    ) -> Result<HashMap<String, Vec<Vec2>>, EntityTypeError> {
         let mut hitboxes = HashMap::new();
 
         for state_name in self.all_state_names() {
@@ -377,12 +392,14 @@ fn load_entity_types_from_dir(
     asset_server: &AssetServer,
     dir_asset_path: &str,
 ) -> Result<HashMap<String, EntityTypeDefinition>, LoadLevelError> {
-    let source = asset_server.get_source(AssetSourceId::Default).map_err(|error| {
-        LoadLevelError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("Asset source error: {error}"),
-        ))
-    })?;
+    let source = asset_server
+        .get_source(AssetSourceId::Default)
+        .map_err(|error| {
+            LoadLevelError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Asset source error: {error}"),
+            ))
+        })?;
 
     let paths: Vec<_> = pollster::block_on(async {
         let mut stream = source
@@ -415,7 +432,8 @@ fn load_entity_types_from_dir(
             .unwrap_or_default()
             .to_string();
 
-        let content = crate::helper::asset_io::read_asset_text(asset_server, &path.to_string_lossy())?;
+        let content =
+            crate::helper::asset_io::read_asset_text(asset_server, &path.to_string_lossy())?;
         let definition: EntityTypeDefinition = serde_json::from_str(&content)?;
         validate_entity_type_definition(&definition, &key)?;
         entity_types.insert(key, definition);
@@ -444,7 +462,6 @@ fn validate_entity_type_definition(
 
     Ok(())
 }
-
 
 pub(crate) fn bottom_left_to_world(
     window_size: Vec2,
@@ -507,7 +524,8 @@ mod tests {
         }
 
         let root = unique_temp_root();
-        std::fs::create_dir_all(format!("{root}/assets")).expect("temporary assets directory should exist");
+        std::fs::create_dir_all(format!("{root}/assets"))
+            .expect("temporary assets directory should exist");
         let _guard = TempRootGuard { root: root.clone() };
         test(&root);
     }
@@ -614,21 +632,32 @@ mod tests {
             );
 
             with_test_asset_server(root, |asset_server| {
-                let parsed =
-                    load_level_from_asset_server(asset_server, "levels/level.json").expect("schema should parse");
+                let parsed = load_level_from_asset_server(asset_server, "levels/level.json")
+                    .expect("schema should parse");
 
                 assert_eq!(parsed.entity_types.len(), 3);
                 assert_eq!(parsed.entities.len(), 2);
                 assert_eq!(parsed.bounds_size(), Some(Vec2::new(1584.0, 1024.0)));
-                assert_eq!(parsed.terrain_background_asset_path(), "backgrounds/level1.png");
+                assert_eq!(
+                    parsed.terrain_background_asset_path(),
+                    "backgrounds/level1.png"
+                );
                 assert_eq!(parsed.music_asset_path(), "music/level1.ogg");
                 assert!(parsed.quote_asset_paths().is_empty());
                 assert_eq!(parsed.entity_types["dirt"].components, vec!["floor"]);
                 // `disposition` field is removed; ensure the cockroach type still parsed and
                 // that it includes the "hostile" component in its components list.
-                assert!(parsed.entity_types["cockroach"].components.iter().any(|c| c == "hostile"));
+                assert!(
+                    parsed.entity_types["cockroach"]
+                        .components
+                        .iter()
+                        .any(|c| c == "hostile")
+                );
                 assert_eq!(parsed.entity_types["bob"].width, 100.0);
-                assert_eq!(parsed.entity_types["bob"].animation_frame_seconds_for_state("default"), 0.25);
+                assert_eq!(
+                    parsed.entity_types["bob"].animation_frame_seconds_for_state("default"),
+                    0.25
+                );
                 assert_eq!(parsed.entities[1].z_index, Some(20.0));
             });
         });
@@ -665,8 +694,8 @@ mod tests {
             );
 
             with_test_asset_server(root, |asset_server| {
-                let parsed =
-                    load_level_from_asset_server(asset_server, "levels/level.json").expect("schema should parse");
+                let parsed = load_level_from_asset_server(asset_server, "levels/level.json")
+                    .expect("schema should parse");
                 assert_eq!(parsed.entity_types["dummy"].animation_frame_seconds(), 0.5);
             });
         });
@@ -717,18 +746,25 @@ mod tests {
             );
 
             with_test_asset_server(root, |asset_server| {
-                let parsed =
-                    load_level_from_asset_server(asset_server, "levels/level.json").expect("schema should parse");
+                let parsed = load_level_from_asset_server(asset_server, "levels/level.json")
+                    .expect("schema should parse");
 
                 let story = parsed.story.as_ref().expect("story should exist");
-                assert_eq!(story.start.as_ref().expect("start story").text, "story/level_start.md");
-                assert_eq!(story.win.as_ref().expect("win story").text, "story/level_win.md");
-                assert_eq!(story.lose.as_ref().expect("lose story").text, "story/level_lose.md");
+                assert_eq!(
+                    story.start.as_ref().expect("start story").text,
+                    "story/level_start.md"
+                );
+                assert_eq!(
+                    story.win.as_ref().expect("win story").text,
+                    "story/level_win.md"
+                );
+                assert_eq!(
+                    story.lose.as_ref().expect("lose story").text,
+                    "story/level_lose.md"
+                );
             });
         });
     }
-
-
 
     #[test]
     fn converts_bottom_left_level_coordinates_to_world_space() {
@@ -755,6 +791,3 @@ mod tests {
         assert_eq!(position, Vec2::new(1486.0, 0.0));
     }
 }
-
-
-

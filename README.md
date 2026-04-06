@@ -1,6 +1,6 @@
 # PlasmaBob
 
-![PlasmaBob logo](assets/logo.png)
+![PlasmaBob logo](assets/logo_bob.png)
 
 PlasmaBob is a 2D platformer game where players control a hero named Bob to rescue the world.
 

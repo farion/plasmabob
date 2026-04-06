@@ -20,7 +20,6 @@ impl Default for CurrentLanguage {
 }
 
 impl CurrentLanguage {
-
     /// Resolve the effective language code taking into account automatic detection
     /// and the set of available translations. The function prefers an explicit
     /// selection, otherwise attempts to derive a language from environment
@@ -44,7 +43,7 @@ impl CurrentLanguage {
             .split(|c: char| c == '.' || c == ':' || c == '-')
             .next()
             .unwrap_or("")
-            .split(|c: char| c == '_' )
+            .split(|c: char| c == '_')
             .next()
             .unwrap_or("")
             .trim()
@@ -54,7 +53,12 @@ impl CurrentLanguage {
             return code;
         }
 
-        translations.map.keys().next().cloned().unwrap_or_else(|| "en".to_string())
+        translations
+            .map
+            .keys()
+            .next()
+            .cloned()
+            .unwrap_or_else(|| "en".to_string())
     }
 
     /// Load persisted language selection from disk (simple JSON: { "language": "en" } or null).
@@ -68,16 +72,14 @@ impl CurrentLanguage {
             .unwrap_or_else(|| PathBuf::from("language.json"));
 
         match std::fs::read_to_string(&path) {
-            Ok(content) => {
-                match serde_json::from_str::<serde_json::Value>(&content) {
-                    Ok(val) => match val.get("language") {
-                        Some(serde_json::Value::String(s)) => CurrentLanguage(Some(s.clone())),
-                        Some(serde_json::Value::Null) | None => CurrentLanguage(None),
-                        _ => CurrentLanguage::default(),
-                    },
-                    Err(_) => CurrentLanguage::default(),
-                }
-            }
+            Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
+                Ok(val) => match val.get("language") {
+                    Some(serde_json::Value::String(s)) => CurrentLanguage(Some(s.clone())),
+                    Some(serde_json::Value::Null) | None => CurrentLanguage(None),
+                    _ => CurrentLanguage::default(),
+                },
+                Err(_) => CurrentLanguage::default(),
+            },
             Err(e) if e.kind() == io::ErrorKind::NotFound => CurrentLanguage::default(),
             Err(_) => CurrentLanguage::default(),
         }
@@ -97,7 +99,11 @@ impl CurrentLanguage {
             Some(lang) => serde_json::json!({ "language": lang }),
             None => serde_json::json!({ "language": null }),
         };
-        std::fs::write(path, serde_json::to_string_pretty(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?)
+        std::fs::write(
+            path,
+            serde_json::to_string_pretty(&json)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?,
+        )
     }
 }
 
@@ -197,6 +203,3 @@ pub fn available_language_codes(translations: &Translations) -> Vec<String> {
     v.sort();
     v
 }
-
-
-

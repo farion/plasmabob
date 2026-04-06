@@ -10,13 +10,16 @@ pub(crate) fn toggle_hitbox_debug_lines(
     keys: Res<ButtonInput<KeyCode>>,
     mut debug_settings: ResMut<crate::DebugRenderSettings>,
     label_query: Query<Entity, With<DebugStatsLabel>>,
-    entity_query: Query<(
-        Entity,
-        Option<&crate::game::components::health::Health>,
-        Option<&crate::game::components::health::Damage>,
-        Option<&crate::game::components::player::PlasmaAttack>,
-        Option<&crate::game::components::animation::AnimationState>,
-    ), With<SpawnedLevelEntity>>,
+    entity_query: Query<
+        (
+            Entity,
+            Option<&crate::game::components::health::Health>,
+            Option<&crate::game::components::health::Damage>,
+            Option<&crate::game::components::player::PlasmaAttack>,
+            Option<&crate::game::components::animation::AnimationState>,
+        ),
+        With<SpawnedLevelEntity>,
+    >,
 ) {
     let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
     let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
@@ -34,7 +37,10 @@ pub(crate) fn toggle_hitbox_debug_lines(
             }
             commands.spawn((
                 Text2d::new(text),
-                crate::TextFont { font_size: 13.0, ..default() },
+                crate::TextFont {
+                    font_size: 13.0,
+                    ..default()
+                },
                 crate::TextColor(Color::srgb(1.0, 1.0, 0.25)),
                 Transform::default(),
                 DebugStatsLabel { target },
@@ -47,4 +53,3 @@ pub(crate) fn toggle_hitbox_debug_lines(
         }
     }
 }
-

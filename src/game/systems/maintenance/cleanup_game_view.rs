@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bevy::time::Virtual;
 
+use crate::MainCamera;
 use crate::game::components::SpawnedLevelEntity;
 use crate::game::game_view::PauseMenuState;
-use crate::MainCamera;
 
 use crate::game::systems::systems_api::{
     ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LevelQuotes, QuoteCooldown,
@@ -40,4 +40,3 @@ pub(crate) fn cleanup_game_view(
         commands.entity(entity).despawn();
     }
 }
-

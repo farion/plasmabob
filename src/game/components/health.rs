@@ -40,5 +40,3 @@ impl InvincibilityTimer {
 pub(crate) fn insert(entity: &mut EntityCommands, hp: i32) {
     entity.insert(Health::new(hp));
 }
-
-

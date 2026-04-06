@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
 use crate::app_model::AppState;
-use crate::world::WorldCatalog;
-use crate::level::CachedLevelDefinition;
-use crate::{CampaignProgress, LevelSelection, LevelStats};
 use crate::i18n::LocalizedText;
+use crate::level::CachedLevelDefinition;
+use crate::world::WorldCatalog;
+use crate::{CampaignProgress, LevelSelection, LevelStats};
 
 pub struct WinViewPlugin;
 
@@ -31,8 +31,16 @@ fn setup_win_view(
 ) {
     let has_next_level = next_level_json(&world_catalog, &progress).is_some();
 
-    let title_key = if has_next_level { "win.level_cleared" } else { "win.planet_cleared" };
-    let detail_key = if has_next_level { "win.detail_next" } else { "win.detail_done" };
+    let title_key = if has_next_level {
+        "win.level_cleared"
+    } else {
+        "win.planet_cleared"
+    };
+    let detail_key = if has_next_level {
+        "win.detail_next"
+    } else {
+        "win.detail_done"
+    };
 
     commands
         .spawn((
@@ -56,7 +64,9 @@ fn setup_win_view(
                     ..default()
                 },
                 TextColor(Color::WHITE),
-                LocalizedText { key: title_key.to_string() },
+                LocalizedText {
+                    key: title_key.to_string(),
+                },
                 WinViewEntity,
             ));
             parent.spawn((
@@ -66,92 +76,161 @@ fn setup_win_view(
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                LocalizedText { key: detail_key.to_string() },
+                LocalizedText {
+                    key: detail_key.to_string(),
+                },
                 WinViewEntity,
             ));
 
             // Statistics table
-            parent.spawn((
-                Node {
-                    width: Val::Px(480.0),
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(6.0),
-                    padding: UiRect::all(Val::Px(8.0)),
-                    ..default()
-                },
-                BackgroundColor(Color::srgb(0.06, 0.06, 0.07)),
-                WinViewEntity,
-            ))
-            .with_children(|table| {
-                // rows: label (left) and value (right)
-                fn row(table: &mut ChildSpawnerCommands, label_key: &str, value: String) {
-                    table.spawn((
-                        Node {
-                            width: Val::Percent(100.0),
-                            flex_direction: FlexDirection::Row,
-                            justify_content: JustifyContent::SpaceBetween,
-                            ..default()
-                        },
-                        WinViewEntity,
-                    ))
-                    .with_children(|row| {
-                        row.spawn((Text::new(""), TextFont { font_size: 20.0, ..default() }, TextColor(Color::WHITE), LocalizedText { key: label_key.to_string() }, WinViewEntity));
-                        row.spawn((Text::new(value), TextFont { font_size: 20.0, ..default() }, TextColor(Color::WHITE), WinViewEntity));
-                    });
-                }
-
-                let accuracy = if stats.shots == 0 { 0.0 } else { (stats.hits as f32) / (stats.shots as f32) };
-
-                // derive level metrics from cached level definition when available
-                let mut total_enemies: u32 = 0;
-                let mut level_length: f32 = 800.0; // fallback length in px
-                if let Ok(level_def) = cached_level.level_definition() {
-                    if let Some(bounds) = &level_def.bounds {
-                        level_length = bounds.width.max(bounds.height);
+            parent
+                .spawn((
+                    Node {
+                        width: Val::Px(480.0),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(6.0),
+                        padding: UiRect::all(Val::Px(8.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.06, 0.06, 0.07)),
+                    WinViewEntity,
+                ))
+                .with_children(|table| {
+                    // rows: label (left) and value (right)
+                    fn row(table: &mut ChildSpawnerCommands, label_key: &str, value: String) {
+                        table
+                            .spawn((
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    flex_direction: FlexDirection::Row,
+                                    justify_content: JustifyContent::SpaceBetween,
+                                    ..default()
+                                },
+                                WinViewEntity,
+                            ))
+                            .with_children(|row| {
+                                row.spawn((
+                                    Text::new(""),
+                                    TextFont {
+                                        font_size: 20.0,
+                                        ..default()
+                                    },
+                                    TextColor(Color::WHITE),
+                                    LocalizedText {
+                                        key: label_key.to_string(),
+                                    },
+                                    WinViewEntity,
+                                ));
+                                row.spawn((
+                                    Text::new(value),
+                                    TextFont {
+                                        font_size: 20.0,
+                                        ..default()
+                                    },
+                                    TextColor(Color::WHITE),
+                                    WinViewEntity,
+                                ));
+                            });
                     }
 
-                    for ent in &level_def.entities {
-                        if let Some(entity_type_def) = level_def.entity_types.get(&ent.entity_type) {
-                            if entity_type_def.components.iter().any(|c| c == "hostile") {
-                                total_enemies += 1;
+                    let accuracy = if stats.shots == 0 {
+                        0.0
+                    } else {
+                        (stats.hits as f32) / (stats.shots as f32)
+                    };
+
+                    // derive level metrics from cached level definition when available
+                    let mut total_enemies: u32 = 0;
+                    let mut level_length: f32 = 800.0; // fallback length in px
+                    if let Ok(level_def) = cached_level.level_definition() {
+                        if let Some(bounds) = &level_def.bounds {
+                            level_length = bounds.width.max(bounds.height);
+                        }
+
+                        for ent in &level_def.entities {
+                            if let Some(entity_type_def) =
+                                level_def.entity_types.get(&ent.entity_type)
+                            {
+                                if entity_type_def.components.iter().any(|c| c == "hostile") {
+                                    total_enemies += 1;
+                                }
                             }
                         }
                     }
-                }
 
-                row(table, "stats.enemies_killed", format!("{}", stats.enemies_killed));
-                row(table, "stats.total_time", format!("{:.2} s", stats.total_time_seconds));
-                row(table, "stats.jumps", format!("{}", stats.jumps));
-                row(table, "stats.shots", format!("{}", stats.shots));
-                row(table, "stats.accuracy", format!("{:.1}%", accuracy * 100.0));
+                    row(
+                        table,
+                        "stats.enemies_killed",
+                        format!("{}", stats.enemies_killed),
+                    );
+                    row(
+                        table,
+                        "stats.total_time",
+                        format!("{:.2} s", stats.total_time_seconds),
+                    );
+                    row(table, "stats.jumps", format!("{}", stats.jumps));
+                    row(table, "stats.shots", format!("{}", stats.shots));
+                    row(table, "stats.accuracy", format!("{:.1}%", accuracy * 100.0));
 
-                // compute reference time and total score
-                // reference time derived from level length and enemy count
-                const PLAYER_REF_SPEED: f32 = 40.0; // px/s
-                const TIME_PER_ENEMY: f32 = 8.0; // seconds expected per enemy
-                let travel_time = level_length / PLAYER_REF_SPEED;
-                let reference_time = travel_time + (total_enemies as f32 * TIME_PER_ENEMY);
+                    // compute reference time and total score
+                    // reference time derived from level length and enemy count
+                    const PLAYER_REF_SPEED: f32 = 40.0; // px/s
+                    const TIME_PER_ENEMY: f32 = 8.0; // seconds expected per enemy
+                    let travel_time = level_length / PLAYER_REF_SPEED;
+                    let reference_time = travel_time + (total_enemies as f32 * TIME_PER_ENEMY);
 
-                let score = compute_score(stats.enemies_killed, total_enemies, stats.total_time_seconds, reference_time, accuracy);
-                table.spawn((
-                    Node {
-                        width: Val::Percent(100.0),
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::SpaceBetween,
-                        margin: UiRect::top(Val::Px(8.0)),
-                        ..default()
-                    },
-                    WinViewEntity,
-                ))
-                .with_children(|row| {
-                    row.spawn((Text::new(""), TextFont { font_size: 22.0, ..default() }, TextColor(Color::WHITE), LocalizedText { key: "stats.total_score".to_string() }, WinViewEntity));
-                    row.spawn((Text::new(format!("{}", score)), TextFont { font_size: 22.0, ..default() }, TextColor(Color::srgb(0.9, 0.9, 0.4)), WinViewEntity));
+                    let score = compute_score(
+                        stats.enemies_killed,
+                        total_enemies,
+                        stats.total_time_seconds,
+                        reference_time,
+                        accuracy,
+                    );
+                    table
+                        .spawn((
+                            Node {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Row,
+                                justify_content: JustifyContent::SpaceBetween,
+                                margin: UiRect::top(Val::Px(8.0)),
+                                ..default()
+                            },
+                            WinViewEntity,
+                        ))
+                        .with_children(|row| {
+                            row.spawn((
+                                Text::new(""),
+                                TextFont {
+                                    font_size: 22.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                                LocalizedText {
+                                    key: "stats.total_score".to_string(),
+                                },
+                                WinViewEntity,
+                            ));
+                            row.spawn((
+                                Text::new(format!("{}", score)),
+                                TextFont {
+                                    font_size: 22.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgb(0.9, 0.9, 0.4)),
+                                WinViewEntity,
+                            ));
+                        });
                 });
-            });
         });
 }
 
-fn compute_score(enemies_killed: u32, total_enemies: u32, total_time_s: f32, reference_time_s: f32, accuracy: f32) -> u32 {
+fn compute_score(
+    enemies_killed: u32,
+    total_enemies: u32,
+    total_time_s: f32,
+    reference_time_s: f32,
+    accuracy: f32,
+) -> u32 {
     // Algorithm design:
     // - kills component: up to 500 points, proportional to fraction of enemies killed (full 500 if all killed)
     // - time component: up to 300 points, faster times than reference_time give more points
@@ -220,12 +299,17 @@ fn next_level_json<'a>(
     let planet = world.planets.get(planet_index)?;
     let next_level_index = progress.level_index + 1;
 
-    planet.levels.get(next_level_index).map(|level| level.json.as_str())
+    planet
+        .levels
+        .get(next_level_index)
+        .map(|level| level.json.as_str())
 }
 
-fn cleanup_win_view(mut commands: Commands, entities: Query<Entity, (With<WinViewEntity>, Without<ChildOf>)>) {
+fn cleanup_win_view(
+    mut commands: Commands,
+    entities: Query<Entity, (With<WinViewEntity>, Without<ChildOf>)>,
+) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
 }
-

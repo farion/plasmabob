@@ -33,4 +33,3 @@ pub(crate) fn update_debug_stats_labels(
         }
     }
 }
-

@@ -49,5 +49,3 @@ impl Moving {
 pub(crate) fn insert(entity: &mut EntityCommands, origin_x: f32) {
     entity.insert(Moving::new(origin_x));
 }
-
-

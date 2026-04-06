@@ -9,7 +9,10 @@ pub(crate) struct RangeAttack {
 
 impl RangeAttack {
     pub(crate) fn new(damage: i32, speed: f32, frequency: f32) -> Self {
-        Self { damage, speed, frequency }
+        Self {
+            damage,
+            speed,
+            frequency,
+        }
     }
 }
-

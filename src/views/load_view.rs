@@ -15,11 +15,11 @@ impl Plugin for LoadViewPlugin {
             OnEnter(AppState::LoadView),
             (load_level_for_game_view, setup_load_view).chain(),
         )
-            .add_systems(
-                Update,
-                return_to_main_menu.run_if(in_state(AppState::LoadView)),
-            )
-            .add_systems(OnExit(AppState::LoadView), cleanup_load_view);
+        .add_systems(
+            Update,
+            return_to_main_menu.run_if(in_state(AppState::LoadView)),
+        )
+        .add_systems(OnExit(AppState::LoadView), cleanup_load_view);
     }
 }
 
@@ -59,7 +59,10 @@ fn setup_load_view(
     let (title, detail) = match cached_level_definition.level_definition() {
         Ok(_) => (
             "Load View".to_string(),
-            format!("Loaded '{}'. Entering game...", level_selection.asset_path()),
+            format!(
+                "Loaded '{}'. Entering game...",
+                level_selection.asset_path()
+            ),
         ),
         Err(error) => (
             "Could not load level".to_string(),
@@ -117,9 +120,11 @@ fn return_to_main_menu(
     }
 }
 
-fn cleanup_load_view(mut commands: Commands, entities: Query<Entity, (With<LoadViewEntity>, Without<ChildOf>)>) {
+fn cleanup_load_view(
+    mut commands: Commands,
+    entities: Query<Entity, (With<LoadViewEntity>, Without<ChildOf>)>,
+) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
 }
-

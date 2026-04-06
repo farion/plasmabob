@@ -1,13 +1,13 @@
-use bevy::prelude::*;
 use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::prelude::*;
 
+use crate::game::components::SpawnedLevelEntity;
+use crate::game::components::health::Health;
 use crate::game::components::hostile::Hostile;
 use crate::game::components::npc::Npc;
-use crate::game::components::health::Health;
-use crate::game::components::SpawnedLevelEntity;
 use crate::game::systems::gameplay::types::DeathQuotePlayed;
+use crate::game::systems::systems_api::{GameViewEntity, LevelQuotes};
 use crate::helper::audio_settings::AudioSettings;
-use crate::game::systems::systems_api::{LevelQuotes, GameViewEntity};
 
 pub(crate) fn play_hostile_death_quotes(
     mut commands: Commands,
@@ -15,21 +15,39 @@ pub(crate) fn play_hostile_death_quotes(
     audio_settings: Res<AudioSettings>,
     quotes: Option<Res<LevelQuotes>>,
     cooldown: Option<ResMut<crate::game::systems::systems_api::QuoteCooldown>>,
-    dead_hostiles: Query<(Entity, &Health), (With<Hostile>, With<Npc>, With<SpawnedLevelEntity>, Without<DeathQuotePlayed>)>,
+    dead_hostiles: Query<
+        (Entity, &Health),
+        (
+            With<Hostile>,
+            With<Npc>,
+            With<SpawnedLevelEntity>,
+            Without<DeathQuotePlayed>,
+        ),
+    >,
 ) {
-    let Some(quotes) = quotes else { return; };
+    let Some(quotes) = quotes else {
+        return;
+    };
 
-    if quotes.clips.is_empty() { return; }
+    if quotes.clips.is_empty() {
+        return;
+    }
 
-    let Some(mut cooldown) = cooldown else { return; };
+    let Some(mut cooldown) = cooldown else {
+        return;
+    };
 
     cooldown.0.tick(time.delta());
 
     for (entity, health) in &dead_hostiles {
-        if !health.is_dead() { continue; }
+        if !health.is_dead() {
+            continue;
+        }
         commands.entity(entity).insert(DeathQuotePlayed);
 
-        if !cooldown.0.just_finished() { continue; }
+        if !cooldown.0.just_finished() {
+            continue;
+        }
 
         let random_seed = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -52,5 +70,3 @@ pub(crate) fn play_hostile_death_quotes(
         cooldown.0.reset();
     }
 }
-
-

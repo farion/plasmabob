@@ -1,10 +1,11 @@
-use bevy::prelude::*;
 use avian2d::prelude::Collider;
+use bevy::prelude::*;
 
-use crate::game::components::animation::{AnimationState, EntityState};
-use crate::game::components::hitbox::{self, PolygonHitbox, PrecomputedPlayerHitbox, StateHitboxCatalog};
 use crate::game::components::SpawnedLevelEntity;
-
+use crate::game::components::animation::{AnimationState, EntityState};
+use crate::game::components::hitbox::{
+    self, PolygonHitbox, PrecomputedPlayerHitbox, StateHitboxCatalog,
+};
 
 pub(crate) fn sync_state_hitboxes(
     mut entities: Query<
@@ -43,11 +44,12 @@ pub(crate) fn sync_state_hitboxes(
 
 /// Return the polygon hitbox for the given state key, falling back to
 /// `Default` if needed.
-fn hitbox_for_state<'a>(catalog: &'a StateHitboxCatalog, state_key: &str) -> Option<&'a PolygonHitbox> {
+fn hitbox_for_state<'a>(
+    catalog: &'a StateHitboxCatalog,
+    state_key: &str,
+) -> Option<&'a PolygonHitbox> {
     catalog
         .0
         .get(state_key)
         .or_else(|| catalog.0.get(EntityState::Default.animation_key()))
 }
-
-

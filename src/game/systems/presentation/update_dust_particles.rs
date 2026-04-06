@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::game::systems::gameplay::types::DustParticle;
+use bevy::prelude::*;
 
 pub(crate) fn update_dust_particles(
     mut commands: Commands,
@@ -26,4 +26,3 @@ pub(crate) fn update_dust_particles(
         }
     }
 }
-

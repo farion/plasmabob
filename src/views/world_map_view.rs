@@ -3,14 +3,14 @@ use bevy::window::PrimaryWindow;
 use std::f32::consts::TAU;
 
 use crate::app_model::AppState;
-use crate::world::find_directional_neighbor;
-use crate::world::WorldCatalog;
+use crate::helper::particles::create_round_particle_image;
 use crate::i18n::{CurrentLanguage, Translations};
+use crate::world::WorldCatalog;
+use crate::world::find_directional_neighbor;
 use crate::{
     CampaignProgress, LevelSelection, MainCamera, PendingStoryScreen, StoryScreenRequest,
     WorldMapSelection,
 };
-use crate::helper::particles::create_round_particle_image;
 
 pub struct WorldMapViewPlugin;
 
@@ -117,8 +117,8 @@ fn setup_world_map_view(
     let particle_image = ensure_world_map_particle_image(&mut images);
     for index in 0..30 {
         let seed = index as f32;
-        let base_offset = random_point_in_unit_disk(seed * 11.7 + 0.9)
-            * hash_range(seed * 5.3 + 3.4, 0.35, 1.9);
+        let base_offset =
+            random_point_in_unit_disk(seed * 11.7 + 0.9) * hash_range(seed * 5.3 + 3.4, 0.35, 1.9);
         let orbit_speed = hash_range(seed * 19.4 + 2.2, -0.45, 0.45);
         let size = 20.0 + hash01(seed * 17.1 + 4.2) * 14.0;
         let speed_x = 0.8 + hash01(seed * 2.9 + 1.7) * 1.2;
@@ -310,7 +310,8 @@ fn select_planet_by_keyboard(
         return;
     };
 
-    if let Some(next_index) = find_directional_neighbor(&world.planets, selection.index, direction) {
+    if let Some(next_index) = find_directional_neighbor(&world.planets, selection.index, direction)
+    {
         selection.index = next_index;
     }
 }
@@ -407,24 +408,36 @@ fn update_planet_label(
 
     let Some(planet) = world.planets.get(selection.index) else {
         label.0 = translations
-            .tr(&current.effective(&translations), "worldmap.no_selection_hint")
+            .tr(
+                &current.effective(&translations),
+                "worldmap.no_selection_hint",
+            )
             .map(|s| s.to_string())
-            .unwrap_or_else(|| "Arrow/click: choose planet | Enter: start | Esc: worlds".to_string());
+            .unwrap_or_else(|| {
+                "Arrow/click: choose planet | Enter: start | Esc: worlds".to_string()
+            });
         return;
     };
 
-        let level_info = if planet.levels.is_empty() {
+    let level_info = if planet.levels.is_empty() {
         translations
             .tr(&current.effective(&translations), "worldmap.no_level")
             .map(|s| s.to_string())
             .unwrap_or_else(|| "(no levels)".to_string())
     } else {
         let first_level = &planet.levels[0];
-        format!("{} Level (Start: {})", planet.levels.len(), first_level.name)
+        format!(
+            "{} Level (Start: {})",
+            planet.levels.len(),
+            first_level.name
+        )
     };
 
     if let Some(fmt) = translations.tr(&current.effective(&translations), "worldmap.label_format") {
-        label.0 = fmt.replace("{world}", &world.name).replace("{planet}", &planet.name).replace("{level_info}", &level_info);
+        label.0 = fmt
+            .replace("{world}", &world.name)
+            .replace("{planet}", &planet.name)
+            .replace("{level_info}", &level_info);
     } else {
         label.0 = format!(
             "World: {} | Planet: {} {} | Enter: Start | Esc: Worlds",
@@ -451,20 +464,26 @@ fn return_to_world_select(
     }
 }
 
-fn cleanup_world_map_view(mut commands: Commands, entities: Query<Entity, (With<WorldMapEntity>, Without<ChildOf>)>) {
+fn cleanup_world_map_view(
+    mut commands: Commands,
+    entities: Query<Entity, (With<WorldMapEntity>, Without<ChildOf>)>,
+) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
 }
 
-fn selected_world<'a>(world_catalog: &'a WorldCatalog, progress: &CampaignProgress) -> Option<&'a crate::world::WorldDefinition> {
+fn selected_world<'a>(
+    world_catalog: &'a WorldCatalog,
+    progress: &CampaignProgress,
+) -> Option<&'a crate::world::WorldDefinition> {
     let world_index = progress.world_index?;
-    world_catalog.world(world_index).map(|entry| &entry.definition)
+    world_catalog
+        .world(world_index)
+        .map(|entry| &entry.definition)
 }
 
 fn map_to_world(position: Vec2, config: WorldMapRenderConfig) -> Vec2 {
     let local = position - (config.virtual_size * 0.5);
     local * config.scale
 }
-
-

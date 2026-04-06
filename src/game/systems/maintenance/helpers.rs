@@ -64,7 +64,10 @@ mod tests {
 
     #[test]
     fn build_stats_text_includes_state_with_other_stats() {
-        let health = Health { current: 7, max: 10 };
+        let health = Health {
+            current: 7,
+            max: 10,
+        };
         let state = crate::game::components::animation::AnimationState {
             current: EntityState::Walk,
             version: 3,
@@ -76,4 +79,3 @@ mod tests {
         assert!(text.contains("STATE walk"));
     }
 }
-

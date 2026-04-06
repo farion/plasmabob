@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
 use crate::app_model::AppState;
+use crate::i18n::{CurrentLanguage, Translations};
 use crate::world::WorldCatalog;
 use crate::{CampaignProgress, WorldListSelection};
-use crate::i18n::{Translations, CurrentLanguage};
 
 pub struct StartViewPlugin;
 
@@ -21,17 +21,17 @@ impl Plugin for StartViewPlugin {
             OnEnter(AppState::StartView),
             (refresh_world_catalog, setup_start_view).chain(),
         )
-            .add_systems(
-                Update,
-                (
-                    world_list_keyboard_navigation,
-                    activate_selected_world,
-                    return_to_main_menu,
-                    update_world_list_visuals,
-                )
-                    .run_if(in_state(AppState::StartView)),
+        .add_systems(
+            Update,
+            (
+                world_list_keyboard_navigation,
+                activate_selected_world,
+                return_to_main_menu,
+                update_world_list_visuals,
             )
-            .add_systems(OnExit(AppState::StartView), cleanup_start_view);
+                .run_if(in_state(AppState::StartView)),
+        )
+        .add_systems(OnExit(AppState::StartView), cleanup_start_view);
     }
 }
 
@@ -53,14 +53,14 @@ fn setup_start_view(
     current: Res<CurrentLanguage>,
 ) {
     // Determine title/subtitle keys or formatted detail when no worlds are available
-        let (title_key, subtitle_text) = if world_catalog.worlds().is_empty() {
+    let (title_key, subtitle_text) = if world_catalog.worlds().is_empty() {
         let detail = world_catalog
             .last_error()
             .map(|e| e.to_string())
             .unwrap_or_else(|| "No world JSONs found in assets/worlds.".to_string());
         // Use localized template and insert detail
-            let template = translations
-                .tr(&current.effective(&translations), "start.no_worlds_detail")
+        let template = translations
+            .tr(&current.effective(&translations), "start.no_worlds_detail")
             .map(|s| s.to_string())
             .unwrap_or_else(|| "{detail}\nEsc: Back to main menu".to_string());
         let subtitle = template.replace("{detail}", &detail);
@@ -68,10 +68,12 @@ fn setup_start_view(
     } else {
         (
             "start.title",
-                translations
-                    .tr(&current.effective(&translations), "start.subtitle")
+            translations
+                .tr(&current.effective(&translations), "start.subtitle")
                 .map(|s| s.to_string())
-                .unwrap_or_else(|| "Arrow keys: navigate | Enter: world map | Esc: back".to_string()),
+                .unwrap_or_else(|| {
+                    "Arrow keys: navigate | Enter: world map | Esc: back".to_string()
+                }),
         )
     };
 
@@ -97,7 +99,9 @@ fn setup_start_view(
                     ..default()
                 },
                 TextColor(Color::WHITE),
-                crate::i18n::LocalizedText { key: title_key.to_string() },
+                crate::i18n::LocalizedText {
+                    key: title_key.to_string(),
+                },
                 StartViewEntity,
             ));
             parent.spawn((
@@ -171,7 +175,10 @@ fn activate_selected_world(
     next_state.set(AppState::WorldMapView);
 }
 
-fn return_to_main_menu(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn return_to_main_menu(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if keys.just_pressed(KeyCode::Escape) {
         next_state.set(AppState::MainMenu);
     }
@@ -190,7 +197,10 @@ fn update_world_list_visuals(
     }
 }
 
-fn cleanup_start_view(mut commands: Commands, entities: Query<Entity, (With<StartViewEntity>, Without<ChildOf>)>) {
+fn cleanup_start_view(
+    mut commands: Commands,
+    entities: Query<Entity, (With<StartViewEntity>, Without<ChildOf>)>,
+) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }

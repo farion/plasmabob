@@ -3,16 +3,13 @@ use bevy::prelude::*;
 
 use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::plasma::{
-    PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE,
-    PLASMA_BEAM_PARTICLE_WIGGLE_SPEED,
-    PLASMA_BEAM_VISUAL_HALF_HEIGHT,
-    PLASMA_IMPACT_LIFETIME_SECS,
-    PLASMA_IMPACT_MAX_SPEED,
-    PLASMA_IMPACT_MIN_SPEED,
-    PLASMA_IMPACT_PARTICLE_COUNT,
-    PLASMA_Z,
+    PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE, PLASMA_BEAM_PARTICLE_WIGGLE_SPEED,
+    PLASMA_BEAM_VISUAL_HALF_HEIGHT, PLASMA_IMPACT_LIFETIME_SECS, PLASMA_IMPACT_MAX_SPEED,
+    PLASMA_IMPACT_MIN_SPEED, PLASMA_IMPACT_PARTICLE_COUNT, PLASMA_Z,
 };
-use crate::game::systems::gameplay::types::{DustParticle, PlasmaBeamParticle, PlasmaImpactParticle};
+use crate::game::systems::gameplay::types::{
+    DustParticle, PlasmaBeamParticle, PlasmaImpactParticle,
+};
 use crate::game::systems::systems_api::GameViewEntity;
 use crate::helper::particles::create_round_particle_image;
 
@@ -24,8 +21,10 @@ pub(crate) fn hash_to_unit(seed: u32) -> f32 {
     (((value >> 22) ^ value) as f32) / (u32::MAX as f32)
 }
 
-
-pub(crate) fn ensure_plasma_particle_image(local_handle: &mut Option<Handle<Image>>, images: &mut Assets<Image>) -> Handle<Image> {
+pub(crate) fn ensure_plasma_particle_image(
+    local_handle: &mut Option<Handle<Image>>,
+    images: &mut Assets<Image>,
+) -> Handle<Image> {
     if let Some(handle) = local_handle.as_ref() {
         return handle.clone();
     }
@@ -36,7 +35,8 @@ pub(crate) fn ensure_plasma_particle_image(local_handle: &mut Option<Handle<Imag
 
 pub(crate) fn plasma_origin_from_player(transform: &Transform, sprite: &Sprite) -> Vec2 {
     let size = sprite.custom_size.unwrap_or(Vec2::new(96.0, 128.0));
-    let y_from_bottom = size.y * crate::game::components::plasma::PLASMA_ORIGIN_HEIGHT_RATIO_FROM_BOTTOM;
+    let y_from_bottom =
+        size.y * crate::game::components::plasma::PLASMA_ORIGIN_HEIGHT_RATIO_FROM_BOTTOM;
     let y = transform.translation.y - (size.y * 0.5) + y_from_bottom;
     Vec2::new(transform.translation.x, y)
 }
@@ -49,15 +49,19 @@ pub(crate) fn update_beam_particles<F: bevy::ecs::query::QueryFilter>(
     alpha_multiplier: f32,
 ) {
     for child in children.iter() {
-        let Ok((particle, mut particle_transform, mut particle_sprite)) = beam_particles.get_mut(child)
-        else { continue; };
+        let Ok((particle, mut particle_transform, mut particle_sprite)) =
+            beam_particles.get_mut(child)
+        else {
+            continue;
+        };
 
         let wave = (time.elapsed_secs() * PLASMA_BEAM_PARTICLE_WIGGLE_SPEED + particle.phase).sin();
         let taper = 1.0 - (particle.normalized_distance * 0.45);
         let y_offset = (particle.lane * PLASMA_BEAM_VISUAL_HALF_HEIGHT)
             + (wave * PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE * taper * particle.layer_scale);
 
-        particle_transform.translation.x = beam.direction * beam.current_length * particle.normalized_distance;
+        particle_transform.translation.x =
+            beam.direction * beam.current_length * particle.normalized_distance;
         particle_transform.translation.y = y_offset;
 
         let core_boost = 1.0 - particle.lane.abs() * 0.45;
@@ -71,12 +75,17 @@ pub(crate) fn update_beam_particles<F: bevy::ecs::query::QueryFilter>(
     }
 }
 
-pub(crate) fn spawn_plasma_impact_explosion(commands: &mut Commands, particle_image: &Handle<Image>, impact_position: Vec2) {
+pub(crate) fn spawn_plasma_impact_explosion(
+    commands: &mut Commands,
+    particle_image: &Handle<Image>,
+    impact_position: Vec2,
+) {
     for index in 0..PLASMA_IMPACT_PARTICLE_COUNT {
         let seed = index as u32 + 101;
         let angle = hash_to_unit(seed.wrapping_mul(37)) * std::f32::consts::TAU;
         let speed = PLASMA_IMPACT_MIN_SPEED
-            + hash_to_unit(seed.wrapping_mul(71)) * (PLASMA_IMPACT_MAX_SPEED - PLASMA_IMPACT_MIN_SPEED);
+            + hash_to_unit(seed.wrapping_mul(71))
+                * (PLASMA_IMPACT_MAX_SPEED - PLASMA_IMPACT_MIN_SPEED);
         let velocity = Vec2::new(angle.cos(), angle.sin()) * speed;
         let size = 4.0 + hash_to_unit(seed.wrapping_mul(13)) * 8.0;
 
@@ -118,7 +127,10 @@ pub(crate) fn spawn_plasma_impact_explosion(commands: &mut Commands, particle_im
 
 pub(crate) fn dust_origin(transform: &Transform, sprite: &Sprite) -> Vec2 {
     let size = sprite.custom_size.unwrap_or(Vec2::new(96.0, 128.0));
-    Vec2::new(transform.translation.x, transform.translation.y - (size.y * 0.45))
+    Vec2::new(
+        transform.translation.x,
+        transform.translation.y - (size.y * 0.45),
+    )
 }
 
 pub(crate) fn spawn_dust_burst(
@@ -168,8 +180,6 @@ pub(crate) fn ensure_dust_particle_image(
     handle
 }
 
-
-
 pub(crate) fn update_sprite_flip_for_move_axis(sprite: &mut Sprite, move_axis: f32) {
     if move_axis < 0.0 && !sprite.flip_x {
         sprite.flip_x = true;
@@ -177,7 +187,6 @@ pub(crate) fn update_sprite_flip_for_move_axis(sprite: &mut Sprite, move_axis: f
         sprite.flip_x = false;
     }
 }
-
 
 /// If a small vertical step is detected ahead of the entity, nudge the entity up
 /// so it can continue moving instead of getting stuck. The tolerance parameter
@@ -207,8 +216,14 @@ pub(crate) fn detect_small_step(
         return None;
     }
 
-    let current_min = hits_current.iter().map(|h| h.distance).fold(f32::INFINITY, f32::min);
-    let ahead_min = hits_ahead.iter().map(|h| h.distance).fold(f32::INFINITY, f32::min);
+    let current_min = hits_current
+        .iter()
+        .map(|h| h.distance)
+        .fold(f32::INFINITY, f32::min);
+    let ahead_min = hits_ahead
+        .iter()
+        .map(|h| h.distance)
+        .fold(f32::INFINITY, f32::min);
 
     let current_ground_y = origin_current.y - current_min;
     let ahead_ground_y = origin_ahead.y - ahead_min;

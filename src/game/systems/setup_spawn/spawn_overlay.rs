@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::game::systems::systems_api::GameViewEntity;
+use bevy::prelude::*;
 
 pub(crate) fn spawn_overlay(
     commands: &mut Commands,
@@ -40,7 +40,9 @@ pub(crate) fn spawn_overlay(
                     ..default()
                 },
                 TextColor(Color::WHITE),
-                crate::i18n::LocalizedText { key: "game.view_title".to_string() },
+                crate::i18n::LocalizedText {
+                    key: "game.view_title".to_string(),
+                },
                 GameViewEntity,
             ));
             parent.spawn((
@@ -77,9 +79,10 @@ pub(crate) fn spawn_overlay(
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                crate::i18n::LocalizedText { key: "game.overlay_hint".to_string() },
+                crate::i18n::LocalizedText {
+                    key: "game.overlay_hint".to_string(),
+                },
                 GameViewEntity,
             ));
         });
 }
-

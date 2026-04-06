@@ -3,16 +3,16 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::game::components::{self};
-use crate::level::{bottom_left_to_world, clamp_level_position, CachedLevelDefinition};
-use crate::helper::audio_settings::AudioSettings;
-use crate::{LevelSelection, LevelStats};
 use crate::game::systems::presentation::types::LevelTimer;
 use crate::game::systems::setup_spawn::spawn_level_boundaries;
 use crate::game::systems::setup_spawn::spawn_overlay::spawn_overlay;
 use crate::game::systems::systems_api::{
-    ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LevelQuotes,
-    QuoteCooldown, TerrainBackgroundConfig,
+    ActiveLevelBounds, CombatSoundEffects, GameViewEntity, LevelQuotes, QuoteCooldown,
+    TerrainBackgroundConfig,
 };
+use crate::helper::audio_settings::AudioSettings;
+use crate::level::{CachedLevelDefinition, bottom_left_to_world, clamp_level_position};
+use crate::{LevelSelection, LevelStats};
 
 pub(crate) fn setup_game_view(
     mut commands: Commands,
@@ -49,8 +49,9 @@ pub(crate) fn setup_game_view(
                 None => None,
             };
 
-            let active_level_bounds = level_bounds
-                .map(|level_size| ActiveLevelBounds::from_window_and_level_size(window_size, level_size));
+            let active_level_bounds = level_bounds.map(|level_size| {
+                ActiveLevelBounds::from_window_and_level_size(window_size, level_size)
+            });
 
             if let Some(bounds) = active_level_bounds {
                 commands.insert_resource(bounds);
@@ -58,7 +59,8 @@ pub(crate) fn setup_game_view(
 
             commands.spawn((
                 TerrainBackgroundConfig {
-                    image: asset_server.load(level_definition.terrain_background_asset_path().to_string()),
+                    image: asset_server
+                        .load(level_definition.terrain_background_asset_path().to_string()),
                 },
                 GameViewEntity,
             ));
@@ -108,7 +110,9 @@ pub(crate) fn setup_game_view(
             }
 
             for entity_definition in &level_definition.entities {
-                let Some(entity_type) = level_definition.entity_types.get(&entity_definition.entity_type)
+                let Some(entity_type) = level_definition
+                    .entity_types
+                    .get(&entity_definition.entity_type)
                 else {
                     warnings.push(format!(
                         "{} references unknown entity_type '{}',",
@@ -117,7 +121,10 @@ pub(crate) fn setup_game_view(
                     continue;
                 };
 
-                let is_player = entity_type.components.iter().any(|component| component == "player");
+                let is_player = entity_type
+                    .components
+                    .iter()
+                    .any(|component| component == "player");
 
                 // Resolve z-index: per-entity value or a component-based fallback.
                 let z = resolve_entity_z_index(entity_definition, entity_type, is_player);
@@ -138,11 +145,15 @@ pub(crate) fn setup_game_view(
                 };
 
                 if is_player
-                    && (level_position.x != entity_definition.x || level_position.y != entity_definition.y)
+                    && (level_position.x != entity_definition.x
+                        || level_position.y != entity_definition.y)
                 {
                     warnings.push(format!(
                         "Clamped player spawn from ({}, {}) to ({}, {}) to fit level bounds",
-                        entity_definition.x, entity_definition.y, level_position.x, level_position.y
+                        entity_definition.x,
+                        entity_definition.y,
+                        level_position.x,
+                        level_position.y
                     ));
                 }
 
@@ -202,5 +213,3 @@ fn resolve_entity_z_index(
         }
     })
 }
-
-

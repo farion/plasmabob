@@ -3,7 +3,9 @@ use bevy::sprite::Anchor;
 use bevy::window::PrimaryWindow;
 
 use crate::game::systems::presentation::types::BackgroundParallax;
-use crate::game::systems::systems_api::{ActiveLevelBounds, GameViewEntity, TerrainBackgroundConfig, TerrainBackgroundReady};
+use crate::game::systems::systems_api::{
+    ActiveLevelBounds, GameViewEntity, TerrainBackgroundConfig, TerrainBackgroundReady,
+};
 
 pub(crate) fn spawn_terrain_background_tiles(
     mut commands: Commands,
@@ -32,7 +34,11 @@ pub(crate) fn spawn_terrain_background_tiles(
         let tile_width = (image_width / image_height) * tile_height;
         let (start_x, span_width, start_y) = match active_level_bounds.as_deref().copied() {
             Some(bounds) => (bounds.left, bounds.right - bounds.left, bounds.bottom),
-            None => (-(window.width() * 0.5), window.width(), -(window.height() * 0.5)),
+            None => (
+                -(window.width() * 0.5),
+                window.width(),
+                -(window.height() * 0.5),
+            ),
         };
         let tile_count = ((span_width / tile_width).ceil() as usize).saturating_add(1);
 
@@ -56,4 +62,3 @@ pub(crate) fn spawn_terrain_background_tiles(
         commands.entity(entity).insert(TerrainBackgroundReady);
     }
 }
-

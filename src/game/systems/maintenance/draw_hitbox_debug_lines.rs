@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::game::components::hitbox::PolygonHitbox;
 use crate::game::components::SpawnedLevelEntity;
+use crate::game::components::hitbox::PolygonHitbox;
 
 pub(crate) fn draw_hitbox_debug_lines(
     debug_settings: Res<crate::DebugRenderSettings>,
@@ -13,7 +13,8 @@ pub(crate) fn draw_hitbox_debug_lines(
     }
 
     for (transform, polygon_hitbox, sprite) in &hitboxes {
-        let effective_points = polygon_hitbox.effective_points(sprite.map(|s| s.flip_x).unwrap_or(false));
+        let effective_points =
+            polygon_hitbox.effective_points(sprite.map(|s| s.flip_x).unwrap_or(false));
 
         if effective_points.len() < 2 {
             continue;
@@ -27,4 +28,3 @@ pub(crate) fn draw_hitbox_debug_lines(
         }
     }
 }
-

@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use crate::game::systems::presentation::types::ParallaxAnchor;
 use crate::MainCamera;
+use crate::game::systems::presentation::types::ParallaxAnchor;
+use bevy::prelude::*;
 
 pub(crate) fn apply_parallax_from_camera(
     cameras: Query<&Transform, (With<Camera>, With<MainCamera>)>,

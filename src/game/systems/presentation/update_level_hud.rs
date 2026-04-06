@@ -1,13 +1,20 @@
+use crate::game::systems::presentation::types::{
+    LevelKillsText, LevelTimeText, PlayerHealthPercentText, PlayerPlasmaCooldownPercentText,
+};
 use bevy::prelude::*;
-use crate::game::systems::presentation::types::{LevelKillsText, LevelTimeText, PlayerHealthPercentText, PlayerPlasmaCooldownPercentText};
 
 pub(crate) fn update_level_hud(
     stats: Res<crate::LevelStats>,
     cached_level: Option<Res<crate::level::CachedLevelDefinition>>,
-    mut kills_query: Query<&mut Text, (With<LevelKillsText>,
-                                       Without<LevelTimeText>,
-                                       Without<PlayerHealthPercentText>,
-                                       Without<PlayerPlasmaCooldownPercentText>)>,
+    mut kills_query: Query<
+        &mut Text,
+        (
+            With<LevelKillsText>,
+            Without<LevelTimeText>,
+            Without<PlayerHealthPercentText>,
+            Without<PlayerPlasmaCooldownPercentText>,
+        ),
+    >,
 ) {
     // Determine total enemies from cached level if present
     let mut total_enemies: u32 = 0;
@@ -29,4 +36,3 @@ pub(crate) fn update_level_hud(
         text.0 = format!("{}/{}", remaining, total_enemies);
     }
 }
-

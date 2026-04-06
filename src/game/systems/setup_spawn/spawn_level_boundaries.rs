@@ -1,10 +1,10 @@
-use bevy::prelude::*;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
+use bevy::prelude::*;
 
-use crate::game::systems::systems_api::LEVEL_BOUNDARY_THICKNESS;
-use crate::game::systems::systems_api::ActiveLevelBounds;
 use crate::game::components::SpawnedLevelEntity;
+use crate::game::systems::systems_api::ActiveLevelBounds;
+use crate::game::systems::systems_api::LEVEL_BOUNDARY_THICKNESS;
 
 pub(crate) fn spawn_level_boundaries(commands: &mut Commands, level_bounds: ActiveLevelBounds) {
     let half_thickness = LEVEL_BOUNDARY_THICKNESS * 0.5;
@@ -28,7 +28,11 @@ pub(crate) fn spawn_level_boundaries(commands: &mut Commands, level_bounds: Acti
         ),
         (
             "Bottom",
-            Vec3::new(horizontal_center_x, level_bounds.bottom - half_thickness, 50.0),
+            Vec3::new(
+                horizontal_center_x,
+                level_bounds.bottom - half_thickness,
+                50.0,
+            ),
             Vec2::new(horizontal_wall_width, LEVEL_BOUNDARY_THICKNESS),
         ),
         (
@@ -48,4 +52,3 @@ pub(crate) fn spawn_level_boundaries(commands: &mut Commands, level_bounds: Acti
         ));
     }
 }
-

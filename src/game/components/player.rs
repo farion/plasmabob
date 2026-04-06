@@ -20,12 +20,17 @@ impl PlasmaAttack {
     pub(crate) fn new(range: f32, damage: i32) -> Self {
         let mut cooldown = Timer::from_seconds(PLASMA_SHOOT_COOLDOWN_SECS, TimerMode::Once);
         // Start already finished so the player can fire immediately.
-        cooldown.tick(std::time::Duration::from_secs_f32(PLASMA_SHOOT_COOLDOWN_SECS));
-        Self { range, damage, cooldown }
+        cooldown.tick(std::time::Duration::from_secs_f32(
+            PLASMA_SHOOT_COOLDOWN_SECS,
+        ));
+        Self {
+            range,
+            damage,
+            cooldown,
+        }
     }
 }
 
 pub(crate) fn insert(entity: &mut EntityCommands) {
     entity.insert(Player);
 }
-

@@ -3,13 +3,13 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use futures_lite::AsyncReadExt;
-use thiserror::Error;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+use thiserror::Error;
 
-use crate::app_model::AppState;
-use crate::key_bindings::KeyBindings;
 use crate::PendingStoryScreen;
-use crate::i18n::{Translations, CurrentLanguage, LocalizedText};
+use crate::app_model::AppState;
+use crate::i18n::{CurrentLanguage, LocalizedText, Translations};
+use crate::key_bindings::KeyBindings;
 
 pub struct StoryViewPlugin;
 
@@ -79,7 +79,7 @@ impl Plugin for StoryViewPlugin {
     }
 }
 
-        fn setup_story_view(
+fn setup_story_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut pending_story: ResMut<PendingStoryScreen>,
@@ -98,8 +98,13 @@ impl Plugin for StoryViewPlugin {
         return;
     };
 
-    let story_text = read_asset_text_from_server(&asset_server, &story.text_asset_path, &translations, &current)
-        .unwrap_or_else(|error| error.to_string());
+    let story_text = read_asset_text_from_server(
+        &asset_server,
+        &story.text_asset_path,
+        &translations,
+        &current,
+    )
+    .unwrap_or_else(|error| error.to_string());
 
     commands.spawn((
         Sprite::from_image(asset_server.load(&story.background_asset_path)),
@@ -136,7 +141,8 @@ impl Plugin for StoryViewPlugin {
                     StoryViewEntity,
                 ))
                 .with_children(|panel| {
-                    panel.spawn((
+                    panel
+                        .spawn((
                             Node {
                                 width: Val::Percent(100.0),
                                 flex_grow: 1.0,
@@ -147,41 +153,42 @@ impl Plugin for StoryViewPlugin {
                             StoryTextViewport,
                             StoryViewEntity,
                         ))
-                    .with_children(|viewport| {
-                        viewport.spawn((
-                            Node {
-                                width: Val::Percent(100.0),
-                                flex_direction: FlexDirection::Column,
-                                row_gap: Val::Px(10.0),
-                                position_type: PositionType::Absolute,
-                                left: Val::Px(0.0),
-                                top: Val::Px(0.0),
-                                ..default()
-                            },
-                            StoryTextContent,
-                            StoryViewEntity,
-                        ))
-                        .with_children(|content| {
-                            let blocks = render_markdown_blocks(&story_text);
-                            for block in blocks {
-                                let font_size = markdown_font_size(&block.kind);
-                                let text_color = markdown_text_color(&block.kind);
-                                content.spawn((
-                                    Text::new(block.text),
-                                    TextFont {
-                                        font_size,
-                                        ..default()
-                                    },
-                                    TextColor(text_color),
+                        .with_children(|viewport| {
+                            viewport
+                                .spawn((
                                     Node {
                                         width: Val::Percent(100.0),
+                                        flex_direction: FlexDirection::Column,
+                                        row_gap: Val::Px(10.0),
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(0.0),
+                                        top: Val::Px(0.0),
                                         ..default()
                                     },
+                                    StoryTextContent,
                                     StoryViewEntity,
-                                ));
-                            }
+                                ))
+                                .with_children(|content| {
+                                    let blocks = render_markdown_blocks(&story_text);
+                                    for block in blocks {
+                                        let font_size = markdown_font_size(&block.kind);
+                                        let text_color = markdown_text_color(&block.kind);
+                                        content.spawn((
+                                            Text::new(block.text),
+                                            TextFont {
+                                                font_size,
+                                                ..default()
+                                            },
+                                            TextColor(text_color),
+                                            Node {
+                                                width: Val::Percent(100.0),
+                                                ..default()
+                                            },
+                                            StoryViewEntity,
+                                        ));
+                                    }
+                                });
                         });
-                    });
 
                     panel.spawn((
                         Text::new(""),
@@ -190,7 +197,9 @@ impl Plugin for StoryViewPlugin {
                             ..default()
                         },
                         TextColor(Color::srgb(0.75, 0.75, 0.75)),
-                        LocalizedText { key: "story.hint".to_string() },
+                        LocalizedText {
+                            key: "story.hint".to_string(),
+                        },
                         StoryViewEntity,
                     ));
                 });
@@ -338,7 +347,10 @@ fn continue_story(
     }
 }
 
-fn cleanup_story_view(mut commands: Commands, entities: Query<Entity, (With<StoryViewEntity>, Without<ChildOf>)>) {
+fn cleanup_story_view(
+    mut commands: Commands,
+    entities: Query<Entity, (With<StoryViewEntity>, Without<ChildOf>)>,
+) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
@@ -353,10 +365,15 @@ fn read_asset_text_from_server(
     let source = asset_server
         .get_source(AssetSourceId::Default)
         .map_err(|error| {
-            StoryLoadError::Message(translations
-                .tr(&current.effective(&translations), "story.asset_read_error")
-                .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
-                .unwrap_or_else(|| format!("Asset source error: {error}", error = error)))
+            StoryLoadError::Message(
+                translations
+                    .tr(&current.effective(&translations), "story.asset_read_error")
+                    .map(|t| {
+                        t.replace("{asset}", asset_path)
+                            .replace("{error}", &format!("{error}", error = error))
+                    })
+                    .unwrap_or_else(|| format!("Asset source error: {error}", error = error)),
+            )
         })?;
 
     let mut bytes = Vec::new();
@@ -365,31 +382,61 @@ fn read_asset_text_from_server(
             .reader()
             .read(asset_path.as_ref())
             .await
-                .map_err(|error| {
-                StoryLoadError::Message(translations
-                    .tr(&current.effective(&translations), "story.asset_read_error")
-                    .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
-                    .unwrap_or_else(|| format!("Asset '{asset}' could not be read: {error}", asset = asset_path, error = error)))
+            .map_err(|error| {
+                StoryLoadError::Message(
+                    translations
+                        .tr(&current.effective(&translations), "story.asset_read_error")
+                        .map(|t| {
+                            t.replace("{asset}", asset_path)
+                                .replace("{error}", &format!("{error}", error = error))
+                        })
+                        .unwrap_or_else(|| {
+                            format!(
+                                "Asset '{asset}' could not be read: {error}",
+                                asset = asset_path,
+                                error = error
+                            )
+                        }),
+                )
             })?;
 
-        reader
-            .read_to_end(&mut bytes)
-            .await
-            .map_err(|error| {
-                StoryLoadError::Message(translations
+        reader.read_to_end(&mut bytes).await.map_err(|error| {
+            StoryLoadError::Message(
+                translations
                     .tr(&current.effective(&translations), "story.asset_read_error")
-                    .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
-                    .unwrap_or_else(|| format!("Asset bytes for '{asset}' could not be read: {error}", asset = asset_path, error = error)))
-            })?;
+                    .map(|t| {
+                        t.replace("{asset}", asset_path)
+                            .replace("{error}", &format!("{error}", error = error))
+                    })
+                    .unwrap_or_else(|| {
+                        format!(
+                            "Asset bytes for '{asset}' could not be read: {error}",
+                            asset = asset_path,
+                            error = error
+                        )
+                    }),
+            )
+        })?;
 
         Ok::<(), StoryLoadError>(())
     })?;
 
     let text = String::from_utf8(bytes).map_err(|error| {
-        StoryLoadError::Message(translations
-            .tr(&current.effective(&translations), "story.asset_utf8_error")
-            .map(|t| t.replace("{asset}", asset_path).replace("{error}", &format!("{error}", error = error)))
-            .unwrap_or_else(|| format!("Asset '{asset}' is not valid UTF-8: {error}", asset = asset_path, error = error)))
+        StoryLoadError::Message(
+            translations
+                .tr(&current.effective(&translations), "story.asset_utf8_error")
+                .map(|t| {
+                    t.replace("{asset}", asset_path)
+                        .replace("{error}", &format!("{error}", error = error))
+                })
+                .unwrap_or_else(|| {
+                    format!(
+                        "Asset '{asset}' is not valid UTF-8: {error}",
+                        asset = asset_path,
+                        error = error
+                    )
+                }),
+        )
     })?;
 
     Ok(text.trim_start_matches('\u{feff}').to_string())

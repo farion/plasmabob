@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::game::game_view::GameViewPlugin;
+use bevy::prelude::*;
 
 pub mod main_view;
 
@@ -9,8 +9,8 @@ mod lose_view;
 mod settings_view;
 mod start_view;
 mod story_view;
-mod world_map_view;
 mod win_view;
+mod world_map_view;
 
 pub struct ViewsPlugin;
 
@@ -30,4 +30,3 @@ impl Plugin for ViewsPlugin {
         ));
     }
 }
-

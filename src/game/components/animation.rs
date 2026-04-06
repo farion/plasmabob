@@ -126,9 +126,7 @@ pub(crate) struct FightStateTimer {
     pub(crate) timer: Timer,
 }
 
-impl FightStateTimer {
-
-}
+impl FightStateTimer {}
 
 #[derive(Component, Debug, Clone)]
 pub(crate) struct MeleeAttackStateTimer {
@@ -137,7 +135,9 @@ pub(crate) struct MeleeAttackStateTimer {
 
 impl MeleeAttackStateTimer {
     pub(crate) fn new(seconds: f32) -> Self {
-        Self { timer: Timer::from_seconds(seconds, TimerMode::Once) }
+        Self {
+            timer: Timer::from_seconds(seconds, TimerMode::Once),
+        }
     }
 }
 

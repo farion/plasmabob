@@ -1,15 +1,20 @@
-use bevy::prelude::*;
 use avian2d::prelude::{ShapeCaster, ShapeHits};
+use bevy::prelude::*;
 
 use crate::game::components::player::Player;
-use crate::game::systems::gameplay::helpers::{dust_origin, ensure_dust_particle_image, spawn_dust_burst};
+use crate::game::systems::gameplay::helpers::{
+    dust_origin, ensure_dust_particle_image, spawn_dust_burst,
+};
 use crate::game::systems::systems_api::Grounded;
 
 pub(crate) fn update_grounded(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
     mut dust_particle_image: Local<Option<Handle<Image>>>,
-    players: Query<(Entity, Has<Grounded>, &ShapeHits, &Transform, &Sprite), (With<Player>, With<ShapeCaster>)>,
+    players: Query<
+        (Entity, Has<Grounded>, &ShapeHits, &Transform, &Sprite),
+        (With<Player>, With<ShapeCaster>),
+    >,
 ) {
     let particle_image = ensure_dust_particle_image(&mut dust_particle_image, &mut images);
 
@@ -34,4 +39,3 @@ pub(crate) fn update_grounded(
         }
     }
 }
-

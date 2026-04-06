@@ -1,9 +1,11 @@
 use bevy::prelude::*;
 use std::collections::HashSet;
 
-use crate::game::components::player::Player;
+use crate::game::components::animation::{
+    AnimationState, EntityState, HitStateTimer, can_set_state,
+};
 use crate::game::components::plasma::PlasmaBeam;
-use crate::game::components::animation::{AnimationState, HitStateTimer, EntityState, can_set_state};
+use crate::game::components::player::Player;
 
 pub(crate) fn maintain_player_fight_state(
     beams: Query<&PlasmaBeam>,
@@ -21,4 +23,3 @@ pub(crate) fn maintain_player_fight_state(
         }
     }
 }
-

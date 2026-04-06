@@ -1,5 +1,3 @@
-
-
 use bevy::asset::io::AssetSourceId;
 use bevy::prelude::*;
 use futures_lite::stream::StreamExt as _;
@@ -62,13 +60,11 @@ impl PlanetDefinition {
     }
 }
 
-
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct PlanetLevelDefinition {
     pub(crate) name: String,
     pub(crate) json: String,
 }
-
 
 #[derive(Debug, Clone)]
 pub(crate) struct WorldCatalogEntry {
@@ -119,13 +115,18 @@ pub(crate) enum LoadWorldError {
     Parse(#[from] serde_json::Error),
 }
 
-fn load_world_catalog(asset_server: &AssetServer, dir_asset_path: &str) -> Result<Vec<WorldCatalogEntry>, LoadWorldError> {
-    let source = asset_server.get_source(AssetSourceId::Default).map_err(|error| {
-        LoadWorldError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("Asset source error: {error}"),
-        ))
-    })?;
+fn load_world_catalog(
+    asset_server: &AssetServer,
+    dir_asset_path: &str,
+) -> Result<Vec<WorldCatalogEntry>, LoadWorldError> {
+    let source = asset_server
+        .get_source(AssetSourceId::Default)
+        .map_err(|error| {
+            LoadWorldError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Asset source error: {error}"),
+            ))
+        })?;
 
     let paths: Vec<_> = pollster::block_on(async {
         let mut stream = source
@@ -163,7 +164,12 @@ fn load_world_catalog(asset_server: &AssetServer, dir_asset_path: &str) -> Resul
         });
     }
 
-    worlds.sort_by(|left, right| left.definition.name.to_lowercase().cmp(&right.definition.name.to_lowercase()));
+    worlds.sort_by(|left, right| {
+        left.definition
+            .name
+            .to_lowercase()
+            .cmp(&right.definition.name.to_lowercase())
+    });
     Ok(worlds)
 }
 
@@ -339,8 +345,13 @@ mod tests {
 
         let world: WorldDefinition = serde_json::from_str(json).expect("world json should parse");
         let story = world.story.as_ref().expect("story should be present");
-        assert_eq!(story.start.as_ref().expect("start story").text, "story/world_start.md");
-        assert_eq!(story.win.as_ref().expect("win story").text, "story/world_win.md");
+        assert_eq!(
+            story.start.as_ref().expect("start story").text,
+            "story/world_start.md"
+        );
+        assert_eq!(
+            story.win.as_ref().expect("win story").text,
+            "story/world_win.md"
+        );
     }
 }
-

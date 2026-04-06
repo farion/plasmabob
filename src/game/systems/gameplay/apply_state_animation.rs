@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use crate::game::components::animation::{AnimationPlayback, AnimationState, EntityState, PreloadedAnimations};
+use crate::game::components::animation::{
+    AnimationPlayback, AnimationState, EntityState, PreloadedAnimations,
+};
 use crate::game::components::{AnimationCatalog, AnimationFrameDurations, SpawnedLevelEntity};
 
 // Use fully-qualified helper calls to avoid any module resolution ambiguity.
@@ -25,7 +27,8 @@ pub(crate) fn apply_state_animation(
             continue;
         };
 
-        playback.frame_duration_secs = animation_frame_duration_for_state(frame_durations, state.current);
+        playback.frame_duration_secs =
+            animation_frame_duration_for_state(frame_durations, state.current);
 
         advance_animation_playback(
             &mut playback,
@@ -73,19 +76,24 @@ fn animation_frames_for_state<'a>(
         .map(Vec::as_slice)
 }
 
-
 /// Resolve configured frame duration for a state with a safe minimum.
-fn animation_frame_duration_for_state(frame_durations: &AnimationFrameDurations, state: EntityState) -> f32 {
+fn animation_frame_duration_for_state(
+    frame_durations: &AnimationFrameDurations,
+    state: EntityState,
+) -> f32 {
     frame_durations
         .0
         .get(state.animation_key())
         .copied()
-        .or_else(|| frame_durations.0.get(EntityState::Default.animation_key()).copied())
+        .or_else(|| {
+            frame_durations
+                .0
+                .get(EntityState::Default.animation_key())
+                .copied()
+        })
         .unwrap_or(0.5)
         .max(0.001)
 }
-
-
 
 /// Advance an animation playback according to elapsed seconds and the current
 /// state's version. This updates `playback.frame_index` and `playback.frame_elapsed`.
@@ -156,4 +164,3 @@ mod tests {
         assert_eq!(playback.frame_elapsed, 0.0);
     }
 }
-

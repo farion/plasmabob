@@ -17,5 +17,3 @@ pub(crate) fn tick_melee_attack_state_timers(
         }
     }
 }
-
-
