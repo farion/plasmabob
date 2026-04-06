@@ -1,10 +1,8 @@
 use std::io;
-use std::path::PathBuf;
 
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
-
-const SETTINGS_FILE_NAME: &str = "settings.json";
+use crate::helper::settings::{load_field, save_field};
 const DEFAULT_MUSIC_VOLUME: f32 = 0.2;
 const DEFAULT_EFFECTS_VOLUME: f32 = 0.5;
 const DEFAULT_QUOTES_VOLUME: f32 = 1.0;
@@ -33,35 +31,13 @@ impl Default for AudioSettings {
 
 impl AudioSettings {
     pub(crate) fn load_from_disk() -> Self {
-        let path = settings_file_path();
-        let content = match std::fs::read_to_string(&path) {
-            Ok(value) => value,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                return Self::default();
-            }
-            Err(error) => {
-                eprintln!("Failed to read {}: {error}", path.display());
-                return Self::default();
-            }
-        };
-
-        let mut parsed = match serde_json::from_str::<Self>(&content) {
-            Ok(value) => value,
-            Err(error) => {
-                eprintln!("Failed to parse {}: {error}", path.display());
-                return Self::default();
-            }
-        };
-
+        let mut parsed = load_field::<AudioSettings>("audio_settings").unwrap_or_default();
         parsed.sanitize();
         parsed
     }
 
     pub(crate) fn save_to_disk(&self) -> Result<(), io::Error> {
-        let path = settings_file_path();
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|error| io::Error::new(io::ErrorKind::Other, error))?;
-        std::fs::write(path, json)
+        save_field("audio_settings", self)
     }
 
     pub(crate) fn set_music_volume(&mut self, value: f32) -> bool {
@@ -100,14 +76,4 @@ impl AudioSettings {
 
 fn clamp_volume(value: f32) -> f32 {
     value.clamp(0.0, 1.0)
-}
-
-fn settings_file_path() -> PathBuf {
-    match std::env::current_exe()
-        .ok()
-        .and_then(|path| path.parent().map(|parent| parent.join(SETTINGS_FILE_NAME)))
-    {
-        Some(path) => path,
-        None => PathBuf::from(SETTINGS_FILE_NAME),
-    }
 }

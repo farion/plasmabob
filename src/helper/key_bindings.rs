@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::io;
-use std::path::PathBuf;
-
-const FILE_NAME: &str = "keybindings.json";
+use crate::helper::settings::{load_field, save_field};
 
 /// Alle konfigurierbaren Aktionen (Debug-Funktionen sind bewusst ausgeschlossen).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -66,25 +64,11 @@ impl Default for KeyBindings {
 
 impl KeyBindings {
     pub(crate) fn load_from_disk() -> Self {
-        let path = file_path();
-        match std::fs::read_to_string(&path) {
-            Err(e) if e.kind() == io::ErrorKind::NotFound => Self::default(),
-            Err(e) => {
-                eprintln!("Failed to read {}: {e}", path.display());
-                Self::default()
-            }
-            Ok(content) => serde_json::from_str(&content).unwrap_or_else(|e| {
-                eprintln!("Failed to parse {}: {e}", path.display());
-                Self::default()
-            }),
-        }
+        load_field::<KeyBindings>("key_bindings").unwrap_or_default()
     }
 
     pub(crate) fn save_to_disk(&self) -> Result<(), io::Error> {
-        let path = file_path();
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        std::fs::write(path, json)
+        save_field("key_bindings", self)
     }
 
     pub(crate) fn get(&self, action: KeyAction) -> KeyCode {
@@ -230,12 +214,7 @@ impl KeyBindings {
     }
 }
 
-fn file_path() -> PathBuf {
-    std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.join(FILE_NAME)))
-        .unwrap_or_else(|| PathBuf::from(FILE_NAME))
-}
+// file path and settings I/O are handled centrally in `helper::settings`
 
 pub(crate) mod keycode_serde {
     use bevy::prelude::KeyCode;

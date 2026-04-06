@@ -65,22 +65,26 @@ impl CurrentLanguage {
     pub fn load_from_disk() -> Self {
         use std::io;
         use std::path::PathBuf;
+        use serde_json::Value;
 
+        // Read consolidated settings.json and extract `language` field
         let path = std::env::current_exe()
             .ok()
-            .and_then(|p| p.parent().map(|d| d.join("language.json")))
-            .unwrap_or_else(|| PathBuf::from("language.json"));
+            .and_then(|p| p.parent().map(|d| d.join("settings.json")))
+            .unwrap_or_else(|| PathBuf::from("settings.json"));
 
-        match std::fs::read_to_string(&path) {
-            Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
-                Ok(val) => match val.get("language") {
-                    Some(serde_json::Value::String(s)) => CurrentLanguage(Some(s.clone())),
-                    Some(serde_json::Value::Null) | None => CurrentLanguage(None),
-                    _ => CurrentLanguage::default(),
-                },
-                Err(_) => CurrentLanguage::default(),
+        let content = match std::fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return CurrentLanguage::default(),
+            Err(_) => return CurrentLanguage::default(),
+        };
+
+        match serde_json::from_str::<Value>(&content) {
+            Ok(val) => match val.get("language") {
+                Some(Value::String(s)) => CurrentLanguage(Some(s.clone())),
+                Some(Value::Null) | None => CurrentLanguage(None),
+                _ => CurrentLanguage::default(),
             },
-            Err(e) if e.kind() == io::ErrorKind::NotFound => CurrentLanguage::default(),
             Err(_) => CurrentLanguage::default(),
         }
     }
@@ -89,21 +93,34 @@ impl CurrentLanguage {
     pub fn save_to_disk(&self) -> Result<(), std::io::Error> {
         use std::io;
         use std::path::PathBuf;
+        use serde_json::{Map, Value};
 
+        // Merge language into settings.json while preserving other keys
         let path = std::env::current_exe()
             .ok()
-            .and_then(|p| p.parent().map(|d| d.join("language.json")))
-            .unwrap_or_else(|| PathBuf::from("language.json"));
+            .and_then(|p| p.parent().map(|d| d.join("settings.json")))
+            .unwrap_or_else(|| PathBuf::from("settings.json"));
 
-        let json = match &self.0 {
-            Some(lang) => serde_json::json!({ "language": lang }),
-            None => serde_json::json!({ "language": null }),
+        let mut root: Map<String, Value> = match std::fs::read_to_string(&path) {
+            Ok(existing) => match serde_json::from_str::<Value>(&existing) {
+                Ok(Value::Object(map)) => map,
+                _ => Map::new(),
+            },
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Map::new(),
+            Err(error) => return Err(error),
         };
-        std::fs::write(
-            path,
-            serde_json::to_string_pretty(&json)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?,
-        )
+
+        let lang_value = match &self.0 {
+            Some(lang) => Value::String(lang.clone()),
+            None => Value::Null,
+        };
+
+        root.insert("language".to_string(), lang_value);
+
+        let json = serde_json::to_string_pretty(&Value::Object(root))
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+        std::fs::write(path, json)
     }
 }
 

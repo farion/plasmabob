@@ -1,9 +1,9 @@
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
 use std::io;
-use std::path::PathBuf;
+use crate::helper::settings::{load_field, save_field};
 
-const FILE_NAME: &str = "active_character.json";
+const FILE_NAME: &str = "settings.json";
 
 #[derive(Resource, Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
@@ -15,33 +15,11 @@ pub(crate) enum ActiveCharacter {
 
 impl ActiveCharacter {
     pub(crate) fn load_from_disk() -> Self {
-        let path = file_path();
-        let content = match std::fs::read_to_string(&path) {
-            Ok(value) => value,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Self::default(),
-            Err(error) => {
-                eprintln!("Failed to read {}: {error}", path.display());
-                return Self::default();
-            }
-        };
-
-        match serde_json::from_str::<PersistedActiveCharacter>(&content) {
-            Ok(value) => value.active_character,
-            Err(error) => {
-                eprintln!("Failed to parse {}: {error}", path.display());
-                Self::default()
-            }
-        }
+        load_field::<ActiveCharacter>("active_character").unwrap_or_default()
     }
 
     pub(crate) fn save_to_disk(&self) -> Result<(), io::Error> {
-        let path = file_path();
-        let payload = PersistedActiveCharacter {
-            active_character: *self,
-        };
-        let json = serde_json::to_string_pretty(&payload)
-            .map_err(|error| io::Error::new(io::ErrorKind::Other, error))?;
-        std::fs::write(path, json)
+        save_field("active_character", self)
     }
 
     pub(crate) fn toggle(&mut self) {
@@ -80,17 +58,12 @@ impl ActiveCharacter {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-struct PersistedActiveCharacter {
-    active_character: ActiveCharacter,
-}
+/*
+Old single-file format removed. settings.json is now the single source of truth.
+If you need the previous standalone format, restore PersistedActiveCharacter.
+*/
 
-fn file_path() -> PathBuf {
-    std::env::current_exe()
-        .ok()
-        .and_then(|path| path.parent().map(|parent| parent.join(FILE_NAME)))
-        .unwrap_or_else(|| PathBuf::from(FILE_NAME))
-}
+// file path handling moved to `helper::settings`
 
 #[cfg(test)]
 mod tests {
