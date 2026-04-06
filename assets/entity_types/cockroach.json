@@ -1,10 +1,17 @@
 {
-  "component": ["collision", "npc", "hostile", "moving", "health", "melee_attack"],
+  "component": ["collision", "npc", "hostile", "moving", "health", "melee_attack", "range_attack"],
   "melee_attack": {
     "damage": 10
   },
   "health": {
     "health": 30
+  },
+  "range_attack": {
+    "damage": 10,
+    "speed": 500,
+    "frequency": 1000,
+    "max_range": 10000,
+    "aggro_range": 1000
   },
   "height": 128,
   "states": {

@@ -12,7 +12,10 @@ use crate::game::systems::gameplay::detect_player_collectibles;
 use crate::game::systems::gameplay::detect_player_defeated;
 use crate::game::systems::gameplay::detect_player_reached_exit;
 use crate::game::systems::gameplay::disable_dead_npc_collisions;
+use crate::game::systems::gameplay::fire_range_attack_projectiles;
+use crate::game::systems::gameplay::handle_range_projectile_impacts;
 use crate::game::systems::gameplay::maintain_player_fight_state;
+use crate::game::systems::gameplay::move_range_projectiles;
 use crate::game::systems::gameplay::set_hostile_fight_state_on_player_contact;
 use crate::game::systems::gameplay::shoot_plasma;
 use crate::game::systems::gameplay::sync_death_state_from_health;
@@ -101,6 +104,9 @@ impl Plugin for GameViewPlugin {
                 set_hostile_fight_state_on_player_contact::set_hostile_fight_state_on_player_contact,
                 (
                     shoot_plasma::shoot_plasma,
+                    fire_range_attack_projectiles::fire_range_attack_projectiles,
+                    move_range_projectiles::move_range_projectiles,
+                    handle_range_projectile_impacts::handle_range_projectile_impacts,
                     update_plasma_beams::update_plasma_beams,
                     update_plasma_impact_particles::update_plasma_impact_particles,
                     maintain_player_fight_state::maintain_player_fight_state,

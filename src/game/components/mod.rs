@@ -70,6 +70,7 @@ pub(crate) fn spawn_entity(
     let mut has_collision = false;
     let mut has_player = false;
     let mut has_moving = false;
+    let mut has_range_attack = false;
 
     // Pre-compute animations once - insert separately to avoid early drop
     let normalized_animations = entity_type.normalized_animations();
@@ -157,6 +158,9 @@ pub(crate) fn spawn_entity(
                 has_player = true;
                 player::insert(&mut entity_commands)
             }
+            "range_attack" => {
+                has_range_attack = true;
+            }
             other => warnings.push(format!(
                 "{} references unknown component '{}'",
                 entity_definition.id, other
@@ -186,6 +190,68 @@ pub(crate) fn spawn_entity(
     if let Some(dmg) = overridden_melee.or(entity_type.melee_attack.as_ref().and_then(|m| m.damage))
     {
         entity_commands.insert(melee_attack::MeleeAttack::new(dmg));
+    }
+
+    if has_range_attack {
+        let overridden_damage = entity_definition
+            .overrides
+            .get("range_attack.damage")
+            .and_then(|v| {
+                if let Some(i) = v.as_i64() {
+                    Some(i as i32)
+                } else if let Some(u) = v.as_u64() {
+                    Some(u as i32)
+                } else if let Some(f) = v.as_f64() {
+                    Some(f.round() as i32)
+                } else {
+                    None
+                }
+            });
+
+        let overridden_speed = entity_definition
+            .overrides
+            .get("range_attack.speed")
+            .and_then(|v| v.as_f64().map(|f| f as f32));
+
+        let overridden_frequency = entity_definition
+            .overrides
+            .get("range_attack.frequency")
+            .and_then(|v| v.as_f64().map(|f| f as f32));
+
+        let overridden_max_range = entity_definition
+            .overrides
+            .get("range_attack.max_range")
+            .and_then(|v| v.as_f64().map(|f| f as f32));
+
+        let overridden_aggro_range = entity_definition
+            .overrides
+            .get("range_attack.aggro_range")
+            .and_then(|v| v.as_f64().map(|f| f as f32));
+
+        let definition = entity_type.range_attack.as_ref();
+        let damage = overridden_damage
+            .or(definition.and_then(|d| d.damage))
+            .unwrap_or(1);
+        let speed = overridden_speed
+            .or(definition.and_then(|d| d.speed))
+            .unwrap_or(250.0);
+        let frequency = overridden_frequency
+            .or(definition.and_then(|d| d.frequency))
+            .unwrap_or(1000.0);
+        let max_range = overridden_max_range
+            .or(definition.and_then(|d| d.max_range))
+            .unwrap_or(700.0);
+        let aggro_range = overridden_aggro_range
+            .or(definition.and_then(|d| d.aggro_range))
+            .unwrap_or(max_range);
+
+        entity_commands.insert(range_attack::RangeAttack::new(
+            damage,
+            speed,
+            frequency,
+            max_range,
+            aggro_range,
+        ));
     }
 
     // Insert PlasmaAttack for player entities that define an attack range.

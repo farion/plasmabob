@@ -171,6 +171,10 @@ pub(crate) struct RangeAttackDefinition {
     pub(crate) speed: Option<f32>,
     #[serde(default)]
     pub(crate) frequency: Option<f32>,
+    #[serde(default)]
+    pub(crate) max_range: Option<f32>,
+    #[serde(default)]
+    pub(crate) aggro_range: Option<f32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
