@@ -12,6 +12,7 @@ use crate::game::level::types::{
     CachedLevelDefinition, EntityTypeDefinition, LevelBounds, StateConfig, StateMachineConfig, PropValue,
 };
 use crate::game::runtime_components::AnimationConfig;
+use crate::game::runtime_components::SpawnedLevelEntity;
 use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag};
 
 /// Spawns all entities defined in the level at their configured world positions,
@@ -262,6 +263,14 @@ pub fn spawn_entities(
                 _ => {}
             }
         }
+
+        // Preserve the level JSON id and entity_type at runtime so debug
+        // overlays and other systems can reference them.
+        ent_cmd.insert(SpawnedLevelEntity {
+            id: entity.id.clone(),
+            entity_type: entity.entity_type.clone(),
+            layer: entity.layer.clone(),
+        });
 
         tracing::info!(id = %entity.id, x, y, assigned_components = ?assigned_components, "Spawned entity with data-driven components");
     }

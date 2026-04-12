@@ -10,6 +10,11 @@ use crate::game::systems::movement_resolution_system::movement_resolution_system
 use crate::game::systems::player_control_system::player_control_system;
 use crate::game::systems::projectile_collision_system::projectile_collision_system;
 use crate::game::systems::track_previous_transform_system::track_previous_transform_system;
+use crate::game::systems::maintenance::{
+    toggle_hitbox_debug_lines::toggle_hitbox_debug_lines,
+    draw_hitbox_debug_lines::draw_hitbox_debug_lines,
+    update_debug_stats_labels::update_debug_stats_labels,
+};
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GameplaySet {
@@ -51,6 +56,12 @@ impl Plugin for SystemsPlugin {
                 grounding_evaluation_system.in_set(GameplaySet::Grounding),
                 projectile_collision_system.in_set(GameplaySet::Projectile),
                 track_previous_transform_system.in_set(GameplaySet::Finalize),
+                // Debug maintenance systems
+                toggle_hitbox_debug_lines.in_set(GameplaySet::Input),
+                draw_hitbox_debug_lines.in_set(GameplaySet::Finalize),
+                update_debug_stats_labels
+                    .in_set(GameplaySet::Finalize)
+                    .after(draw_hitbox_debug_lines),
             ),
         );
     }
