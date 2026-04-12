@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde_json::Value as JsonValue;
 
-use crate::game::components::{AutoMovement, Blocking, Collider, ColliderShape, ControlledMovement, Damageable, GameEntity, Gravity, Health, RigidBody, StateMachine};
+use crate::game::components::{AutoMovement, Blocking, Collider, ColliderShape, ControlledMovement, Damageable, GameEntity, Gravity, Health, MovingPlatform, RigidBody, StateMachine};
 use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::auto_range_attack::AutoRangeAttack;
 use crate::game::components::controlled_melee_attack::ControlledMeleeAttack;
@@ -9,7 +9,7 @@ use crate::game::components::controlled_range_attack::ControlledRangeAttack;
 use crate::game::components::state_machine::EntityState;
 use crate::game::components::team::Team;
 use crate::game::level::types::{
-    CachedLevelDefinition, EntityTypeDefinition, LevelBounds, StateConfig, StateMachineConfig,
+    CachedLevelDefinition, EntityTypeDefinition, LevelBounds, StateConfig, StateMachineConfig, PropValue,
 };
 use crate::game::runtime_components::AnimationConfig;
 use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag};
@@ -102,8 +102,34 @@ pub fn spawn_entities(
         let mut ent_cmd = commands.spawn((sprite, transform, anim_cfg, state_machine, GameEntity));
         let mut assigned_components: Vec<String> = Vec::new();
 
-        // Helper closures to read optional properties from the raw `components` object.
-        let components_obj = entity_type.components.as_ref();
+        // Merge entity-type components with any per-entity overrides found in
+        // the level JSON. Level entities may include a `components` object to
+        // override default component values for that instance. We accept the
+        // instance `components` as JSON (stored in `LevelEntity.properties` as
+        // a serialized value) and merge keys — instance values overwrite type
+        // defaults.
+        let mut merged_components: std::collections::HashMap<String, serde_json::Value> =
+            entity_type.components.clone().unwrap_or_default();
+
+        if let Some(prop) = entity.properties.get("components") {
+            match prop {
+                PropValue::Other(s) | PropValue::String(s) => {
+                    if let Ok(serde_json::Value::Object(map)) = serde_json::from_str::<serde_json::Value>(s) {
+                        for (k, v) in map.into_iter() {
+                            merged_components.insert(k, v);
+                        }
+                    } else {
+                        tracing::warn!(id = %entity.id, "spawn_entities: could not parse entity-level 'components' override (expected object)");
+                    }
+                }
+                _ => {
+                    tracing::warn!(id = %entity.id, "spawn_entities: unexpected 'components' property type in level entity, expected object");
+                }
+            }
+        }
+
+        // Helper closures to read optional properties from the merged components map.
+        let components_obj = if merged_components.is_empty() { None } else { Some(&merged_components) };
         let get_u64 = |key: &str| -> Option<u64> {
             components_obj
                 .and_then(|obj| obj.get(key))
@@ -115,6 +141,12 @@ pub fn spawn_entities(
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
         };
+
+        // Debug: if a moving_platform override is present in the merged map,
+        // log the merged value so we can confirm level overrides are applied.
+        if let Some(mp_val) = merged_components.get("moving_platform").or_else(|| merged_components.get("movingPlatform")).or_else(|| merged_components.get("moving-platform")) {
+            tracing::info!(id = %entity.id, moving_platform = ?mp_val, "spawn_entities: merged moving_platform for entity");
+        }
 
         // Insert collider if explicitly present in the components map or the
         // state defines a collider box.
@@ -148,6 +180,11 @@ pub fn spawn_entities(
                     let am = AutoMovement::default().override_from_json(comp_obj);
                     ent_cmd.insert(am);
                     assigned_components.push("AutoMovement".to_string());
+                }
+                "movingplatform" | "moving_platform" => {
+                    let mp = MovingPlatform::default().override_from_json(comp_obj);
+                    ent_cmd.insert(mp);
+                    assigned_components.push("MovingPlatform".to_string());
                 }
                 "rigidbody" | "rigid_body" => {
                     let rb = RigidBody::default().override_from_json(comp_obj);

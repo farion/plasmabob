@@ -113,7 +113,10 @@ fn resolve_axis(
     dt: f32,
     max_ground_dot: f32,
 ) -> Vec2 {
-    if delta_axis.abs() <= f32::EPSILON {
+    // For X: skip entirely when there is no horizontal movement (optimisation).
+    // For Y: always run so that an upward-moving platform can push the mover up
+    // even when the mover's own Y-delta is near zero.
+    if axis == Vec2::X && delta_axis.abs() <= f32::EPSILON {
         return position;
     }
 
@@ -167,22 +170,55 @@ fn resolve_axis(
                 rigid_body.velocity.x = 0.0;
             }
         } else {
-            if delta_axis > 0.0 {
-                let penetration = mover_aabb.max.y - blocker_aabb.min.y;
-                let correction = penetration.min(delta_axis.abs());
-                position.y -= correction;
-            } else {
-                let penetration = blocker_aabb.max.y - mover_aabb.min.y;
-                let correction = penetration.min(delta_axis.abs());
-                position.y += correction;
+            // Y axis: use the spatial relationship between mover and blocker
+            // centres to determine whether this is a floor or a ceiling contact.
+            // Using delta_axis direction was wrong when a platform pushes the
+            // mover upward (positive delta) but is spatially *below* the mover.
+            let mover_center_y = (mover_aabb.min.y + mover_aabb.max.y) * 0.5;
+            let blocker_center_y = (blocker_aabb.min.y + blocker_aabb.max.y) * 0.5;
 
-                let contact_normal = Vec2::Y;
-                if contact_normal.dot(Vec2::Y) >= max_ground_dot {
-                    step_grounding.support_normal_sum_y += contact_normal.y;
-                    step_grounding.support_velocity = blocker_step_velocity(blocker_transform, blocker_rb, blocker_prev, dt);
+            if mover_center_y >= blocker_center_y {
+                // Floor contact: mover is on top of the blocker.
+                // Apply the FULL penetration without capping to delta_axis so
+                // that a fast-moving upward platform can push the mover up even
+                // when the mover's own Y-delta is much smaller than the platform
+                // displacement.
+                let penetration = blocker_aabb.max.y - mover_aabb.min.y;
+                if penetration > 0.0 {
+                    position.y += penetration;
+
+                    let contact_normal = Vec2::Y;
+                    if contact_normal.dot(Vec2::Y) >= max_ground_dot {
+                        step_grounding.support_normal_sum_y += contact_normal.y;
+                        step_grounding.support_velocity = blocker_step_velocity(blocker_transform, blocker_rb, blocker_prev, dt);
+                    }
+
+                    // Only cancel downward velocity; preserve upward velocity so
+                    // the mover is not slowed down by the platform and can still
+                    // jump normally.
+                    if rigid_body.velocity.y < 0.0 {
+                        rigid_body.velocity.y = 0.0;
+                    }
+                }
+            } else {
+                // Ceiling contact: mover is below the blocker.
+                // Cap the correction to the movement delta to avoid teleporting
+                // the mover through a static ceiling it was already touching.
+                let penetration = mover_aabb.max.y - blocker_aabb.min.y;
+                if penetration > 0.0 {
+                    let correction = if delta_axis.abs() > f32::EPSILON {
+                        penetration.min(delta_axis.abs())
+                    } else {
+                        penetration
+                    };
+                    position.y -= correction;
+
+                    // Only cancel upward velocity on ceiling contact.
+                    if rigid_body.velocity.y > 0.0 {
+                        rigid_body.velocity.y = 0.0;
+                    }
                 }
             }
-            rigid_body.velocity.y = 0.0;
         }
 
         mover_aabb = aabb_from_rect(position + mover_collider.offset, mover_half_extents);

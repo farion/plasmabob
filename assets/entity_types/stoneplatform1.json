@@ -3,7 +3,9 @@
   "category_tag": "Environment",
   "height": 80,
   "components": {
-    "collider": { "mode": "from_state" },
+    "collider": {
+      "mode": "from_state"
+    },
     "blocking": {},
     "state_machine": {
       "initial_state": "idle",
@@ -16,6 +18,11 @@
           "lock_ms": 0
         }
       }
+    },
+    "moving_platform": {
+      "speed": 0,
+      "waypoints": [],
+      "repeat": true
     }
   },
   "width": 337

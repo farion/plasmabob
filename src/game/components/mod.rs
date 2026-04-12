@@ -12,6 +12,7 @@ pub mod gravity;
 pub mod state_machine;
 pub mod damageable;
 pub mod team;
+pub mod moving_platform;
 
 // Re-exports for convenience
 pub use collider::{Collider, ColliderShape};
@@ -27,3 +28,4 @@ pub use state_machine::{StateMachine, EntityState};
 pub use crate::game::runtime_components::game_entity::GameEntity;
 pub use damageable::Damageable;
 pub use team::Team;
+pub use moving_platform::MovingPlatform;

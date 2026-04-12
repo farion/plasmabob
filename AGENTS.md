@@ -44,6 +44,7 @@ Top-level layout (what each area is responsible for):
   - Views may depend on small helper modules under `src/helper` (i18n, fonts, particles).
 
 - `src/game/` — See `src/games/AGENTS.md`
+- `src/game/systems` - See `src/game/systems/AGENTS.md`
 
 - `src/helper/` — Cross-cutting utilities used by both views and game systems (i18n, fonts, audio settings,
   key binding persistence, small particle helpers). Keep pure helpers here to avoid circular dependencies.
