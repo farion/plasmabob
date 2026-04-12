@@ -1,11 +1,19 @@
 {
   "component": "doodad",
   "height": 100,
-  "states": {
-    "default": {
-      "animation": ["sprites/flora1/flora1-default.png"],
-      "animation_frame_ms": 500,
-      "hitbox": [[0, 2], [217, 2], [217, 97], [0, 97]]
+  "components": {
+    "collider": { "mode": "from_state" },
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": ["sprites/flora1/flora1-default.png"],
+          "animation_frame_ms": 500,
+          "collider_box": [[0, 2], [217, 2], [217, 97], [0, 97]],
+          "interruptible": true,
+          "lock_ms": 0
+        }
+      }
     }
   },
   "width": 217

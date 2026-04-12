@@ -3,28 +3,28 @@
   "height": 100,
   "width": 67,
   "components": {
-    "Collider": {
-      "kind": "Rect",
-      "width": 64.0,
-      "height": 16.0,
-      "offset": [0.0, 0.0],
-      "layer": "environment"
+    "collider": {
+      "mode": "from_state"
     },
-    "RigidBody": {
+    "rigid_body": {
       "mode": "static"
     },
-    "AutoMovement": {
+    "auto_movement": {
         "pattern": "patrol",
         "min_speed": 40.0,
         "max_speed": 60.0
+    },
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": ["sprites/barrel1/barrel1-default.png"],
+          "animation_frame_ms": 500,
+          "collider_box": [[1, 3], [67, 3], [67, 100], [1, 100]],
+          "interruptible": false,
+          "lock_ms": 500
+        }
+      }
     }
-  },
-  "states": {
-    "default": {
-      "animation": ["sprites/barrel1/barrel1-default.png"],
-      "animation_frame_ms": 500,
-      "hitbox": [[1, 3], [67, 3], [67, 100], [1, 100]]
-    }
-  },
-
+  }
 }

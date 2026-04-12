@@ -387,7 +387,13 @@ fn start_selected_planet(
     progress.planet_index = Some(selection.index);
     progress.level_index = 0;
     level_selection.set_asset_path(&first_level.json);
-    next_state.set(AppState::LoadView);
+    tracing::info!(
+        world = progress.world_index,
+        planet = progress.planet_index,
+        level = %first_level.json,
+        "Planet selected: transitioning to StartView"
+    );
+    next_state.set(AppState::StartView);
 }
 
 fn update_planet_label(

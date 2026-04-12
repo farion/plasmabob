@@ -1,11 +1,19 @@
 {
   "component": "MovingPlatform",
   "height": 80,
-  "states": {
-    "default": {
-      "animation": ["sprites/stoneplatform1/stoneplatform1-default.png"],
-      "animation_frame_ms": 180,
-      "hitbox": [[2, 1], [336, 1], [336, 60], [2, 60]]
+  "components": {
+    "collider": { "mode": "from_state" },
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": ["sprites/stoneplatform1/stoneplatform1-default.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[2, 1], [336, 1], [336, 60], [2, 60]],
+          "interruptible": true,
+          "lock_ms": 0
+        }
+      }
     }
   },
   "width": 337

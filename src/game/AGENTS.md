@@ -12,7 +12,7 @@
 
 ## Architectural decisions
 
-- One file per system, component, effect, etc. for better organization and maintainability. This is important and must not be ignored by agents.
+- **One file per system, component, effect, etc. for better organization and maintainability. This is important and must not be ignored by agents.**
 
 ## Basic concept
 
@@ -48,7 +48,6 @@ Entity Types are defined in `assets/entity_types/*.json`. Each entity type defin
 - `AutoRangeAttack` - defines the attack of the entity, like damage, range, etc. This is used for enemies that attack on their own.
 - `AutoMeleeAttack` - defines the attack of the entity, like damage, range, etc. This is used for enemies that attack on their own.
 - `ControlledMeleeAttack` - defines the attack of the entity, like damage, range, etc. This is used for the player character.
-- `PlayerInput` - defines the input for the player character, like keyboard, mouse, gamepad etc.
 - `Blocking` - defines whether the entity blocks movement or attacks, like walls, crates, etc.
 - `Gravity` - defines whether the entity is affected by gravity, like the player character, enemies, etc.
 ## Categories
@@ -68,6 +67,7 @@ Categories are Marker/Tag Components ...Tag
 - `Portal` - objects that teleport the player to another location in the game world.
 - `Exit` - objects that allow the player to exit the level or game.
 - `Collectible` - objects that can be collected by the player for points, achievements, items, buffs etc.
+- `StateMachine` - keeps track of the current state of the entity, like idle, moving, attacking, etc. This is used to determine the animation and effects that are triggered by certain actions.
 
 ## Collision Rules For Components
 
@@ -76,3 +76,18 @@ Categories are Marker/Tag Components ...Tag
 - Gravity entities are grounded on top of Blocking entities. This means that if a Gravity entity is on top of a Blocking entity, it is considered grounded and can jump or perform other actions that require being on the ground. Also if the blocking entity moves, the gravity entity will move with it, like standing on a moving platform.
 - Gravity entities are not grounded if they are on the side or bottom of a Blocking entity. This means that if a Gravity entity is on the side or bottom of a Blocking entity, it is not considered grounded and cannot jump or perform other actions that require being on the ground. Also if the blocking entity moves, the gravity entity will not move with it, like standing next to a moving platform.
 - If a gravity entity is grounded or not depends on the angle of the surface it is on. If the surface is too steep, the gravity entity will not be considered grounded and will slide down the surface instead. This allows for more realistic movement and interactions with the environment, like sliding down a hill or being unable to stand on a steep slope. The threshold angle is 45 degrees, meaning that if the angle of the surface is greater than 45 degrees, the gravity entity will not be considered grounded and will slide down the surface instead.
+
+## State System
+
+Each entity does have exactly one state it is in at a time. The state defines the animation sequence and effects. The state also defines the collider hitbox, which can be different for different states. For example, the player character might have a larger hitbox when it is standing still, and a smaller hitbox when it is crouching. The state also defines the effects that are triggered by certain actions, like taking damage, attacking, etc. For example, when the player character takes damage, it might flash red and play a sound effect. When the player character attacks, it might play an attack animation and spawn a projectile.
+
+- `Idle` - the default state of the entity, when it is not performing any actions.
+- `Moving` - the state of the entity when it is moving, like walking, running, etc.
+- `MeleeAttacking` - the state of the entity when it is performing an attack
+- `RangeAttacking` - the state of the entity when it is performing a range attack
+- `Damaged` - the state of the entity when it is taking damage, which can be used to trigger damage effects, like flashing red, playing a sound, etc.
+- `Dying` - the state of the entity when it is dying, which can be used to trigger death effects, like playing a death animation, dropping loot, etc.
+- `Dead` - the state of the entity when it is dead, which can be used to trigger death effects, like removing the entity from the game world, playing a death sound, etc.
+- `Jumping` - the state of the entity when it is jumping, which can be used to trigger jump effects, like playing a jump animation, applying a jump force, etc.
+- `Falling` - the state of the entity when it is falling, which can be used to trigger fall effects, like playing a fall animation, applying a fall force, etc.
+- `Crouching` - the state of the entity when it is crouching, which can be used to trigger crouch effects, like playing a crouch animation, reducing the hitbox size, etc.

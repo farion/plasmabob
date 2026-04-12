@@ -47,18 +47,7 @@ Top-level layout (what each area is responsible for):
   - `views::ViewsPlugin` composes the individual view plugins and ensures they are added to the app.
   - Views may depend on small helper modules under `src/helper` (i18n, fonts, particles).
 
-- `src/game/` — Game runtime for playing a level:
-  - `game_view.rs` — `GameViewPlugin` and the place where systems are declared and ordered. It defines when
-    systems run (OnEnter, Update, PostUpdate, OnExit) and groups chain/run_if semantics.
-  - `components/` — One file per gameplay component (player, hostile, health, hitbox, plasma, etc.). Each file
-    exposes an `insert()` helper where appropriate and component types used by systems.
-  - `systems/` — All gameplay systems, organised into subpackages:
-    - `gameplay/` — core game mechanics (movement, collisions, combat, entity state sync).
-    - `presentation/` — visual/audio follow‑ups (camera, HUD, particles, audio playback, parallax).
-    - `maintenance/` — editor/debug helpers and housekeeping (cleanup, debug overlays, pause menu).
-    - `setup_spawn/` — initial spawn/setup logic for a level (spawn background, HUD, entities, boundaries).
-    - `systems_api.rs` — small shared API of components/resources/constants used across submodules (e.g.
-      `GameViewEntity`, `ActiveLevelBounds`, `QuoteCooldown`).
+- `src/game/` — See `src/games/AGENTS.md`
 
 - `src/helper/` — Cross-cutting utilities used by both views and game systems (i18n, fonts, audio settings,
   key binding persistence, small particle helpers). Keep pure helpers here to avoid circular dependencies.
@@ -124,43 +113,11 @@ Cross-cutting helpers and global modules live at the crate root and are importan
 - `src/fonts.rs` — replaces Bevy's default fonts and registers the project's SpaceMono family via a `FontsPlugin`.
 - `src/audio_settings.rs` — audio settings persistence used when spawning music (see `MenuMusicEntity` in `src/main.rs`).
 
-## JSON Assets
-- All game data is loaded from JSON files in the `assets/` directory
-- This includes world definitions, level layouts, entity types, and story text
+## Coding guidelines
 
-### Welt-JSON Schema
-`assets/worlds/*.json`
-
-## Level Format 
-`assets/worlds/{worldname}/{levelname}_level{number}.json`
-Example: `assets/worlds/auralis/aqueon_level1.json` (see `assets/worlds/auralis/`).
-
-## Entity Types Format
-`assets/entity_types/*.json`
-
-Entities in PlasmaBob are not hardcoded in Rust but defined via JSON data. Each entity type has a name, a list of
-gameplay components, and a map of animations for different states.
-
-## States
-
-States in PlasmaBob are defined via the `EntityState` enum. Each entity can be in one of these states, which affects
-its animation, hitbox and gameplay behavior. For example, an entity in the `Walk` state will use the walking animation
-and have a different hitbox than when it is in the `Jump` state.
-
-Available states:
-- `Default`
-- `Walk`
-- `Jump`
-- `Fight`
-- `Hit`
-- `Die`
-
-An entity must at least have a `Default` state defined in its `animations` map, but it can have any combination of
-the other states as well.
-
-## Animation
-
-## Hitbox Polygons
+- One file per system
+- One file per component
+- No logic code in mod.rs, only `pub mod` declarations and re-exports if needed.
 
 ## Internationalization (i18n)
 

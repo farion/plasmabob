@@ -4,36 +4,54 @@
   "health": 100,
   "damage": 25,
   "height": 128,
-  "states": {
-    "default": {
-      "animation": ["sprites/bob/bob-default.png"],
-      "animation_frame_ms": 180,
-      "hitbox": [[31, 10], [98, 10], [98, 118], [31, 118]]
-    },
-    "die": {
-      "animation": ["sprites/bob/bob-die.png"],
-      "animation_frame_ms": 180,
-      "hitbox": [[5, 19], [98, 19], [98, 76], [5, 76]]
-    },
-    "fight": {
-      "animation": ["sprites/bob/bob-fight.png"],
-      "animation_frame_ms": 180,
-      "hitbox": [[35, 10], [96, 10], [96, 121], [35, 121]]
-    },
-    "hit": {
-      "animation": ["sprites/bob/bob-hit.png"],
-      "animation_frame_ms": 180,
-      "hitbox": [[28, 11], [90, 11], [90, 121], [28, 121]]
-    },
-    "jump": {
-      "animation": ["sprites/bob/bob-jump.png"],
-      "animation_frame_ms": 180,
-      "hitbox": [[29, 19], [92, 19], [92, 124], [29, 124]]
-    },
-    "walk": {
-      "animation": ["sprites/bob/bob-walk-1.png", "sprites/bob/bob-walk-2.png"],
-      "animation_frame_ms": 180,
-      "hitbox": [[32, 7], [102, 7], [102, 120], [32, 120]]
+  "components": {
+    "collider": { "mode": "from_state" },
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": ["sprites/bob/bob-default.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[31, 10], [98, 10], [98, 118], [31, 118]],
+          "interruptible": true,
+          "lock_ms": 0
+        },
+        "dead": {
+          "animation": ["sprites/bob/bob-die.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[5, 19], [98, 19], [98, 76], [5, 76]],
+          "interruptible": false,
+          "lock_ms": 0
+        },
+        "range_attacking": {
+          "animation": ["sprites/bob/bob-fight.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[35, 10], [96, 10], [96, 121], [35, 121]],
+          "interruptible": true,
+          "lock_ms": 0
+        },
+        "damaged": {
+          "animation": ["sprites/bob/bob-hit.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[28, 11], [90, 11], [90, 121], [28, 121]],
+          "interruptible": false,
+          "lock_ms": 300
+        },
+        "jumping": {
+          "animation": ["sprites/bob/bob-jump.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[29, 19], [92, 19], [92, 124], [29, 124]],
+          "interruptible": true,
+          "lock_ms": 0
+        },
+        "moving": {
+          "animation": ["sprites/bob/bob-walk-1.png", "sprites/bob/bob-walk-2.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[32, 7], [102, 7], [102, 120], [32, 120]],
+          "interruptible": true,
+          "lock_ms": 0
+        }
+      }
     }
   },
   "width": 175

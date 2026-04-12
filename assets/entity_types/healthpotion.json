@@ -4,11 +4,19 @@
   "effect": {
     "heal": 30
   },
-  "states": {
-    "default": {
-      "animation": ["sprites/healthpotion/healthpotion-default.png"],
-      "animation_frame_ms": 180,
-      "hitbox": [[0, 0], [36, 0], [36, 67], [0, 67]]
+  "components": {
+    "collider": { "mode": "from_state" },
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": ["sprites/healthpotion/healthpotion-default.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[0, 0], [36, 0], [36, 67], [0, 67]],
+          "interruptible": true,
+          "lock_ms": 0
+        }
+      }
     }
   },
   "width": 36
