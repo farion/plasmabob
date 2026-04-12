@@ -1,20 +1,27 @@
 {
-  "component": "enemy",
-  "melee_attack": {
-    "damage": 10
-  },
-  "health": 30,
-  "range_attack": {
-    "damage": 10,
-    "speed": 250,
-    "frequency": 2000,
-    "max_range": 1000,
-    "aggro_range": 1000,
-    "particle_effect": "fire"
-  },
+  "category_tag": "enemy",
   "height": 128,
   "components": {
     "collider": { "mode": "from_state" },
+    "damageable": {},
+    "team": { "name": "enemy" },
+    "health": { "health": 30 },
+    "auto_range_attack": {
+      "damage": 10,
+      "range": 1000,
+      "cooldown_ms": 2000,
+      "particle_effect": "fire"
+    },
+    "auto_melee_attack": {
+      "damage": 10,
+      "range": 50,
+      "cooldown_ms": 1000
+    },
+    "auto_movement": {
+      "pattern": "patrol",
+      "min_speed": 40.0,
+      "max_speed": 60.0
+    },
     "state_machine": {
       "initial_state": "idle",
       "states": {

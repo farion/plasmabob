@@ -1,5 +1,5 @@
 {
-  "component": "exit",
+  "category_tag": "exit",
   "height": 128,
   "components": {
     "collider": { "mode": "from_state" },

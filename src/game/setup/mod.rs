@@ -19,6 +19,8 @@ use crate::game::game_view::GameSetupSet;
 ///
 /// An `Update` system (`follow_camera`) runs every frame while in `GameView`
 /// to keep the camera tracking the player at the configured screen anchor.
+/// A `PostUpdate` resize system reapplies the same camera rules immediately
+/// when the window size changes.
 ///
 /// On `OnExit(AppState::GameView)` the `cleanup_game_entities` system despawns
 /// all [`GameEntity`]-tagged entities.
@@ -39,6 +41,10 @@ impl Plugin for SetupPlugin {
         .add_systems(
             Update,
             follow_camera::follow_camera.run_if(in_state(AppState::GameView)),
+        )
+        .add_systems(
+            PostUpdate,
+            follow_camera::follow_camera_on_resize.run_if(in_state(AppState::GameView)),
         )
         .add_systems(
             OnExit(AppState::GameView),

@@ -4,6 +4,7 @@
   "height": 125,
   "components": {
     "collider": { "mode": "from_state" },
+    "team": { "name": "enemy" },
     "state_machine": {
       "initial_state": "idle",
       "states": {

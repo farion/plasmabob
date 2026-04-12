@@ -109,6 +109,10 @@ pub(crate) struct TerrainDefinition {
 pub(crate) struct EntityTypeDefinition {
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub component: Vec<String>,
+    /// Optional high-level category tag from the entity type JSON (e.g. "player", "enemy", "doodad").
+    /// Prefer this over the first entry in `component` when present.
+    #[serde(default)]
+    pub category_tag: Option<String>,
     #[serde(default)]
     pub states: HashMap<String, serde_json::Value>,
     #[serde(default)]

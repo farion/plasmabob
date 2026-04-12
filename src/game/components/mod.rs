@@ -11,12 +11,8 @@ pub mod player_input;
 pub mod blocking;
 pub mod gravity;
 pub mod state_machine;
-pub mod animation_config;
 pub mod game_entity;
-pub mod player_tag;
-pub mod enemy_tag;
-pub mod environment_tag;
-pub mod doodad_tag;
+pub mod damageable;
 
 // Re-exports for convenience
 pub use collider::{Collider, ColliderShape};
@@ -32,9 +28,5 @@ pub use player_input::PlayerInput;
 pub use blocking::Blocking;
 pub use gravity::Gravity;
 pub use state_machine::{StateMachine, EntityState};
-pub use animation_config::AnimationConfig;
 pub use game_entity::GameEntity;
-pub use player_tag::PlayerTag;
-pub use enemy_tag::EnemyTag;
-pub use environment_tag::EnvironmentTag;
-pub use doodad_tag::DoodadTag;
+// Tag components were moved to `crate::game::tags`.

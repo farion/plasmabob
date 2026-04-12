@@ -1,5 +1,5 @@
 {
-  "component": "doodad",
+  "category_tag": "doodad",
   "height": 80,
   "components": {
     "collider": { "mode": "from_state" },

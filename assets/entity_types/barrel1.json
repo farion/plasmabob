@@ -1,5 +1,6 @@
 {
   "name": "Barrel 1",
+  "category_tag": "item",
   "height": 100,
   "width": 67,
   "components": {

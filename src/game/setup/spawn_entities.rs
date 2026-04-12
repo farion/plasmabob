@@ -1,14 +1,16 @@
 use bevy::prelude::*;
 
-use crate::game::gameplay::components::{
-    AnimationConfig, AutoMovement, Blocking, Collider, ColliderShape, ControlledMovement,
-    DoodadTag, EnemyTag, EnvironmentTag, GameEntity, Gravity, Health, PlayerTag, RigidBody,
-    StateMachine,
+use crate::game::components::{
+    AutoMovement, Blocking, Collider, ColliderShape, ControlledMovement,
+    GameEntity, Gravity, Health, RigidBody, StateMachine,
 };
+
+use crate::game::runtime_components::{AnimationConfig};
+use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag};
 use crate::game::level::types::{
     CachedLevelDefinition, EntityTypeDefinition, LevelBounds, StateConfig, StateMachineConfig,
 };
-use crate::game::gameplay::components::state_machine::EntityState;
+use crate::game::components::state_machine::EntityState;
 
 /// Spawns all entities defined in the level at their configured world positions,
 /// with the correct initial animation state and gameplay components attached.
@@ -90,11 +92,13 @@ pub fn spawn_entities(
         let state_machine = StateMachine::new(parse_entity_state(initial_state_name));
         let collider = build_collider(state_cfg, sprite_w, sprite_h);
 
-        // Determine category from the first entry in `component`.
+        // Determine category: prefer explicit `category_tag` from the
+        // entity-type JSON; fall back to the first entry in `component`.
         let category = entity_type
-            .component
-            .first()
+            .category_tag
+            .as_deref()
             .map(|s| s.to_ascii_lowercase())
+            .or_else(|| entity_type.component.first().cloned().map(|s| s.to_ascii_lowercase()))
             .unwrap_or_default();
 
         match category.as_str() {

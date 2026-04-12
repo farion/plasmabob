@@ -1,5 +1,5 @@
 {
-  "component": "collectible",
+  "category_tag": "collectible",
   "height": 67,
   "effect": {
     "heal": 30

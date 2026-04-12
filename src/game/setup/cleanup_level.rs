@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::gameplay::components::GameEntity;
+use crate::game::components::GameEntity;
 
 /// Despawns every entity tagged with [`GameEntity`] when the GameView is exited.
 /// This clears the spawned level (sprites, entities) without affecting

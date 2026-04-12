@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::gameplay::components::GameEntity;
+use crate::game::components::GameEntity;
 use crate::game::level::types::CachedLevelDefinition;
 use crate::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 

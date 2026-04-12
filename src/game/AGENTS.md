@@ -4,11 +4,13 @@
 ## Structure
 
 - `src/game/gfx` - effects like particle filters, shaders
-- `src/game/gameplay/systems` - systems that affect gameplay, like health, damage, movement, collision etc. 
-- `src/game/gameplay/componets` - components that are used by the systems, like health, damage, movement
+- `src/game/systems` - systems that affect gameplay, like health, damage, movement, collision etc. 
+- `src/game/components` - components that are used by the systems. Contains only components that can be used in the entity json files, like health, movement, attack, etc. Components that are not defined in the entity json files, but are added by the systems, like Projectile, are defined in `src/game/gameplay` instead.
 - `src/game/hud` - heads up display, like health bar, ammo count, etc.
-- `src/game/input` - input handling, like keyboard, mouse, gamepad etc.
+- `src/game/tags` - marker/tag components, like Player, Enemy, NPC, etc.
 - `src/game/setup` - setup code for the agent, like loading models, animations, etc.
+
+**Important** Components and systems are written in a single file for each system, component, effect, etc.
 
 ## Architectural decisions
 
@@ -39,6 +41,8 @@ Entity Types are defined in `assets/entity_types/*.json`. Each entity type defin
 
 ## Components
 
+### Components that can be defined in the entity json files
+
 - `Collider` - defines the shape and size of the entity for collision detection. This can be a rectangle, circle, polygon, etc.
 - `RigidBody` - defines the physics properties of the entity, like mass, friction, etc.
 - `Health` - defines the health of the entity, and how it can be damaged or healed.
@@ -50,6 +54,15 @@ Entity Types are defined in `assets/entity_types/*.json`. Each entity type defin
 - `ControlledMeleeAttack` - defines the attack of the entity, like damage, range, etc. This is used for the player character.
 - `Blocking` - defines whether the entity blocks movement or attacks, like walls, crates, etc.
 - `Gravity` - defines whether the entity is affected by gravity, like the player character, enemies, etc.
+- `Damagable` - defines whether the entity can take damage, like the player character, enemies, etc.
+- `StateMachine` - keeps track of the current state of the entity, like idle, moving, attacking, etc. This is used to determine the animation and effects that are triggered by certain actions.
+
+
+### Components that are not defined in the entity json files, but are added by the systems
+
+- `Projectile` - defines whether the entity is a projectile, like bullets, arrows, etc. This is added by the attack systems when an entity performs a range attack.
+
+
 ## Categories
 
 Categories are Marker/Tag Components ...Tag
@@ -61,21 +74,24 @@ Categories are Marker/Tag Components ...Tag
 - `Item` - objects that block the player or enemies, like crates, barrels, etc.
 - `Environment` - objects that make up the game world, like walls, floors, etc
 - `MovingPlatform` - platforms that move in a predetermined path, which the player can use to reach different areas of the level.
-- `Projectile` - objects that are fired by the player or enemies, like bullets, arrows, etc.
 - `Effect` - visual or audio effects that are triggered by certain actions, like explosions,
 - `Trigger` - objects that trigger certain events when the player interacts with them, like pressure plates, levers, etc.
 - `Portal` - objects that teleport the player to another location in the game world.
 - `Exit` - objects that allow the player to exit the level or game.
 - `Collectible` - objects that can be collected by the player for points, achievements, items, buffs etc.
-- `StateMachine` - keeps track of the current state of the entity, like idle, moving, attacking, etc. This is used to determine the animation and effects that are triggered by certain actions.
 
 ## Collision Rules For Components
+
+Basically collision is calculated only based on these components: `Gravity`, `Blocking`, `Damageable`, `Projectile`. The rules are as follows:
 
 - Gravity entities collide with Blocking entities.
 - Gravity entities falling if not on top of a Blocking entity.
 - Gravity entities are grounded on top of Blocking entities. This means that if a Gravity entity is on top of a Blocking entity, it is considered grounded and can jump or perform other actions that require being on the ground. Also if the blocking entity moves, the gravity entity will move with it, like standing on a moving platform.
 - Gravity entities are not grounded if they are on the side or bottom of a Blocking entity. This means that if a Gravity entity is on the side or bottom of a Blocking entity, it is not considered grounded and cannot jump or perform other actions that require being on the ground. Also if the blocking entity moves, the gravity entity will not move with it, like standing next to a moving platform.
 - If a gravity entity is grounded or not depends on the angle of the surface it is on. If the surface is too steep, the gravity entity will not be considered grounded and will slide down the surface instead. This allows for more realistic movement and interactions with the environment, like sliding down a hill or being unable to stand on a steep slope. The threshold angle is 45 degrees, meaning that if the angle of the surface is greater than 45 degrees, the gravity entity will not be considered grounded and will slide down the surface instead.
+- Projectiles collide basically with Blocking and Damageable entities and are destroyed on impact. This means that if a projectile collides with a Blocking or Damageable entity, it is destroyed and does not continue to exist in the game world. This allows for more realistic interactions with the environment, like bullets being stopped by walls or crates. A projectile will always hit the first entity it collides with, meaning that if a projectile collides with a Blocking entity and a Damageable entity at the same time, it will hit the Blocking entity and be destroyed, and will not hit the Damageable entity. This allows for more realistic interactions with the environment, like bullets being stopped by walls or crates before they can hit enemies behind them.
+- Friendly fire rule: Projectiles keep track which entity fired them, and will not collide with entities that have the same team name (team component). This allows for more strategic gameplay, like being able to shoot through your own allies to hit enemies behind them, or being able to avoid friendly fire by shooting around your allies. For example, if the player character is on the "Player" team and fires a projectile, that projectile will not collide with other entities that are also on the "Player" team, but will collide with entities that are on the "Enemy" team. This allows for more strategic gameplay, like being able to shoot through your own allies to hit enemies behind them, or being able to avoid friendly fire by shooting around your allies.
+ 
 
 ## State System
 
@@ -91,3 +107,8 @@ Each entity does have exactly one state it is in at a time. The state defines th
 - `Jumping` - the state of the entity when it is jumping, which can be used to trigger jump effects, like playing a jump animation, applying a jump force, etc.
 - `Falling` - the state of the entity when it is falling, which can be used to trigger fall effects, like playing a fall animation, applying a fall force, etc.
 - `Crouching` - the state of the entity when it is crouching, which can be used to trigger crouch effects, like playing a crouch animation, reducing the hitbox size, etc.
+
+## Player Movement and Controls
+
+The player can be controlled by the keyboard using the configurable key bindings defined in `src/key_bindings.rs`. 
+Left, Right, Jump, Crouch (not yet implemented), Melee Attack (not yet implemented), Range Attack
