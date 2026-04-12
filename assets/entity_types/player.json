@@ -1,18 +1,21 @@
 {
+  "name": "Player",
   "category_tag": "player",
   "height": 128,
   "width": 175,
   "components": {
     "collider": { "mode": "from_state" },
     "team": { "name": "player" },
+    "gravity": {},
+    "rigid_body": {},
     "health": { "health": 100 },
     "controlled_range_attack": {
       "projectile_type": "player_projectile",
       "cooldown_ms": 500
     },
     "controlled_movement": {
-      "speed": 0.25,
-      "jump_speed": 0.5
+      "speed": 200.0,
+      "jump_force": 600.0
     },
     "state_machine": {
       "initial_state": "idle",

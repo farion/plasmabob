@@ -1,16 +1,18 @@
 use bevy::prelude::*;
+use serde_json::Value as JsonValue;
 
-use crate::game::components::{
-    AutoMovement, Blocking, Collider, ColliderShape, ControlledMovement,
-    GameEntity, Gravity, Health, RigidBody, StateMachine,
-};
-
-use crate::game::runtime_components::{AnimationConfig};
-use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag};
+use crate::game::components::{AutoMovement, Blocking, Collider, ColliderShape, ControlledMovement, Damageable, GameEntity, Gravity, Health, RigidBody, StateMachine};
+use crate::game::components::auto_melee_attack::AutoMeleeAttack;
+use crate::game::components::auto_range_attack::AutoRangeAttack;
+use crate::game::components::controlled_melee_attack::ControlledMeleeAttack;
+use crate::game::components::controlled_range_attack::ControlledRangeAttack;
+use crate::game::components::state_machine::EntityState;
+use crate::game::components::team::Team;
 use crate::game::level::types::{
     CachedLevelDefinition, EntityTypeDefinition, LevelBounds, StateConfig, StateMachineConfig,
 };
-use crate::game::components::state_machine::EntityState;
+use crate::game::runtime_components::AnimationConfig;
+use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag};
 
 /// Spawns all entities defined in the level at their configured world positions,
 /// with the correct initial animation state and gameplay components attached.
@@ -41,7 +43,7 @@ pub fn spawn_entities(
         }
     };
 
-    let bounds = level.bounds.clone().unwrap_or_default();
+    let _bounds = level.bounds.clone().unwrap_or_default();
 
     for entity in entities {
         let Some(entity_type) = cached.entity_types.get(&entity.entity_type) else {
@@ -88,80 +90,143 @@ pub fn spawn_entities(
             ..default()
         };
         let transform = Transform::from_xyz(x, y, z);
-        let anim_cfg = AnimationConfig::new(state_cfg.animation.clone(), state_cfg.animation_frame_ms);
+        let anim_cfg =
+            AnimationConfig::new(state_cfg.animation.clone(), state_cfg.animation_frame_ms);
         let state_machine = StateMachine::new(parse_entity_state(initial_state_name));
         let collider = build_collider(state_cfg, sprite_w, sprite_h);
 
-        // Determine category: prefer explicit `category_tag` from the
-        // entity-type JSON; fall back to the first entry in `component`.
-        let category = entity_type
-            .category_tag
-            .as_deref()
-            .map(|s| s.to_ascii_lowercase())
-            .or_else(|| entity_type.component.first().cloned().map(|s| s.to_ascii_lowercase()))
-            .unwrap_or_default();
+        // Generic component assignment: add only components explicitly listed
+        // in the entity-type JSON (`entity_type.component`) or present in the
+        // type's `components` object. This avoids implicit category-based
+        // wiring and keeps component assignment fully data-driven.
+        let mut ent_cmd = commands.spawn((sprite, transform, anim_cfg, state_machine, GameEntity));
+        let mut assigned_components: Vec<String> = Vec::new();
 
-        match category.as_str() {
-            "player" => {
-                let hp = entity_type.health.unwrap_or(100) as i32;
-                commands.spawn((
-                    sprite,
-                    transform,
-                    anim_cfg,
-                    state_machine,
-                    Health::new(hp),
-                    ControlledMovement::default(),
-                    RigidBody::default(),
-                    Gravity::default(),
-                    collider,
-                    PlayerTag,
-                    GameEntity,
-                ));
-                tracing::debug!(id = %entity.id, x, y, "Spawned player");
-            }
-            "enemy" => {
-                let hp = entity_type.health.unwrap_or(10) as i32;
-                commands.spawn((
-                    sprite,
-                    transform,
-                    anim_cfg,
-                    state_machine,
-                    Health::new(hp),
-                    AutoMovement::default(),
-                    RigidBody::default(),
-                    Gravity::default(),
-                    collider,
-                    EnemyTag,
-                    GameEntity,
-                ));
-                tracing::debug!(id = %entity.id, x, y, "Spawned enemy");
-            }
-            "environment" | "movingplatform" => {
-                commands.spawn((
-                    sprite,
-                    transform,
-                    anim_cfg,
-                    state_machine,
-                    Blocking,
-                    collider,
-                    EnvironmentTag,
-                    GameEntity,
-                ));
-                tracing::debug!(id = %entity.id, x, y, category = %category, "Spawned environment");
-            }
-            _ => {
-                // Doodads, exits, pickups and any other decorative / trigger entities.
-                commands.spawn((
-                    sprite,
-                    transform,
-                    anim_cfg,
-                    state_machine,
-                    DoodadTag,
-                    GameEntity,
-                ));
-                tracing::debug!(id = %entity.id, x, y, category = %category, "Spawned doodad");
+        // Helper closures to read optional properties from the raw `components` object.
+        let components_obj = entity_type.components.as_ref();
+        let get_u64 = |key: &str| -> Option<u64> {
+            components_obj
+                .and_then(|obj| obj.get(key))
+                .and_then(|v| v.as_u64())
+        };
+        let get_string = |key: &str| -> Option<String> {
+            components_obj
+                .and_then(|obj| obj.get(key))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        };
+
+        // Insert collider if explicitly present in the components map or the
+        // state defines a collider box.
+        let has_collider = components_obj
+            .map(|m| m.contains_key("collider"))
+            .unwrap_or(false)
+            || state_cfg.collider_box.is_some();
+        if has_collider {
+            ent_cmd.insert(collider.clone());
+            assigned_components.push("Collider".to_string());
+        }
+
+        // Iterate declared component keys in the entity-type `components` map.
+        let comp_keys: Vec<String> = components_obj
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default();
+        for comp in comp_keys {
+            let comp_obj = components_obj.and_then(|m| m.get(&comp));
+            match comp.to_ascii_lowercase().as_str() {
+                "health" => {
+                    let health_comp = Health::default().override_from_json(comp_obj);
+                    ent_cmd.insert(health_comp);
+                    assigned_components.push("Health".to_string());
+                }
+                "controlledmovement" | "controlled_movement" => {
+                    let cm = ControlledMovement::default().override_from_json(comp_obj);
+                    ent_cmd.insert(cm);
+                    assigned_components.push("ControlledMovement".to_string());
+                }
+                "automovement" | "auto_movement" => {
+                    let am = AutoMovement::default().override_from_json(comp_obj);
+                    ent_cmd.insert(am);
+                    assigned_components.push("AutoMovement".to_string());
+                }
+                "rigidbody" | "rigid_body" => {
+                    let rb = RigidBody::default().override_from_json(comp_obj);
+                    ent_cmd.insert(rb);
+                    assigned_components.push("RigidBody".to_string());
+                }
+                "gravity" => {
+                    let g = Gravity::default().override_from_json(comp_obj);
+                    ent_cmd.insert(g);
+                    assigned_components.push("Gravity".to_string());
+                }
+                "blocking" => {
+                    let b = Blocking::default().override_from_json(comp_obj);
+                    ent_cmd.insert(b);
+                    assigned_components.push("Blocking".to_string());
+                }
+                "controlled_range_attack" | "controlledrangeattack" | "controlled_range" => {
+                    let cra = ControlledRangeAttack::default().override_from_json(comp_obj);
+                    ent_cmd.insert(cra);
+                    assigned_components.push("ControlledRangeAttack".to_string());
+                }
+                "auto_range_attack" | "autorangeattack" | "auto_range" => {
+                    let ara = AutoRangeAttack::default().override_from_json(comp_obj);
+                    ent_cmd.insert(ara);
+                    assigned_components.push("AutoRangeAttack".to_string());
+                }
+                "auto_melee_attack" | "automeleeattack" | "auto_melee" => {
+                    let ama = AutoMeleeAttack::default().override_from_json(comp_obj);
+                    ent_cmd.insert(ama);
+                    assigned_components.push("AutoMeleeAttack".to_string());
+                }
+                "controlled_melee_attack" | "controlledmeleeattack" | "controlled_melee" => {
+                    let cma = ControlledMeleeAttack::default().override_from_json(comp_obj);
+                    ent_cmd.insert(cma);
+                    assigned_components.push("ControlledMeleeAttack".to_string());
+                }
+                "damageable" => {
+                    let d = Damageable::default().override_from_json(comp_obj);
+                    ent_cmd.insert(d);
+                    assigned_components.push("Damageable".to_string());
+                }
+                "team" => {
+                    let team = Team::default().override_from_json(comp_obj);
+                    ent_cmd.insert(team);
+                    assigned_components.push("Team".to_string());
+                }
+                other => {
+                    // Unknown component names are currently ignored; designers
+                    // must reference existing runtime components by name in JSON.
+                    tracing::warn!(id = %entity.id, comp = %other, "spawn_entities: unknown component in entity_type.component, skipping");
+                }
             }
         }
+        // Assign tag components strictly from `category_tag` (no tag logic
+        // from the components map). This ensures tags are deterministic and
+        // authored via the high-level category field.
+        if let Some(cat) = entity_type.category_tag.as_ref() {
+            match cat.to_ascii_lowercase().as_str() {
+                "player" => {
+                    ent_cmd.insert(PlayerTag);
+                    assigned_components.push("PlayerTag".to_string());
+                }
+                "enemy" => {
+                    ent_cmd.insert(EnemyTag);
+                    assigned_components.push("EnemyTag".to_string());
+                }
+                "environment" | "movingplatform" => {
+                    ent_cmd.insert(EnvironmentTag);
+                    assigned_components.push("EnvironmentTag".to_string());
+                }
+                "doodad" => {
+                    ent_cmd.insert(DoodadTag);
+                    assigned_components.push("DoodadTag".to_string());
+                }
+                _ => {}
+            }
+        }
+
+        tracing::info!(id = %entity.id, x, y, assigned_components = ?assigned_components, "Spawned entity with data-driven components");
     }
 }
 
@@ -230,4 +295,3 @@ fn build_collider(state_cfg: &StateConfig, sprite_w: f32, sprite_h: f32) -> Coll
         is_trigger: false,
     }
 }
-

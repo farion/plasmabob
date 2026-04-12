@@ -39,3 +39,18 @@ impl Default for Health {
     }
 }
 
+impl Health {
+    /// Apply overrides from `components.health` JSON object. The JSON may
+    /// contain a `health` numeric field (max HP). If provided, both max and
+    /// current are set to that value.
+    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
+        let max = comp_obj
+            .and_then(|o| o.get("health").and_then(|v| v.as_u64()))
+            .map(|v| v as i32)
+            .unwrap_or(self.max);
+        self.max = max;
+        self.current = max;
+        self
+    }
+}
+

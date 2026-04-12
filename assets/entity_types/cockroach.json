@@ -1,9 +1,12 @@
 {
+  "name": "Cockroach",
   "category_tag": "enemy",
   "height": 128,
   "components": {
     "collider": { "mode": "from_state" },
     "damageable": {},
+    "gravity": {},
+    "rigid_body": {},
     "team": { "name": "enemy" },
     "health": { "health": 30 },
     "auto_range_attack": {

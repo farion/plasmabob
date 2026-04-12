@@ -1,8 +1,10 @@
 {
-  "component": "MovingPlatform",
+  "name": "Stone Platform 3",
+  "category_tag": "Environment",
   "height": 80,
   "components": {
     "collider": { "mode": "from_state" },
+    "blocking": {},
     "state_machine": {
       "initial_state": "idle",
       "states": {

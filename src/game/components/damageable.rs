@@ -18,3 +18,12 @@ impl Default for Damageable {
     }
 }
 
+impl Damageable {
+    /// Apply overrides from JSON for Damageable. This component currently has
+    /// no configurable fields; method exists for API symmetry with other
+    /// components.
+    pub fn override_from_json(self, _comp_obj: Option<&serde_json::Value>) -> Self {
+        self
+    }
+}
+

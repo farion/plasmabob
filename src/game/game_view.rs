@@ -35,7 +35,8 @@ impl Plugin for GameViewPlugin {
             OnExit(AppState::GameView),
             cleanup_cached_level,
         )
-        .add_plugins(crate::game::setup::SetupPlugin);
+        .add_plugins(crate::game::setup::SetupPlugin)
+        .add_plugins(crate::game::systems::SystemsPlugin);
     }
 }
 

@@ -1,4 +1,5 @@
 {
+  "name": "Health Potion",
   "category_tag": "collectible",
   "height": 67,
   "effect": {

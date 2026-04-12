@@ -4,6 +4,7 @@
   "height": 100,
   "width": 67,
   "components": {
+    "blocking": {},
     "collider": {
       "mode": "from_state"
     },

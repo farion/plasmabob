@@ -1,8 +1,10 @@
 {
-  "component": "Environment",
+  "name": "Street",
+  "category_tag": "Environment",
   "height": 181,
   "components": {
     "collider": { "mode": "from_state" },
+    "blocking": {},
     "state_machine": {
       "initial_state": "idle",
       "states": {

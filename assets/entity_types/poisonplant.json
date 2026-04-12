@@ -1,10 +1,13 @@
 {
-  "component": "enemy",
+  "name": "Poison Plant",
+  "category_tag": "Enemy",
   "health": 60,
   "height": 125,
   "components": {
     "collider": { "mode": "from_state" },
     "team": { "name": "enemy" },
+    "gravity": {},
+    "rigid_body": {},
     "state_machine": {
       "initial_state": "idle",
       "states": {

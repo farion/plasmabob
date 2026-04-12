@@ -5,7 +5,7 @@
 
 - `src/game/gfx` - effects like particle filters, shaders
 - `src/game/systems` - systems that affect gameplay, like health, damage, movement, collision etc. 
-- `src/game/components` - components that are used by the systems. Contains only components that can be used in the entity json files, like health, movement, attack, etc. Components that are not defined in the entity json files, but are added by the systems, like Projectile, are defined in `src/game/gameplay` instead.
+- `src/game/components` - components that are used by the systems. Contains only components that can be used in the entity json files, like health, movement, attack, etc. Components that are not defined in the entity json files, but are added by the systems, like Projectile, are defined in `src/game/runtime_components` instead.
 - `src/game/hud` - heads up display, like health bar, ammo count, etc.
 - `src/game/tags` - marker/tag components, like Player, Enemy, NPC, etc.
 - `src/game/setup` - setup code for the agent, like loading models, animations, etc.
@@ -54,7 +54,7 @@ Entity Types are defined in `assets/entity_types/*.json`. Each entity type defin
 - `ControlledMeleeAttack` - defines the attack of the entity, like damage, range, etc. This is used for the player character.
 - `Blocking` - defines whether the entity blocks movement or attacks, like walls, crates, etc.
 - `Gravity` - defines whether the entity is affected by gravity, like the player character, enemies, etc.
-- `Damagable` - defines whether the entity can take damage, like the player character, enemies, etc.
+- `Damageable` - defines whether the entity can take damage, like the player character, enemies, etc.
 - `StateMachine` - keeps track of the current state of the entity, like idle, moving, attacking, etc. This is used to determine the animation and effects that are triggered by certain actions.
 
 
@@ -82,16 +82,26 @@ Categories are Marker/Tag Components ...Tag
 
 ## Collision Rules For Components
 
-Basically collision is calculated only based on these components: `Gravity`, `Blocking`, `Damageable`, `Projectile`. The rules are as follows:
+Basically collision filtering is based on `Collider` and `RigidBody`. Gameplay mechanic is based only on these components: `Gravity`, `Blocking`, `Damageable`, `Projectile`. The rules are as follows:
 
 - Gravity entities collide with Blocking entities.
 - Gravity entities falling if not on top of a Blocking entity.
-- Gravity entities are grounded on top of Blocking entities. This means that if a Gravity entity is on top of a Blocking entity, it is considered grounded and can jump or perform other actions that require being on the ground. Also if the blocking entity moves, the gravity entity will move with it, like standing on a moving platform.
+- Gravity entities are grounded on top of Blocking entities. This means that if a Gravity entity is on top of a Blocking entity, it is considered grounded and can jump or perform other actions that require being on the ground. 
+- Grounded (weight‑based): An entity is considered grounded when the sum of upward reaction forces from its supporting contacts is at least its weight — i.e. ΣF_normal_y ≥ m * g * support_threshold (use support_threshold ≈ 0.9–1.0); add a short hysteresis window (e.g. 0.05–0.15 s) before clearing grounded to avoid edge jitter.
+- While grounded on a moving blocker/platform, the entity inherits the platform's displacement/velocity for that step.
+- Side or bottom contacts never grant grounded and never transfer platform motion.
 - Gravity entities are not grounded if they are on the side or bottom of a Blocking entity. This means that if a Gravity entity is on the side or bottom of a Blocking entity, it is not considered grounded and cannot jump or perform other actions that require being on the ground. Also if the blocking entity moves, the gravity entity will not move with it, like standing next to a moving platform.
-- If a gravity entity is grounded or not depends on the angle of the surface it is on. If the surface is too steep, the gravity entity will not be considered grounded and will slide down the surface instead. This allows for more realistic movement and interactions with the environment, like sliding down a hill or being unable to stand on a steep slope. The threshold angle is 45 degrees, meaning that if the angle of the surface is greater than 45 degrees, the gravity entity will not be considered grounded and will slide down the surface instead.
-- Projectiles collide basically with Blocking and Damageable entities and are destroyed on impact. This means that if a projectile collides with a Blocking or Damageable entity, it is destroyed and does not continue to exist in the game world. This allows for more realistic interactions with the environment, like bullets being stopped by walls or crates. A projectile will always hit the first entity it collides with, meaning that if a projectile collides with a Blocking entity and a Damageable entity at the same time, it will hit the Blocking entity and be destroyed, and will not hit the Damageable entity. This allows for more realistic interactions with the environment, like bullets being stopped by walls or crates before they can hit enemies behind them.
-- Friendly fire rule: Projectiles keep track which entity fired them, and will not collide with entities that have the same team name (team component). This allows for more strategic gameplay, like being able to shoot through your own allies to hit enemies behind them, or being able to avoid friendly fire by shooting around your allies. For example, if the player character is on the "Player" team and fires a projectile, that projectile will not collide with other entities that are also on the "Player" team, but will collide with entities that are on the "Enemy" team. This allows for more strategic gameplay, like being able to shoot through your own allies to hit enemies behind them, or being able to avoid friendly fire by shooting around your allies.
- 
+- Grounded defaults:
+  - `support_threshold = 0.95`
+  - `ground_exit_hysteresis_sec = 0.10`
+  - `max_ground_angle_deg = 45.0`
+- If a gravity entity is grounded or not depends on the angle of the surface it is on. If the surface is too steep, the gravity entity will not be considered grounded and will slide down the surface instead. This allows for more realistic movement and interactions with the environment, like sliding down a hill or being unable to stand on a steep slope. The threshold angle is 45 degrees, meaning that if the angle of the surface is greater than 45 degrees, the gravity entity will not be considered grounded and will slide down the surface instead. Vector based: dot(contact_normal,up) >= cos(45°)
+- Projectiles collide basically with Blocking and Damageable entities and are destroyed on impact. This means that if a projectile collides with a Blocking or Damageable entity, it is destroyed and does not continue to exist in the game world. This allows for more realistic interactions with the environment, like bullets being stopped by walls or crates. A projectile will always hit the first entity it collides with, meaning that if a projectile collides with a Blocking entity and a Damageable entity at the same time, it will hit the Blocking entity and be destroyed, and will not hit the Damageable entity. This allows for more realistic interactions with the environment, like bullets being stopped by walls or crates before they can hit enemies behind them. "First" is determined by **earliest time-of-impact (TOI)** within the simulation step. Projectile never collides with its owner entity. toi_epsilon=1e-4
+- First hit is the earliest TOI. If TOI is equal within epsilon, resolve ties by:
+  1) lower distance from projectile origin,
+  2) `Blocking` before `Damageable`,
+  3) lower entity id.
+- Friendly fire rule: Projectiles keep track which entity fired them, and will not collide with entities that have the same team name (team component). This allows for more strategic gameplay, like being able to shoot through your own allies to hit enemies behind them, or being able to avoid friendly fire by shooting around your allies. For example, if the player character is on the "Player" team and fires a projectile, that projectile will not collide with other entities that are also on the "Player" team, but will collide with entities that are on the "Enemy" team. This allows for more strategic gameplay, like being able to shoot through your own allies to hit enemies behind them, or being able to avoid friendly fire by shooting around your allies. Default for team (if not specified in the json files) is "Neutral", meaning that if an entity does not have a team component, it is considered to be on the "Neutral". Means "Neutral" is a normal team label that work like the others - projectiles from "Neutral" entities will not collide with other "Neutral" entities.
 
 ## State System
 
@@ -112,3 +122,7 @@ Each entity does have exactly one state it is in at a time. The state defines th
 
 The player can be controlled by the keyboard using the configurable key bindings defined in `src/key_bindings.rs`. 
 Left, Right, Jump, Crouch (not yet implemented), Melee Attack (not yet implemented), Range Attack
+
+## Enemy AI
+
+Enemies can have different AI behaviors, which are defined by the components they have. For example, an enemy with the `AutoMovement` component will move on its own, while an enemy with the `AutoRangeAttack` component will attack on its own. The specific behavior of the enemy is determined by the values of these components. For example, an enemy with a high speed value in the `AutoMovement` component will move faster than an enemy with a low speed value. An enemy with a long range value in the `AutoRangeAttack` component will be able to attack from a greater distance than an enemy with a short range value. This allows for a wide variety of enemy behaviors and interactions with the player, like fast-moving enemies that rush towards the player, or slow-moving enemies that keep their distance and attack from afar.

@@ -1,5 +1,6 @@
 {
-  "component": "doodad",
+  "name": "Runestone 1",
+  "category_tag": "Doodad",
   "height": 128,
   "components": {
     "collider": { "mode": "from_state" },

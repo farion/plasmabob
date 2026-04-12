@@ -17,3 +17,22 @@ impl Default for Gravity {
     }
 }
 
+impl Gravity {
+    /// Apply overrides from `components.gravity` JSON object.
+    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
+        if let Some(serde_json::Value::Object(map)) = comp_obj {
+            if let Some(v) = map.get("scale").and_then(|n| n.as_f64()) {
+                self.scale = v as f32;
+            }
+            if let Some(arr) = map.get("extra_accel").and_then(|n| n.as_array()) {
+                if arr.len() >= 2 {
+                    if let (Some(x), Some(y)) = (arr[0].as_f64(), arr[1].as_f64()) {
+                        self.extra_accel = Vec2::new(x as f32, y as f32);
+                    }
+                }
+            }
+        }
+        self
+    }
+}
+

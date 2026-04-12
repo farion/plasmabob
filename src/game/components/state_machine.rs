@@ -70,3 +70,46 @@ impl Default for StateMachine {
     }
 }
 
+impl StateMachine {
+    /// Apply overrides from a JSON `components.state_machine` object.
+    /// Supported keys:
+    /// - `initial_state`: string name of the starting state (e.g. "idle", "moving")
+    /// - `state_time`: optional number to initialize the state's timer
+    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
+        if let Some(serde_json::Value::Object(map)) = comp_obj {
+            if let Some(s) = map.get("initial_state").and_then(|v| v.as_str()) {
+                self.state = Self::entity_state_from_name(s);
+            }
+            if let Some(t) = map.get("state_time").and_then(|v| v.as_f64()) {
+                self.state_time = t as f32;
+            }
+        }
+        self
+    }
+
+    /// Convert a state name string into the typed `EntityState` enum.
+    pub fn entity_state_from_name(s: &str) -> EntityState {
+        match s.to_ascii_lowercase().as_str() {
+            "idle" => EntityState::Idle,
+            "moving" | "walking" | "running" => EntityState::Moving,
+            "jumping" => EntityState::Jumping,
+            "falling" => EntityState::Falling,
+            "damaged" | "hit" => EntityState::Damaged,
+            "dying" => EntityState::Dying,
+            "dead" => EntityState::Dead,
+            "melee_attacking" | "meleeattacking" => EntityState::MeleeAttacking,
+            "range_attacking" | "rangeattacking" => EntityState::RangeAttacking,
+            "crouching" => EntityState::Crouching,
+            _ => {
+                tracing::warn!(state = %s, "Unknown entity state string, defaulting to Idle");
+                EntityState::Idle
+            }
+        }
+    }
+
+    /// Create a StateMachine from a textual state name (convenience).
+    pub fn from_state_name(s: &str) -> Self {
+        StateMachine::new(Self::entity_state_from_name(s))
+    }
+}
+

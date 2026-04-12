@@ -105,12 +105,17 @@ pub(crate) struct TerrainDefinition {
 }
 
 /// Minimal runtime representation of an entity type JSON.
+///
+/// Note: older formats used a `component: ["Name"]` array. The current
+/// format uses a `components: { "ComponentName": { ...attrs... }, ... }`
+/// object where keys are component names and values are optional config
+/// objects for that component.
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct EntityTypeDefinition {
-    #[serde(default, deserialize_with = "deserialize_string_or_vec")]
-    pub component: Vec<String>,
+    /// Map component name -> optional configuration object.
+    #[serde(default)]
+    pub components: Option<HashMap<String, serde_json::Value>>,
     /// Optional high-level category tag from the entity type JSON (e.g. "player", "enemy", "doodad").
-    /// Prefer this over the first entry in `component` when present.
     #[serde(default)]
     pub category_tag: Option<String>,
     #[serde(default)]
@@ -122,9 +127,6 @@ pub(crate) struct EntityTypeDefinition {
     /// Maximum health points for this entity type.
     #[serde(default)]
     pub health: Option<u32>,
-    /// Raw component configuration object (contains `state_machine`, `collider`, …).
-    #[serde(default)]
-    pub components: Option<serde_json::Value>,
 }
 
 impl EntityTypeDefinition {
@@ -137,28 +139,6 @@ impl EntityTypeDefinition {
     }
 }
 
-fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let v = serde_json::Value::deserialize(deserializer)?;
-    match v {
-        serde_json::Value::Null => Ok(Vec::new()),
-        serde_json::Value::String(s) => Ok(vec![s]),
-        serde_json::Value::Array(arr) => {
-            let mut out = Vec::new();
-            for item in arr {
-                if let serde_json::Value::String(s) = item {
-                    out.push(s);
-                } else {
-                    return Err(serde::de::Error::custom("expected array of strings"));
-                }
-            }
-            Ok(out)
-        }
-        _ => Err(serde::de::Error::custom("expected string or array of strings")),
-    }
-}
 
 /// Entity instance parsed from the level JSON. Known fields are typed;
 /// unknown additional properties are preserved in `properties` as
