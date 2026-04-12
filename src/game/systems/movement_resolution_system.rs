@@ -132,21 +132,49 @@ fn resolve_axis(
         }
 
         if axis == Vec2::X {
-            if delta_axis > 0.0 {
-                let penetration = mover_aabb.max.x - blocker_aabb.min.x;
-                position.x -= penetration;
+            // Compute overlap extents along both axes (positive if overlapping).
+            let overlap_x = mover_aabb.max.x.min(blocker_aabb.max.x) - mover_aabb.min.x.max(blocker_aabb.min.x);
+            let overlap_y = mover_aabb.max.y.min(blocker_aabb.max.y) - mover_aabb.min.y.max(blocker_aabb.min.y);
+
+            // Centres to decide which object is above the other.
+            let mover_center = (mover_aabb.min + mover_aabb.max) * 0.5;
+            let blocker_center = (blocker_aabb.min + blocker_aabb.max) * 0.5;
+
+            // small epsilon to avoid floating-point edge cases
+            let eps = 1e-3;
+
+            // If the mover is above the blocker and the vertical overlap is
+            // small compared to horizontal overlap, treat this as ground-contact
+            // and allow horizontal motion (do not apply X correction). This
+            // enables walking along the top of small/rounded objects like barrels.
+            if mover_center.y > blocker_center.y && overlap_y + eps < overlap_x {
+                // ground-like contact: do not block horizontal motion
             } else {
-                let penetration = blocker_aabb.max.x - mover_aabb.min.x;
-                position.x += penetration;
+                // Side contact: resolve horizontally, but do not correct more
+                // than the movement delta to avoid teleporting through objects.
+                let penetration_x = if delta_axis > 0.0 {
+                    mover_aabb.max.x - blocker_aabb.min.x
+                } else {
+                    blocker_aabb.max.x - mover_aabb.min.x
+                };
+                if delta_axis > 0.0 {
+                    let correction = penetration_x.min(delta_axis.abs());
+                    position.x -= correction;
+                } else {
+                    let correction = penetration_x.min(delta_axis.abs());
+                    position.x += correction;
+                }
+                rigid_body.velocity.x = 0.0;
             }
-            rigid_body.velocity.x = 0.0;
         } else {
             if delta_axis > 0.0 {
                 let penetration = mover_aabb.max.y - blocker_aabb.min.y;
-                position.y -= penetration;
+                let correction = penetration.min(delta_axis.abs());
+                position.y -= correction;
             } else {
                 let penetration = blocker_aabb.max.y - mover_aabb.min.y;
-                position.y += penetration;
+                let correction = penetration.min(delta_axis.abs());
+                position.y += correction;
 
                 let contact_normal = Vec2::Y;
                 if contact_normal.dot(Vec2::Y) >= max_ground_dot {

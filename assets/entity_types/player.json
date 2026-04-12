@@ -14,8 +14,8 @@
       "cooldown_ms": 500
     },
     "controlled_movement": {
-      "speed": 200.0,
-      "jump_force": 600.0
+      "speed": 300.0,
+      "jump_force": 800.0
     },
     "state_machine": {
       "initial_state": "idle",

@@ -1,13 +1,12 @@
 use bevy::prelude::*;
 
-use crate::game::components::GameEntity;
 
 /// Despawns every entity tagged with [`GameEntity`] when the GameView is exited.
 /// This clears the spawned level (sprites, entities) without affecting
 /// persistent entities such as the camera or UI roots.
 pub fn cleanup_game_entities(
     mut commands: Commands,
-    game_entities: Query<Entity, With<GameEntity>>,
+    game_entities: Query<Entity, With<crate::game::runtime_components::GameEntity>>,
 ) {
     let mut count = 0u32;
     for entity in &game_entities {
