@@ -27,6 +27,7 @@ pub fn grounding_evaluation_system(
             if grounding_state.unsupported_time >= GROUND_EXIT_HYSTERESIS_SEC {
                 gravity.grounded = false;
                 grounding_state.support_velocity = Vec2::ZERO;
+                grounding_state.support_entity = None;
             }
         }
     }

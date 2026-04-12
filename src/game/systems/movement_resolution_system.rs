@@ -44,13 +44,28 @@ pub fn movement_resolution_system(
 
         let mut step_grounding = grounding_state.as_deref().copied().unwrap_or_default();
         let inherited_support_velocity = step_grounding.support_velocity;
+        let inherited_support_entity = step_grounding.support_entity;
         step_grounding.clear_step_contacts();
 
         let mut position = transform.translation.truncate();
         let mut delta = rigid_body.velocity * dt;
 
         if gravity.grounded {
-            delta += inherited_support_velocity * dt;
+            // Use the *current* velocity of the same support entity when
+            // available. This prevents one stale frame of opposite carry at
+            // platform direction changes.
+            let carry_velocity = if let Some(support_entity) = inherited_support_entity {
+                blockers
+                    .get(support_entity)
+                    .ok()
+                    .map(|(_entity, transform, _collider, rb, prev)| {
+                        blocker_step_velocity(transform, rb, prev, dt)
+                    })
+                    .unwrap_or(inherited_support_velocity)
+            } else {
+                inherited_support_velocity
+            };
+            delta += carry_velocity * dt;
         }
 
         position.x += delta.x;
@@ -122,7 +137,7 @@ fn resolve_axis(
 
     let mut mover_aabb = aabb_from_rect(position + mover_collider.offset, mover_half_extents);
 
-    for (_blocker_entity, blocker_transform, blocker_collider, blocker_rb, blocker_prev) in blockers {
+    for (blocker_entity, blocker_transform, blocker_collider, blocker_rb, blocker_prev) in blockers {
         let Some(blocker_half_extents) = rectangle_half_extents(blocker_collider) else {
             continue;
         };
@@ -191,6 +206,7 @@ fn resolve_axis(
                     if contact_normal.dot(Vec2::Y) >= max_ground_dot {
                         step_grounding.support_normal_sum_y += contact_normal.y;
                         step_grounding.support_velocity = blocker_step_velocity(blocker_transform, blocker_rb, blocker_prev, dt);
+                        step_grounding.support_entity = Some(blocker_entity);
                     }
 
                     // Only cancel downward velocity; preserve upward velocity so
