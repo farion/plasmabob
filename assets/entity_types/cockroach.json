@@ -1,11 +1,9 @@
 {
-  "component": ["collision", "npc", "hostile", "moving", "health", "melee_attack", "range_attack"],
+  "component": "enemy",
   "melee_attack": {
     "damage": 10
   },
-  "health": {
-    "health": 30
-  },
+  "health": 30,
   "range_attack": {
     "damage": 10,
     "speed": 250,

@@ -1,5 +1,5 @@
 {
-  "component": ["doodad"],
+  "component": "doodad",
   "height": 128,
   "states": {
     "default": {

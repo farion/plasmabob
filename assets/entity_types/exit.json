@@ -1,5 +1,5 @@
 {
-  "component": ["collision", "exit"],
+  "component": "exit",
   "height": 128,
   "states": {
     "default": {

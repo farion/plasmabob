@@ -1,8 +1,6 @@
 {
-  "component": ["collision", "health", "npc"],
-  "health": {
-    "health": 60
-  },
+  "component": "enemy",
+  "health": 60,
   "height": 125,
   "states": {
     "default": {

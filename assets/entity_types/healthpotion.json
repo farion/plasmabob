@@ -1,7 +1,7 @@
 {
-  "component": ["collectible", "effect_heal", "collision"],
+  "component": "collectible",
   "height": 67,
-  "effect_heal": {
+  "effect": {
     "heal": 30
   },
   "states": {

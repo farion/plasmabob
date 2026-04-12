@@ -1,6 +1,24 @@
 {
-  "component": ["collision", "doodad"],
+  "name": "Barrel 1",
   "height": 100,
+  "width": 67,
+  "components": {
+    "Collider": {
+      "kind": "Rect",
+      "width": 64.0,
+      "height": 16.0,
+      "offset": [0.0, 0.0],
+      "layer": "environment"
+    },
+    "RigidBody": {
+      "mode": "static"
+    },
+    "AutoMovement": {
+        "pattern": "patrol",
+        "min_speed": 40.0,
+        "max_speed": 60.0
+    }
+  },
   "states": {
     "default": {
       "animation": ["sprites/barrel1/barrel1-default.png"],
@@ -8,5 +26,5 @@
       "hitbox": [[1, 3], [67, 3], [67, 100], [1, 100]]
     }
   },
-  "width": 67
+
 }

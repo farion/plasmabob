@@ -1,5 +1,5 @@
 {
-  "component": ["collision", "floor"],
+  "component": "Environment",
   "height": 181,
   "states": {
     "default": {

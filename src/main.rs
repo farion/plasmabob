@@ -19,7 +19,6 @@ use world::WorldCatalog;
 mod app_model;
 mod game;
 mod helper;
-pub(crate) mod level;
 mod views;
 pub(crate) mod world;
 
@@ -132,7 +131,6 @@ pub(crate) struct MainCamera;
 
 fn main() {
     let level_selection = LevelSelection::from_cli_arg(std::env::args().nth(1));
-    let cached_level_definition = level::CachedLevelDefinition::empty();
     let audio_settings = AudioSettings::load_from_disk();
     let active_character = ActiveCharacter::load_from_disk();
     let key_bindings = key_bindings::KeyBindings::load_from_disk();
@@ -159,7 +157,6 @@ fn main() {
         .insert_resource(i18n::CurrentLanguage::load_from_disk())
         .insert_resource(level_selection)
         .insert_resource(WorldCatalog::default())
-        .insert_resource(cached_level_definition)
         .insert_resource(audio_settings)
         .insert_resource(active_character)
         .insert_resource(key_bindings)
