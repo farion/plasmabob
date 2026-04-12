@@ -344,14 +344,6 @@
             "layer": "gameplay"
         },
         {
-            "id": "betty1",
-            "entity_type": "betty",
-            "x": 19577.162,
-            "y": 184.2103,
-            "z_index": 100.0,
-            "layer": "gameplay"
-        },
-        {
             "id": "barrel14",
             "entity_type": "barrel1",
             "x": 937.17804,

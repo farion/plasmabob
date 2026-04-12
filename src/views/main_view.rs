@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy::ui::ZIndex;
-use bevy::window::PrimaryWindow;
 
 use crate::app_model::{
     AppState, EXIT_CONFIRM_ITEMS, ExitConfirmAction, ExitConfirmButton, ExitConfirmModalRoot,
@@ -121,7 +120,7 @@ pub fn spawn_main_menu_ui(
     commands
         .spawn((
             Node {
-                width: Val::Px(512.0),
+                width: Val::Percent(20.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
@@ -724,31 +723,44 @@ pub(crate) fn update_menu_visuals(
 }
 
 pub(crate) fn fit_background_to_window(
-    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<&Projection, With<crate::MainCamera>>,
     images: Res<Assets<Image>>,
     mut backgrounds: Query<(&Sprite, &mut Transform), With<StartScreenBackground>>,
 ) {
-    let Ok(window) = windows.single() else {
+    // Derive the visible world-space area from the orthographic projection.
+    // With ScalingMode::AutoMin the area changes whenever the window is resized.
+    let Ok(projection) = camera_query.single() else {
         return;
     };
 
-    let window_size = Vec2::new(window.width(), window.height());
+    let (vw, vh) = match projection {
+        Projection::Orthographic(ortho) => {
+            let w = ortho.area.width();
+            let h = ortho.area.height();
+            // area is initialised to (2×2) by default; wait for a real size.
+            if w > 2.0 && h > 2.0 {
+                (w, h)
+            } else {
+                return;
+            }
+        }
+        _ => return,
+    };
 
     for (sprite, mut transform) in &mut backgrounds {
         let Some(image) = images.get(&sprite.image) else {
             continue;
         };
 
-        let image_size = Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
-        );
+        let img_w = image.texture_descriptor.size.width as f32;
+        let img_h = image.texture_descriptor.size.height as f32;
 
-        if image_size.x <= 0.0 || image_size.y <= 0.0 {
+        if img_w <= 0.0 || img_h <= 0.0 {
             continue;
         }
 
-        let scale = (window_size.x / image_size.x).max(window_size.y / image_size.y);
+        // "Cover" scale: fill the full viewport without leaving black bars.
+        let scale = (vw / img_w).max(vh / img_h);
         transform.scale = Vec3::splat(scale);
         transform.translation.x = 0.0;
         transform.translation.y = 0.0;

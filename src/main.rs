@@ -12,6 +12,7 @@ use avian2d::{
     prelude::{Gravity, PhysicsPlugins},
 };
 use bevy::prelude::*;
+use bevy::camera::ScalingMode;
 use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 use world::WorldCatalog;
@@ -23,6 +24,13 @@ mod views;
 pub(crate) mod world;
 
 const SHOW_HITBOX_DEBUG_LINES: bool = false;
+
+/// Virtual viewport width in world units. All game coordinates are designed for this width.
+pub(crate) const VIRTUAL_WIDTH: f32 = 2048.0;
+/// Virtual viewport height in world units.
+pub(crate) const VIRTUAL_HEIGHT: f32 = 1536.0;
+/// Horizontal screen anchor for the player: 0.3 = 30 % from the left edge.
+pub(crate) const PLAYER_SCREEN_X: f32 = 0.3;
 
 #[derive(Resource, Default)]
 pub(crate) struct WorldListSelection {
@@ -179,6 +187,7 @@ fn main() {
         .init_state::<AppState>()
         .add_systems(Startup, setup_camera)
         .add_systems(Startup, i18n::load_translations)
+        .add_systems(Update, update_ui_scale)
         .add_systems(Update, toggle_fullscreen)
         .add_systems(Update, i18n::update_localized_texts)
         .add_plugins(views::ViewsPlugin)
@@ -186,7 +195,20 @@ fn main() {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn((Camera2d, MainCamera));
+    // Use AutoMin so that the 1024×768 virtual area is always fully visible.
+    // On wider screens more world space shows on the sides; on taller screens
+    // more shows top/bottom – but the virtual area is never clipped.
+    commands.spawn((
+        Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            scaling_mode: ScalingMode::AutoMin {
+                min_width: VIRTUAL_WIDTH,
+                min_height: VIRTUAL_HEIGHT,
+            },
+            ..OrthographicProjection::default_2d()
+        }),
+        MainCamera,
+    ));
 }
 
 fn toggle_fullscreen(
@@ -201,3 +223,24 @@ fn toggle_fullscreen(
         };
     }
 }
+
+/// Keeps `UiScale` in sync with the physical window size so every `Val::Px`
+/// value and every font size (all designed in virtual pixels for a
+/// VIRTUAL_WIDTH × VIRTUAL_HEIGHT canvas) scale proportionally on any
+/// screen resolution.
+///
+/// The scale factor is `min(window_w / VIRTUAL_WIDTH, window_h / VIRTUAL_HEIGHT)`
+/// so that the entire virtual canvas always fits the window without cropping.
+fn update_ui_scale(
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut ui_scale: ResMut<UiScale>,
+) {
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let scale = (window.width() / VIRTUAL_WIDTH).min(window.height() / VIRTUAL_HEIGHT);
+    if scale > 0.0 && (ui_scale.0 - scale).abs() > f32::EPSILON {
+        ui_scale.0 = scale;
+    }
+}
+

@@ -1,11 +1,11 @@
 use bevy::asset::io::AssetSourceId;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 use futures_lite::AsyncReadExt;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use thiserror::Error;
 
+use crate::MainCamera;
 use crate::PendingStoryScreen;
 use crate::app_model::AppState;
 use crate::i18n::{CurrentLanguage, LocalizedText, Translations};
@@ -207,33 +207,42 @@ fn setup_story_view(
 }
 
 fn fit_story_background_to_viewport(
-    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<&Projection, With<MainCamera>>,
     images: Res<Assets<Image>>,
     mut backgrounds: Query<(&Sprite, &mut Transform), With<StoryBackground>>,
 ) {
-    let Ok(window) = windows.single() else {
+    // Derive the visible world-space area from the orthographic projection.
+    let Ok(projection) = camera_query.single() else {
         return;
     };
 
-    let viewport = Vec2::new(window.width(), window.height());
+    let (vw, vh) = match projection {
+        Projection::Orthographic(ortho) => {
+            let w = ortho.area.width();
+            let h = ortho.area.height();
+            // area is initialised to (2×2) by default; wait for a real size.
+            if w > 2.0 && h > 2.0 { (w, h) } else { return; }
+        }
+        _ => return,
+    };
 
     for (sprite, mut transform) in &mut backgrounds {
         let Some(image) = images.get(&sprite.image) else {
             continue;
         };
 
-        let image_size = Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
-        );
+        let img_w = image.texture_descriptor.size.width as f32;
+        let img_h = image.texture_descriptor.size.height as f32;
 
-        if image_size.x <= 0.0 || image_size.y <= 0.0 {
+        if img_w <= 0.0 || img_h <= 0.0 {
             continue;
         }
 
-        // Contain scaling: keep full image visible without stretching.
-        let scale = (viewport.x / image_size.x).min(viewport.y / image_size.y);
+        // "Cover" scale: fill the full viewport without leaving black bars.
+        let scale = (vw / img_w).max(vh / img_h);
         transform.scale = Vec3::splat(scale);
+        transform.translation.x = 0.0;
+        transform.translation.y = 0.0;
     }
 }
 
