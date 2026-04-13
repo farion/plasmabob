@@ -45,6 +45,7 @@ pub fn beam_update_system(
     let dt = time.delta_secs();
 
     for (beam_entity, mut beam, mut beam_transform, children) in &mut beams {
+        let mut alpha_multiplier = 1.0;
         if let Some(target_projectile) = beam.target_projectile {
             if let Ok(projectile_transform) = projectile_transforms.get(target_projectile) {
                 let target_pos = projectile_transform.translation.truncate();
@@ -59,6 +60,7 @@ pub fn beam_update_system(
             }
         } else if let Some(lifetime) = beam.lifetime.as_mut() {
             lifetime.tick(time.delta());
+            alpha_multiplier = (1.0 - lifetime.fraction()).clamp(0.0, 1.0);
             // use just_finished() which indicates the timer reached its end during the last tick
             if lifetime.just_finished() {
                 commands.entity(beam_entity).despawn();
@@ -75,7 +77,7 @@ pub fn beam_update_system(
             beam.current_length,
             child_entities,
             &mut beam_particles,
-            1.0,
+            alpha_multiplier,
         );
     }
 
@@ -84,9 +86,9 @@ pub fn beam_update_system(
         transform.translation.x += impact.velocity.x * dt;
         transform.translation.y += impact.velocity.y * dt;
         let fraction = impact.lifetime.fraction();
-        let size = (impact.start_size * (1.0 - fraction * 0.8)).max(0.0);
+        let size = (impact.start_size * (1.08 - fraction * 0.55)).max(0.0);
         sprite.custom_size = Some(Vec2::splat(size));
-        sprite.color.set_alpha((1.0 - fraction).clamp(0.0, 1.0));
+        sprite.color.set_alpha((1.08 - fraction * 0.72).clamp(0.0, 1.0));
         if impact.lifetime.just_finished() {
             commands.entity(particle_entity).despawn();
         }

@@ -11,6 +11,7 @@ use crate::helper::sounds::spawn_combat_sfx;
 const TOI_EPSILON: f32 = 1e-4;
 const NEUTRAL_TEAM: &str = "Neutral";
 const PLASMA_HIT_SFX: &str = "audio/plasma-hit.ogg";
+const BEAM_AFTERGLOW_SECS: f32 = 0.28;
 
 pub fn projectile_collision_system(
     mut commands: Commands,
@@ -33,7 +34,7 @@ pub fn projectile_collision_system(
     >,
     teams: Query<&Team>,
     mut health_query: Query<&mut Health>,
-    beams: Query<(Entity, &PlasmaBeam)>,
+    mut beams: Query<(Entity, &mut PlasmaBeam)>,
 ) {
     let dt = time.delta_secs();
     if dt <= 0.0 {
@@ -133,7 +134,7 @@ pub fn projectile_collision_system(
                 &audio_settings,
                 PLASMA_HIT_SFX,
             );
-            despawn_beams_for_projectile(&mut commands, projectile_entity, &beams);
+            set_beams_to_afterglow(projectile_entity, &mut beams);
 
             commands.entity(projectile_entity).despawn();
         }
@@ -150,14 +151,11 @@ struct HitCandidate {
     impact_position: Vec2,
 }
 
-fn despawn_beams_for_projectile(
-    commands: &mut Commands,
-    projectile_entity: Entity,
-    beams: &Query<(Entity, &PlasmaBeam)>,
-) {
-    for (beam_entity, beam) in beams {
+fn set_beams_to_afterglow(projectile_entity: Entity, beams: &mut Query<(Entity, &mut PlasmaBeam)>) {
+    for (_beam_entity, mut beam) in beams {
         if beam.target_projectile == Some(projectile_entity) {
-            commands.entity(beam_entity).despawn();
+            beam.target_projectile = None;
+            beam.lifetime = Some(Timer::from_seconds(BEAM_AFTERGLOW_SECS, TimerMode::Once));
         }
     }
 }

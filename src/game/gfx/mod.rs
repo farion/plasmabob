@@ -3,6 +3,7 @@ use bevy::prelude::*;
 pub mod fire;
 pub mod helpers;
 pub mod plasma_impact;
+pub mod plasma_sizes;
 pub mod plasma_shoot;
 pub mod poison;
 pub mod spit;
