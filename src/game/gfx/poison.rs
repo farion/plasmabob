@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use crate::game::gfx::spawn_effect_particles;
 use crate::game::gfx::helpers::hash_to_unit;
+use crate::game::gfx::spawn_effect_particles;
+use bevy::prelude::*;
 
 pub fn spawn_poison_particles(
     commands: &mut Commands,
@@ -10,7 +10,6 @@ pub fn spawn_poison_particles(
     seed_base: u32,
     projectile_velocity: Vec2,
 ) {
-
     // Determine a local forward direction from the projectile velocity so
     // we can create coherent wobble around the projectile's movement.
     let dir = if projectile_velocity.length_squared() > 0.0 {
@@ -115,7 +114,8 @@ pub fn spawn_poison_particles(
             let angle = hash_to_unit(seed.wrapping_mul(71)) * std::f32::consts::TAU;
             let spread = 18.0 + hash_to_unit(seed.wrapping_mul(73)) * 48.0;
             let dir_rand = Vec2::new(angle.cos(), angle.sin()) * spread * size_scale * 0.6;
-            let back_bias = -dir * (12.0 + hash_to_unit(seed.wrapping_mul(79)) * 40.0) * size_scale * 0.6;
+            let back_bias =
+                -dir * (12.0 + hash_to_unit(seed.wrapping_mul(79)) * 40.0) * size_scale * 0.6;
 
             // keep some of the projectile velocity so droplets move with it
             projectile_velocity * 0.2 + dir_rand + back_bias
@@ -128,6 +128,4 @@ pub fn spawn_poison_particles(
         },
         0.38,
     );
-
 }
-

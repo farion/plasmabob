@@ -4,8 +4,8 @@ use crate::game::components::plasma::{
     PLASMA_IMPACT_LIFETIME_SECS, PLASMA_IMPACT_MAX_SPEED, PLASMA_IMPACT_MIN_SPEED,
     PLASMA_IMPACT_PARTICLE_COUNT, PLASMA_Z,
 };
-use crate::game::systems::gameplay::types::PlasmaImpactParticle;
-use crate::game::systems::systems_api::GameViewEntity;
+use crate::game::gfx::helpers::PlasmaImpactParticle;
+use crate::game::runtime_components::GameEntity;
 
 use super::helpers::hash_to_unit;
 
@@ -18,7 +18,8 @@ pub(crate) fn spawn_plasma_impact_explosion(
         let seed = index as u32 + 101;
         let angle = hash_to_unit(seed.wrapping_mul(37)) * std::f32::consts::TAU;
         let speed = PLASMA_IMPACT_MIN_SPEED
-            + hash_to_unit(seed.wrapping_mul(71)) * (PLASMA_IMPACT_MAX_SPEED - PLASMA_IMPACT_MIN_SPEED);
+            + hash_to_unit(seed.wrapping_mul(71))
+                * (PLASMA_IMPACT_MAX_SPEED - PLASMA_IMPACT_MIN_SPEED);
         let velocity = Vec2::new(angle.cos(), angle.sin()) * speed;
         let size = 4.0 + hash_to_unit(seed.wrapping_mul(13)) * 8.0;
 
@@ -36,7 +37,7 @@ pub(crate) fn spawn_plasma_impact_explosion(
                 lifetime: Timer::from_seconds(PLASMA_IMPACT_LIFETIME_SECS, TimerMode::Once),
                 start_size: size,
             },
-            GameViewEntity,
+            GameEntity,
         ));
     }
 
@@ -57,4 +58,3 @@ pub(crate) fn spawn_plasma_impact_explosion(
         GameViewEntity,
     ));
 }
-

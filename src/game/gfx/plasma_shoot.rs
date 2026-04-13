@@ -4,7 +4,7 @@ use crate::game::components::plasma::{
     PLASMA_BEAM_PARTICLE_COUNT, PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE,
     PLASMA_BEAM_PARTICLE_WIGGLE_SPEED, PLASMA_BEAM_VISUAL_HALF_HEIGHT,
 };
-use crate::game::systems::gameplay::types::PlasmaBeamParticle;
+use crate::game::gfx::helpers::PlasmaBeamParticle;
 use crate::helper::particles::create_round_particle_image;
 
 use super::helpers::hash_to_unit;
@@ -61,11 +61,7 @@ pub(crate) fn spawn_plasma_beam_particles(
                     custom_size: Some(Vec2::splat(glow_size)),
                     ..Sprite::from_image(particle_image.clone())
                 },
-                Transform::from_xyz(
-                    0.0,
-                    0.0,
-                    -0.1 + hash_to_unit(seed.wrapping_mul(17)) * 0.15,
-                ),
+                Transform::from_xyz(0.0, 0.0, -0.1 + hash_to_unit(seed.wrapping_mul(17)) * 0.15),
                 PlasmaBeamParticle {
                     normalized_distance,
                     lane,
@@ -85,7 +81,8 @@ pub(crate) fn update_beam_particles<F: bevy::ecs::query::QueryFilter>(
     alpha_multiplier: f32,
 ) {
     for child in children.iter() {
-        let Ok((particle, mut particle_transform, mut particle_sprite)) = beam_particles.get_mut(child)
+        let Ok((particle, mut particle_transform, mut particle_sprite)) =
+            beam_particles.get_mut(child)
         else {
             continue;
         };
@@ -95,7 +92,8 @@ pub(crate) fn update_beam_particles<F: bevy::ecs::query::QueryFilter>(
         let y_offset = (particle.lane * PLASMA_BEAM_VISUAL_HALF_HEIGHT)
             + (wave * PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE * taper * particle.layer_scale);
 
-        particle_transform.translation.x = beam.direction * beam.current_length * particle.normalized_distance;
+        particle_transform.translation.x =
+            beam.direction * beam.current_length * particle.normalized_distance;
         particle_transform.translation.y = y_offset;
 
         let core_boost = 1.0 - particle.lane.abs() * 0.45;
@@ -108,5 +106,3 @@ pub(crate) fn update_beam_particles<F: bevy::ecs::query::QueryFilter>(
         particle_sprite.color = color;
     }
 }
-
-
