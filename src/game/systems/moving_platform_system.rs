@@ -64,9 +64,6 @@ pub fn moving_platform_system(
 
         // Log movement when platform actually displaced this frame
         let disp = position - start_position;
-        if disp.length_squared() > (WAYPOINT_EPSILON * WAYPOINT_EPSILON) {
-            tracing::info!(entity = ?entity, from = ?start_position, to = ?position, target_index = moving_platform.target_index, speed = moving_platform.speed, "moving_platform moved");
-        }
     }
 }
 

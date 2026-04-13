@@ -55,6 +55,6 @@ pub(crate) fn spawn_plasma_impact_explosion(
             lifetime: Timer::from_seconds(PLASMA_IMPACT_LIFETIME_SECS * 0.55, TimerMode::Once),
             start_size: 46.0,
         },
-        GameViewEntity,
+        GameEntity,
     ));
 }

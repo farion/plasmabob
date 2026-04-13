@@ -11,6 +11,8 @@
     "health": { "health": 100 },
     "controlled_range_attack": {
       "projectile_type": "player_projectile",
+      "speed": 500.0,
+      "range": 500.0,
       "cooldown_ms": 500
     },
     "controlled_movement": {

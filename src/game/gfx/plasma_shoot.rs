@@ -73,14 +73,18 @@ pub(crate) fn spawn_plasma_beam_particles(
     });
 }
 
-pub(crate) fn update_beam_particles<F: bevy::ecs::query::QueryFilter>(
+pub(crate) fn update_beam_particles<
+    F: bevy::ecs::query::QueryFilter,
+    I: IntoIterator<Item = Entity>,
+>(
     time: &Time,
-    beam: &crate::game::components::plasma::PlasmaBeam,
-    children: &Children,
+    beam_direction: f32,
+    beam_length: f32,
+    children: I,
     beam_particles: &mut Query<(&PlasmaBeamParticle, &mut Transform, &mut Sprite), F>,
     alpha_multiplier: f32,
 ) {
-    for child in children.iter() {
+    for child in children.into_iter() {
         let Ok((particle, mut particle_transform, mut particle_sprite)) =
             beam_particles.get_mut(child)
         else {
@@ -93,7 +97,7 @@ pub(crate) fn update_beam_particles<F: bevy::ecs::query::QueryFilter>(
             + (wave * PLASMA_BEAM_PARTICLE_WIGGLE_AMPLITUDE * taper * particle.layer_scale);
 
         particle_transform.translation.x =
-            beam.direction * beam.current_length * particle.normalized_distance;
+            beam_direction * beam_length * particle.normalized_distance;
         particle_transform.translation.y = y_offset;
 
         let core_boost = 1.0 - particle.lane.abs() * 0.45;

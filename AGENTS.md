@@ -104,3 +104,8 @@ keys translated in those files must be used to bring texts in the game.
 All commenting must happen in english.
 
 ## Best Practices
+
+## Implementation hints for Bevy 0.18.1
+
+- `Timer::finished()` does not exist anymore, use `Timer::just_finished()` or `Timer::is_finished()` instead.
+- `Entity::despawn_recursive()` is now `Entity::despawn()`

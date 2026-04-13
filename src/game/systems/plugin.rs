@@ -3,12 +3,15 @@ use bevy::prelude::*;
 use crate::app_model::AppState;
 
 use crate::game::systems::enemy_random_patrol_system::enemy_random_patrol_system;
+use crate::game::systems::beam_update_system::beam_update_system;
 use crate::game::systems::gravity_integration_system::gravity_integration_system;
 use crate::game::systems::grounding_evaluation_system::grounding_evaluation_system;
 use crate::game::systems::moving_platform_system::moving_platform_system;
 use crate::game::systems::movement_resolution_system::movement_resolution_system;
 use crate::game::systems::player_control_system::player_control_system;
+use crate::game::systems::player_shoot_system::player_shoot_system;
 use crate::game::systems::projectile_collision_system::projectile_collision_system;
+use crate::game::systems::projectile_movement_system::projectile_movement_system;
 use crate::game::systems::track_previous_transform_system::track_previous_transform_system;
 use crate::game::systems::maintenance::{
     toggle_hitbox_debug_lines::toggle_hitbox_debug_lines,
@@ -52,6 +55,9 @@ impl Plugin for SystemsPlugin {
             Update,
             (
                 player_control_system.in_set(GameplaySet::Input),
+                player_shoot_system
+                    .in_set(GameplaySet::Input)
+                    .after(player_control_system),
                 enemy_random_patrol_system.in_set(GameplaySet::Ai),
                 gravity_integration_system.in_set(GameplaySet::Physics),
                 moving_platform_system
@@ -60,6 +66,12 @@ impl Plugin for SystemsPlugin {
                 movement_resolution_system.in_set(GameplaySet::Physics),
                 grounding_evaluation_system.in_set(GameplaySet::Grounding),
                 projectile_collision_system.in_set(GameplaySet::Projectile),
+                projectile_movement_system
+                    .in_set(GameplaySet::Projectile)
+                    .after(projectile_collision_system),
+                beam_update_system
+                    .in_set(GameplaySet::Projectile)
+                    .after(projectile_movement_system),
                 track_previous_transform_system.in_set(GameplaySet::Finalize),
                 // Debug maintenance systems
                 toggle_hitbox_debug_lines.in_set(GameplaySet::Input),

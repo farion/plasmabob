@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::audio::{AudioSink, PlaybackSettings, Volume};
+use bevy::audio::{AudioPlayer, AudioSink, PlaybackMode, PlaybackSettings, Volume};
 
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::key_bindings::{KeyAction, KeyBindings};
@@ -26,8 +26,27 @@ impl Plugin for SoundPlugin {
             // split workload to avoid conflicting access patterns (Without<AudioSink>
             // conflicts with a mutable AudioSink query in the same system)
             .add_systems(Update, apply_sounds_volume_change_sinks)
-            .add_systems(Update, apply_sounds_playback_settings_without_sink);
+            .add_systems(Update, apply_sounds_playback_settings_without_sink)
+            .add_systems(Update, cleanup_finished_sfx);
     }
+}
+
+pub(crate) fn spawn_combat_sfx(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    audio_settings: &AudioSettings,
+    path: &'static str,
+) {
+    commands.spawn((
+        AudioPlayer::new(asset_server.load(path)),
+        PlaybackSettings {
+            mode: PlaybackMode::Once,
+            volume: Volume::Linear(audio_settings.sounds_volume),
+            ..default()
+        },
+        SfxEntity,
+        CombatSfx,
+    ));
 }
 
 fn toggle_sound_mute(
@@ -36,7 +55,7 @@ fn toggle_sound_mute(
     mut sinks: Query<&mut AudioSink, With<SfxEntity>>,
 ) {
     let toggle_key = key_bindings.get(KeyAction::ToggleSound);
-    if !keys.just_pressed(toggle_key) {
+    if !keys.as_ref().just_pressed(toggle_key) {
         return;
     }
 
@@ -52,16 +71,17 @@ fn apply_sounds_volume_change_sinks(
     if !audio_settings.is_changed() {
         return;
     }
+    let sounds_volume = audio_settings.as_ref().sounds_volume;
 
     for (mut sink, combat, voice, env) in &mut sinks {
         let vol = if voice.is_some() {
-            Volume::Linear(audio_settings.sounds_volume)
+            Volume::Linear(sounds_volume)
         } else if combat.is_some() {
-            Volume::Linear(audio_settings.sounds_volume)
+            Volume::Linear(sounds_volume)
         } else if env.is_some() {
-            Volume::Linear(audio_settings.sounds_volume)
+            Volume::Linear(sounds_volume)
         } else {
-            Volume::Linear(audio_settings.sounds_volume)
+            Volume::Linear(sounds_volume)
         };
 
         sink.set_volume(vol);
@@ -83,14 +103,24 @@ fn apply_sounds_playback_settings_without_sink(
     if !audio_settings.is_changed() {
         return;
     }
+    let sounds_volume = audio_settings.as_ref().sounds_volume;
 
     for (mut playback, combat, voice, env) in &mut playbacks_without_sink {
         playback.volume = if voice.is_some() {
-            bevy::audio::Volume::Linear(audio_settings.sounds_volume)
+            bevy::audio::Volume::Linear(sounds_volume)
         } else if combat.is_some() || env.is_some() {
-            bevy::audio::Volume::Linear(audio_settings.sounds_volume)
+            bevy::audio::Volume::Linear(sounds_volume)
         } else {
-            bevy::audio::Volume::Linear(audio_settings.sounds_volume)
+            bevy::audio::Volume::Linear(sounds_volume)
         };
     }
 }
+
+fn cleanup_finished_sfx(mut commands: Commands, sinks: Query<(Entity, &AudioSink), With<SfxEntity>>) {
+    for (entity, sink) in &sinks {
+        if sink.empty() {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+

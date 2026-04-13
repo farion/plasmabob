@@ -13,6 +13,7 @@ pub mod state_machine;
 pub mod damageable;
 pub mod team;
 pub mod moving_platform;
+pub mod plasma;
 
 // Re-exports for convenience
 pub use collider::{Collider, ColliderShape};
@@ -30,3 +31,4 @@ pub use crate::game::runtime_components::spawned_level_entity::SpawnedLevelEntit
 pub use damageable::Damageable;
 pub use team::Team;
 pub use moving_platform::MovingPlatform;
+pub use plasma::PlasmaBeam;
