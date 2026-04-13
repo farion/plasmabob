@@ -15,6 +15,8 @@ use crate::game::systems::maintenance::{
     draw_hitbox_debug_lines::draw_hitbox_debug_lines,
     update_debug_stats_labels::update_debug_stats_labels,
 };
+use crate::game::systems::level_end::check_level_end;
+use crate::game::systems::hud::pause_menu::{update_pause_menu, PauseMenuState};
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GameplaySet {
@@ -30,6 +32,9 @@ pub struct SystemsPlugin;
 
 impl Plugin for SystemsPlugin {
     fn build(&self, app: &mut App) {
+        // Ensure pause menu state resource exists when game systems are added
+        app.insert_resource(PauseMenuState::default());
+
         app.configure_sets(
             Update,
             (
@@ -58,6 +63,12 @@ impl Plugin for SystemsPlugin {
                 track_previous_transform_system.in_set(GameplaySet::Finalize),
                 // Debug maintenance systems
                 toggle_hitbox_debug_lines.in_set(GameplaySet::Input),
+                update_pause_menu.in_set(GameplaySet::Input),
+                // Level end detection should run in the finalize stage so
+                // movement/collision systems have already updated entity transforms.
+                check_level_end.in_set(GameplaySet::Finalize),
+                // Check player death after finalize as well.
+                crate::game::systems::level_end::check_player_death.in_set(GameplaySet::Finalize),
                 draw_hitbox_debug_lines.in_set(GameplaySet::Finalize),
                 update_debug_stats_labels
                     .in_set(GameplaySet::Finalize)

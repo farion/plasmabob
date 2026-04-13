@@ -33,7 +33,7 @@ impl Plugin for GameViewPlugin {
         )
         .add_systems(
             OnExit(AppState::GameView),
-            cleanup_cached_level,
+            (cleanup_cached_level, reset_main_camera, reset_music_to_menu),
         )
         .add_plugins(crate::game::setup::SetupPlugin)
         .add_plugins(crate::game::systems::SystemsPlugin);
@@ -47,13 +47,24 @@ fn load_selected_level(
     asset_server: Res<AssetServer>,
     level_selection: Res<crate::LevelSelection>,
     mut commands: Commands,
+    mut music_request: ResMut<crate::helper::music::MusicRequest>,
 ) {
     // Defer to the existing loader which performs all IO and parsing and
     // returns a `CachedLevelDefinition` on success.
     match crate::game::level::loader::load_level_from_asset(&asset_server, level_selection.asset_path()) {
         Ok(cached) => {
+            // Extract music playlist (if any) before moving `cached` into resources.
+            let music_opt = cached.level.as_ref().and_then(|l| l.music.clone());
+
             commands.insert_resource(cached);
             tracing::info!(level = %level_selection.asset_path(), "Loaded level into CachedLevelDefinition");
+
+            if let Some(music) = music_opt {
+                if !music.is_empty() {
+                    // Request playlist playback via the global music player.
+                    music_request.0 = Some(music);
+                }
+            }
         }
         Err(err) => {
             // Log the error first, then move it into the cached resource so
@@ -79,3 +90,23 @@ fn cleanup_cached_level(mut commands: Commands) {
     // Remove the resource if present.
     commands.remove_resource::<crate::game::level::types::CachedLevelDefinition>();
 }
+
+/// Reset the main camera transform when leaving the Game view so UI/menu
+/// views that expect the camera at the origin render correctly.
+fn reset_main_camera(mut cameras: Query<&mut Transform, With<crate::MainCamera>>) {
+    for mut tf in cameras.iter_mut() {
+        tf.translation.x = 0.0;
+        tf.translation.y = 0.0;
+        tf.translation.z = 0.0;
+        tf.rotation = Default::default();
+    }
+}
+
+/// Restore global music to the menu track when leaving the Game view.
+fn reset_music_to_menu(
+    mut music_request: ResMut<crate::helper::music::MusicRequest>,
+    active_character: Res<crate::helper::active_character::ActiveCharacter>,
+) {
+    music_request.0 = Some(vec![active_character.menu_music_path().to_string()]);
+}
+

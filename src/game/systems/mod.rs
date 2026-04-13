@@ -8,6 +8,8 @@ pub mod plugin;
 pub mod projectile_collision_system;
 pub mod track_previous_transform_system;
 pub mod maintenance;
+mod hud;
+pub mod level_end;
 
 pub use plugin::SystemsPlugin;
 

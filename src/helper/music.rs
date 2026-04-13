@@ -7,16 +7,9 @@ use crate::helper::key_bindings::{KeyAction, KeyBindings};
 
 /// Pending request for the music player.
 /// None == no request pending.
-/// Some(MusicRequestKind::Play(path)) == play that path.
-/// Some(MusicRequestKind::PlayMenu) == restore menu music (based on ActiveCharacter).
-#[derive(Debug, Clone)]
-pub(crate) enum MusicRequestKind {
-    Play(String),
-    PlayMenu,
-}
-
+/// Some(Vec<String>) == play the given playlist (can be a single entry).
 #[derive(Resource, Default, Debug, Clone)]
-pub(crate) struct MusicRequest(pub(crate) Option<MusicRequestKind>);
+pub(crate) struct MusicRequest(pub(crate) Option<Vec<String>>);
 
 /// Marker for our central music entity
 #[derive(Component)]
@@ -27,6 +20,9 @@ pub(crate) struct MusicEntity;
 pub(crate) struct MusicManager {
     pub(crate) entity: Option<Entity>,
     pub(crate) current_track: Option<String>,
+    /// Optional playlist active while in a level
+    pub(crate) playlist: Option<Vec<String>>,
+    pub(crate) playlist_index: usize,
 }
 
 pub(crate) struct MusicPlugin;
@@ -37,6 +33,7 @@ impl Plugin for MusicPlugin {
             .init_resource::<MusicRequest>()
             .add_systems(Startup, start_background_music)
             .add_systems(Update, handle_music_requests)
+            .add_systems(Update, advance_playlist_if_finished)
             .add_systems(Update, toggle_music_mute)
             .add_systems(Update, sync_music_track)
             .add_systems(Update, apply_music_volume_change);
@@ -173,39 +170,35 @@ fn handle_music_requests(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     audio_settings: Res<AudioSettings>,
-    active_character: Res<ActiveCharacter>,
     mut manager: ResMut<MusicManager>,
     mut request: ResMut<MusicRequest>,
     query: Query<Entity, With<MusicEntity>>,
 ) {
     let pending = request.0.take();
-    let Some(kind) = pending else {
+    let Some(list) = pending else {
         return;
     };
 
-    let desired = match kind {
-        MusicRequestKind::Play(path) => path,
-        MusicRequestKind::PlayMenu => active_character.menu_music_path().to_string(),
-    };
-
-    // If already playing desired track, just update volume
-    if manager.current_track.as_deref() == Some(&desired) {
-        manager.current_track = Some(desired);
+    // replace playlist and start at index 0
+    if list.is_empty() {
         return;
     }
+    manager.playlist = Some(list.clone());
+    manager.playlist_index = 0;
 
-    // Despawn any existing music entities
+    // Despawn existing music entities so we spawn the first playlist track
     for e in &query {
         commands.entity(e).despawn();
     }
 
-    // Spawn new requested track
+    let desired = manager.playlist.as_ref().unwrap()[0].clone();
+    // spawn once (we will advance manually)
     let handle = asset_server.load(desired.clone());
     let entity = commands
         .spawn((
             AudioPlayer::new(handle),
             PlaybackSettings {
-                mode: bevy::audio::PlaybackMode::Loop,
+                mode: bevy::audio::PlaybackMode::Once,
                 volume: Volume::Linear(audio_settings.music_volume),
                 ..default()
             },
@@ -215,5 +208,59 @@ fn handle_music_requests(
 
     manager.entity = Some(entity);
     manager.current_track = Some(desired);
+}
+
+fn advance_playlist_if_finished(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    audio_settings: Res<AudioSettings>,
+    mut manager: ResMut<MusicManager>,
+    sink_query: Query<&AudioSink, With<MusicEntity>>,
+    entity_query: Query<Entity, With<MusicEntity>>,
+) {
+    // Clone the playlist so we don't hold an immutable borrow across
+    // a mutable borrow of `manager` below.
+    let playlist = match manager.playlist.clone() {
+        Some(p) => p,
+        None => return,
+    };
+
+    // If there is no sink yet (entity not spawned or not attached), nothing to do
+    let mut finished = false;
+    for sink in &sink_query {
+        if sink.empty() {
+            finished = true;
+            break;
+        }
+    }
+
+    if !finished {
+        return;
+    }
+
+    // advance index and wrap
+    manager.playlist_index = (manager.playlist_index + 1) % playlist.len();
+    let next = playlist[manager.playlist_index].clone();
+
+    // despawn existing music entities
+    for e in &entity_query {
+        commands.entity(e).despawn();
+    }
+
+    let handle = asset_server.load(next.clone());
+    let entity = commands
+        .spawn((
+            AudioPlayer::new(handle),
+            PlaybackSettings {
+                mode: bevy::audio::PlaybackMode::Once,
+                volume: Volume::Linear(audio_settings.music_volume),
+                ..default()
+            },
+            MusicEntity,
+        ))
+        .id();
+
+    manager.entity = Some(entity);
+    manager.current_track = Some(next);
 }
 
