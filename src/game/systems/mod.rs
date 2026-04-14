@@ -10,9 +10,11 @@ pub mod plugin;
 pub mod projectile_collision_system;
 pub mod projectile_movement_system;
 pub mod track_previous_transform_system;
+pub mod init_parallax_system;
+pub mod apply_parallax_system;
+pub mod toggle_parallax_system;
 pub mod maintenance;
 mod hud;
 pub mod level_end;
 
 pub use plugin::SystemsPlugin;
-

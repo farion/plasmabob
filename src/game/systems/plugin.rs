@@ -13,6 +13,7 @@ use crate::game::systems::player_shoot_system::player_shoot_system;
 use crate::game::systems::projectile_collision_system::projectile_collision_system;
 use crate::game::systems::projectile_movement_system::projectile_movement_system;
 use crate::game::systems::track_previous_transform_system::track_previous_transform_system;
+use crate::game::systems::toggle_parallax_system::toggle_parallax_system;
 use crate::game::systems::maintenance::{
     toggle_hitbox_debug_lines::toggle_hitbox_debug_lines,
     draw_hitbox_debug_lines::draw_hitbox_debug_lines,
@@ -75,6 +76,7 @@ impl Plugin for SystemsPlugin {
                 track_previous_transform_system.in_set(GameplaySet::Finalize),
                 // Debug maintenance systems
                 toggle_hitbox_debug_lines.in_set(GameplaySet::Input),
+                toggle_parallax_system.in_set(GameplaySet::Input),
                 update_pause_menu.in_set(GameplaySet::Input),
                 // Level end detection should run in the finalize stage so
                 // movement/collision systems have already updated entity transforms.
@@ -89,4 +91,3 @@ impl Plugin for SystemsPlugin {
         );
     }
 }
-

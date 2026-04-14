@@ -9,6 +9,8 @@ pub mod spawn_entities;
 use crate::app_model::AppState;
 use crate::game::game_view::GameSetupSet;
 use crate::game::gfx::plasma_shoot::{preload_plasma_particle_image, cleanup_plasma_particle_image};
+use crate::game::systems::apply_parallax_system::apply_parallax_system;
+use crate::game::systems::init_parallax_system::init_parallax_system;
 
 /// Plugin that registers the initial level-setup systems and the exit cleanup.
 ///
@@ -38,13 +40,18 @@ impl Plugin for SetupPlugin {
                 setup_canvas::setup_canvas,
                 setup_background::setup_background,
                 spawn_entities::spawn_entities,
+                init_parallax_system,
             )
                 .chain()
                 .in_set(GameSetupSet::Setup),
         )
         .add_systems(
             Update,
-            follow_camera::follow_camera.run_if(in_state(AppState::GameView)),
+            (
+                follow_camera::follow_camera,
+                apply_parallax_system.after(follow_camera::follow_camera),
+            )
+                .run_if(in_state(AppState::GameView)),
         )
         .add_systems(
             PostUpdate,
@@ -61,4 +68,3 @@ impl Plugin for SetupPlugin {
         );
     }
 }
-

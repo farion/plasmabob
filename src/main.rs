@@ -97,6 +97,7 @@ pub(crate) struct LevelSelection {
 pub(crate) struct DebugRenderSettings {
     pub(crate) show_hitbox_lines: bool,
     pub(crate) show_overlay: bool,
+    pub(crate) parallax_enabled: bool,
 }
 
 impl LevelSelection {
@@ -153,6 +154,7 @@ fn main() {
         .insert_resource(DebugRenderSettings {
             show_hitbox_lines: SHOW_HITBOX_DEBUG_LINES,
             show_overlay: false,
+            parallax_enabled: true,
         })
         .init_resource::<MenuSelection>()
         .init_resource::<ExitConfirmModalState>()
@@ -243,4 +245,3 @@ fn update_ui_scale(
         ui_scale.0 = scale;
     }
 }
-
