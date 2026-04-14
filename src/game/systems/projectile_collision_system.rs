@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::components::plasma::PlasmaBeam;
-use crate::game::components::{Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, Team};
+use crate::game::components::{Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, StateMachine, Team};
 use crate::game::gfx::plasma_impact::spawn_plasma_impact_explosion;
 use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, PlasmaParticleImage};
 use crate::game::runtime_components::Projectile;
@@ -33,6 +33,7 @@ pub fn projectile_collision_system(
         ),
     >,
     teams: Query<&Team>,
+    state_machines: Query<&StateMachine>,
     mut health_query: Query<&mut Health>,
     mut damageable_query: Query<&mut Damageable>,
     mut beams: Query<(Entity, &mut PlasmaBeam)>,
@@ -45,6 +46,14 @@ pub fn projectile_collision_system(
     for (projectile_entity, projectile_transform, projectile_collider, projectile_body, projectile) in
         &projectiles
     {
+        if let Ok(owner_sm) = state_machines.get(projectile.owner) {
+            if owner_sm.is_non_interactive() {
+                set_beams_to_afterglow(projectile_entity, &mut beams);
+                commands.entity(projectile_entity).despawn();
+                continue;
+            }
+        }
+
         let Some(projectile_half_extents) = rectangle_half_extents(projectile_collider) else {
             continue;
         };
@@ -68,6 +77,11 @@ pub fn projectile_collision_system(
 
             let is_blocking = blocking.is_some();
             let is_damageable = damageable_query.contains(target_entity);
+            if let Ok(target_sm) = state_machines.get(target_entity) {
+                if target_sm.is_non_interactive() {
+                    continue;
+                }
+            }
             if !is_blocking && !is_damageable {
                 continue;
             }

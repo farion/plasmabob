@@ -2,16 +2,21 @@ use bevy::prelude::*;
 
 use crate::app_model::AppState;
 use crate::game::components::Health;
+use crate::game::components::StateMachine;
 use crate::game::tags::PlayerTag;
 use crate::game::runtime_components::SpawnedLevelEntity;
-use bevy::ecs::query::WorldQuery;
 
 /// Checks for level end conditions:
 /// - player dead -> LoseView
 /// - player overlaps an `exit` entity -> WinView
 pub fn check_level_end(
     players: Query<(&Transform, Option<&Sprite>), With<PlayerTag>>,
-    exits: Query<(&Transform, Option<&Sprite>, &SpawnedLevelEntity)>,
+    exits: Query<(
+        &Transform,
+        Option<&Sprite>,
+        &SpawnedLevelEntity,
+        Option<&StateMachine>,
+    )>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     // Single-player: take the first player found.
@@ -20,7 +25,11 @@ pub fn check_level_end(
     let player_pos = player_tf.translation;
 
     // If any exit entity overlaps the player, trigger WinView.
-    for (exit_tf, exit_sprite_opt, spawned) in &exits {
+    for (exit_tf, exit_sprite_opt, spawned, state_machine) in &exits {
+        if state_machine.is_some_and(|sm| sm.is_non_interactive()) {
+            continue;
+        }
+
         // Identify exit by entity_type or id (many levels use id "exit" or type "exit").
         if spawned.entity_type.to_ascii_lowercase() != "exit" && spawned.id.to_ascii_lowercase() != "exit" {
             continue;

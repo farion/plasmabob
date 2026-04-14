@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::components::{AutoMovement, RigidBody};
+use crate::game::components::{AutoMovement, RigidBody, StateMachine};
 use crate::game::runtime_components::PatrolState;
 use crate::game::tags::EnemyTag;
 
@@ -12,13 +12,25 @@ pub fn enemy_random_patrol_system(
     mut commands: Commands,
     time: Res<Time>,
     mut enemies: Query<
-        (Entity, &mut AutoMovement, &mut RigidBody, Option<&mut PatrolState>),
+        (
+            Entity,
+            &mut AutoMovement,
+            &mut RigidBody,
+            Option<&mut PatrolState>,
+            Option<&StateMachine>,
+        ),
         With<EnemyTag>,
     >,
 ) {
     let dt = time.delta_secs();
 
-    for (entity, mut auto_movement, mut rigid_body, patrol_state) in &mut enemies {
+    for (entity, mut auto_movement, mut rigid_body, patrol_state, state_machine) in &mut enemies {
+        if state_machine.is_some_and(|sm| sm.is_non_interactive()) {
+            auto_movement.direction = Vec2::ZERO;
+            rigid_body.velocity.x = 0.0;
+            continue;
+        }
+
         let Some(mut patrol_state) = patrol_state else {
             commands.entity(entity).insert(PatrolState::from_entity(entity));
             continue;

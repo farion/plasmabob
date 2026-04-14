@@ -4,7 +4,6 @@ use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::{
     Collider, ColliderShape, Damageable, Health, StateMachine, Team,
 };
-use crate::game::components::state_machine::EntityState;
 
 const NEUTRAL_TEAM: &str = "Neutral";
 
@@ -38,6 +37,7 @@ pub fn auto_melee_attack_system(
         (Entity, &Transform, &Collider, Option<&Team>),
         Without<AutoMeleeAttack>,
     >,
+    state_machines: Query<&StateMachine>,
     mut health_q: Query<&mut Health>,
     mut damageable_q: Query<&mut Damageable>,
 ) {
@@ -50,9 +50,9 @@ pub fn auto_melee_attack_system(
             continue;
         }
 
-        // Skip dead or dying attackers — they should not deal damage.
+        // Skip dead or dying attackers - they should not deal damage.
         if let Some(sm) = attacker_sm {
-            if sm.is(EntityState::Dead) || sm.is(EntityState::Dying) {
+            if sm.is_non_interactive() {
                 continue;
             }
         }
@@ -80,6 +80,12 @@ pub fn auto_melee_attack_system(
         for (target_entity, target_transform, target_collider, target_team) in &targets {
             if target_entity == attacker_entity {
                 continue;
+            }
+
+            if let Ok(target_sm) = state_machines.get(target_entity) {
+                if target_sm.is_non_interactive() {
+                    continue;
+                }
             }
 
             // No friendly fire — same team cannot be damaged.

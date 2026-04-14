@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::components::{Blocking, Collider, ColliderShape, Gravity, RigidBody};
+use crate::game::components::{Blocking, Collider, ColliderShape, Gravity, RigidBody, StateMachine};
 use crate::game::runtime_components::{GroundingState, PreviousTransform};
 
 const MAX_GROUND_ANGLE_DEG: f32 = 45.0;
@@ -26,6 +26,7 @@ pub fn movement_resolution_system(
             &Collider,
             Option<&RigidBody>,
             Option<&PreviousTransform>,
+            Option<&StateMachine>,
         ),
         With<Blocking>,
     >,
@@ -58,7 +59,7 @@ pub fn movement_resolution_system(
                 blockers
                     .get(support_entity)
                     .ok()
-                    .map(|(_entity, transform, _collider, rb, prev)| {
+                    .map(|(_entity, transform, _collider, rb, prev, _sm)| {
                         blocker_step_velocity(transform, rb, prev, dt)
                     })
                     .unwrap_or(inherited_support_velocity)
@@ -121,6 +122,7 @@ fn resolve_axis(
             &Collider,
             Option<&RigidBody>,
             Option<&PreviousTransform>,
+            Option<&StateMachine>,
         ),
         With<Blocking>,
     >,
@@ -137,7 +139,11 @@ fn resolve_axis(
 
     let mut mover_aabb = aabb_from_rect(position + mover_collider.offset, mover_half_extents);
 
-    for (blocker_entity, blocker_transform, blocker_collider, blocker_rb, blocker_prev) in blockers {
+    for (blocker_entity, blocker_transform, blocker_collider, blocker_rb, blocker_prev, blocker_sm) in blockers {
+        if blocker_sm.is_some_and(|sm| sm.is_non_interactive()) {
+            continue;
+        }
+
         let Some(blocker_half_extents) = rectangle_half_extents(blocker_collider) else {
             continue;
         };

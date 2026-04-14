@@ -171,6 +171,7 @@ Basically all bars are looking the same, just with different colors and icons. T
 
 The implementation for the HUD lives in src/game/hud
 
+## Death and Despawn
 
 If an entity is dying or dead it should not be able to deal damage, interact with the player in any way or got hit/block projectiles, but it can still be affected by gravity and other environmental factors until it is removed from the game world.
 The health component defines the despawn. `despawn_on_death` which is a bool defines if the entity despawns on death and `despawn_delay_ms` defines how long it will take. If the `despawn_delay_ms` is over the entity will fade out for 500 ms and then be removed from the game world. If `despawn_on_death` is false, the entity will not despawn on death and will remain in the game world, but it will still be considered dead.

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::components::{ControlledMovement, Gravity, RigidBody};
+use crate::game::components::{ControlledMovement, Gravity, RigidBody, StateMachine};
 use crate::game::runtime_components::Facing;
 use crate::game::tags::PlayerTag;
 use crate::helper::key_bindings::KeyBindings;
@@ -16,11 +16,17 @@ pub fn player_control_system(
             &mut Gravity,
             &mut RigidBody,
             Option<&mut Facing>,
+            Option<&StateMachine>,
         ),
         With<PlayerTag>,
     >,
 ) {
-    for (entity, movement, mut gravity, mut rigid_body, facing) in &mut players {
+    for (entity, movement, mut gravity, mut rigid_body, facing, sm) in &mut players {
+        if sm.is_some_and(|sm| sm.is_non_interactive()) {
+            rigid_body.velocity.x = 0.0;
+            continue;
+        }
+
         let mut axis = 0.0;
         if keyboard.pressed(key_bindings.move_left) {
             axis -= 1.0;

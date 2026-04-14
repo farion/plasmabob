@@ -2,6 +2,7 @@ pub mod enemy_random_patrol_system;
 pub mod animation_system;
 pub mod auto_melee_attack_system;
 pub mod beam_update_system;
+pub mod death_despawn_system;
 pub mod gravity_integration_system;
 pub mod grounding_evaluation_system;
 pub mod moving_platform_system;

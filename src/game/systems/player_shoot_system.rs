@@ -3,8 +3,8 @@ use bevy::prelude::*;
 // No debug logging in hot input path to avoid spam in release runs.
 
 use crate::game::components::controlled_range_attack::ControlledRangeAttack;
-use crate::game::components::plasma::{PlasmaBeam, PLASMA_Z};
-use crate::game::components::{Collider, ColliderShape, RigidBody};
+use crate::game::components::plasma::PlasmaBeam;
+use crate::game::components::{Collider, ColliderShape, RigidBody, StateMachine};
 use crate::game::gfx::plasma_shoot::{
     ensure_plasma_particle_image, spawn_plasma_beam_particles, PlasmaParticleImage,
 };
@@ -33,7 +33,16 @@ pub fn player_shoot_system(
     // keyboard ghosting when multiple keys are held.
     mut prev_shoot_pressed: Local<bool>,
     mut fire_requested: Local<bool>,
-    mut players: Query<(Entity, &Transform, &Facing, &mut ControlledRangeAttack), With<PlayerTag>>,
+    mut players: Query<
+        (
+            Entity,
+            &Transform,
+            &Facing,
+            &mut ControlledRangeAttack,
+            Option<&StateMachine>,
+        ),
+        With<PlayerTag>,
+    >,
 ) {
     // Track a fire request set when the user *just* pressed the shoot key.
     // We implement a small request queue so a tap will fire as soon as the
@@ -55,7 +64,12 @@ pub fn player_shoot_system(
 
     // (global input detection already logged above when just pressed)
 
-    for (player_entity, player_transform, facing, mut attack) in &mut players {
+    for (player_entity, player_transform, facing, mut attack, sm) in &mut players {
+        if sm.is_some_and(|sm| sm.is_non_interactive()) {
+            *fire_requested = false;
+            continue;
+        }
+
         // Advance cooldown every frame so it progresses independently of input.
         let dt = time.delta();
         attack.cooldown.tick(dt);

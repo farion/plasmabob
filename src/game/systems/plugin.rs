@@ -6,6 +6,7 @@ use crate::game::systems::animation_system::animation_tick_system;
 use crate::game::systems::auto_melee_attack_system::auto_melee_attack_system;
 use crate::game::systems::enemy_random_patrol_system::enemy_random_patrol_system;
 use crate::game::systems::beam_update_system::beam_update_system;
+use crate::game::systems::death_despawn_system::death_despawn_system;
 use crate::game::systems::gravity_integration_system::gravity_integration_system;
 use crate::game::systems::grounding_evaluation_system::grounding_evaluation_system;
 use crate::game::systems::moving_platform_system::moving_platform_system;
@@ -90,6 +91,9 @@ impl Plugin for SystemsPlugin {
                 state_machine_update_system
                     .in_set(GameplaySet::Finalize)
                     .after(orientation_update_system),
+                death_despawn_system
+                    .in_set(GameplaySet::Finalize)
+                    .after(crate::game::systems::level_end::check_player_death),
                 // Animate sprites based on AnimationConfig frame timer.
                 animation_tick_system
                     .in_set(GameplaySet::Finalize)

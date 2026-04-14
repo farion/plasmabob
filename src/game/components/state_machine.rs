@@ -57,6 +57,11 @@ impl StateMachine {
         self.state == s
     }
 
+    /// Returns true when the entity should no longer interact with combat/gameplay systems.
+    pub fn is_non_interactive(&self) -> bool {
+        self.state.is_non_interactive()
+    }
+
     /// Advance the internal timer by `dt` seconds. Systems should call this every frame.
     pub fn tick(&mut self, dt: f32) {
         self.state_time += dt;
@@ -123,6 +128,11 @@ impl StateMachine {
 }
 
 impl EntityState {
+    /// Dying/Dead entities should not be targetable or deal damage anymore.
+    pub fn is_non_interactive(self) -> bool {
+        matches!(self, EntityState::Dying | EntityState::Dead)
+    }
+
     /// Return the canonical lowercase state name used in JSON and the asset cache.
     pub fn to_state_name(self) -> &'static str {
         match self {
