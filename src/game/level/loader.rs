@@ -13,9 +13,9 @@ pub fn load_level_from_asset(
     asset_path: &str,
 ) -> Result<CachedLevelDefinition, LoadLevelError> {
     // Read level JSON text
-    let content = crate::helper::asset_io::read_asset_text(asset_server, asset_path).map_err(LoadLevelError::Io)?;
+    let content = crate::helper::asset_io::read_asset_text(asset_server, asset_path)?;
 
-    let level: LevelDefinition = serde_json::from_str(&content).map_err(LoadLevelError::Parse)?;
+    let level: LevelDefinition = serde_json::from_str(&content)?;
 
     // Determine entity types location (file or directory). Use fallback "entity_types" when absent.
     let entity_types_ref = level
@@ -38,7 +38,7 @@ pub fn load_level_from_asset(
                     entity_types_map.extend(map);
                 } else {
                     // Fallback: parse as a single EntityTypeDefinition and derive key from filename
-                    let single: EntityTypeDefinition = serde_json::from_str(&text).map_err(LoadLevelError::Parse)?;
+                    let single: EntityTypeDefinition = serde_json::from_str(&text)?;
                     if let Some(stem) = asset_path_stem(&entity_types_ref) {
                         entity_types_map.insert(stem.to_string(), single);
                     } else {
@@ -46,13 +46,13 @@ pub fn load_level_from_asset(
                     }
                 }
             }
-            Err(e) => return Err(LoadLevelError::Io(e)),
+            Err(e) => return Err(e.into()),
         }
     } else {
         // Treat as directory: list .json entries and load each
         let source = asset_server
             .get_source(AssetSourceId::Default)
-            .map_err(|err| LoadLevelError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, format!("Asset source error: {err}"))))?;
+            .map_err(|err| LoadLevelError::Io(format!("Asset source error: {err}")))?;
 
         let paths: Vec<std::path::PathBuf> = pollster::block_on(async {
             let mut stream = source
@@ -73,8 +73,8 @@ pub fn load_level_from_asset(
                 continue;
             }
             let asset_path = path.to_string_lossy().to_string();
-            let txt = crate::helper::asset_io::read_asset_text(asset_server, &asset_path).map_err(LoadLevelError::Io)?;
-            let et: EntityTypeDefinition = serde_json::from_str(&txt).map_err(LoadLevelError::Parse)?;
+            let txt = crate::helper::asset_io::read_asset_text(asset_server, &asset_path)?;
+            let et: EntityTypeDefinition = serde_json::from_str(&txt)?;
             if let Some(stem) = asset_path_stem(&asset_path) {
                 entity_types_map.insert(stem.to_string(), et);
             }

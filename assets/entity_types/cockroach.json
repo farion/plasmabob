@@ -32,14 +32,12 @@
           "animation": ["sprites/cockroach/cockroach-default.png"],
           "animation_frame_ms": 300,
           "collider_box": [[13, 5], [139, 5], [139, 119], [13, 119]],
-          "interruptible": true,
           "lock_ms": 0
         },
         "dead": {
           "animation": ["sprites/cockroach/cockroach-die.png"],
           "animation_frame_ms": 300,
           "collider_box": [[0, 0], [166, 0], [166, 94], [0, 94]],
-          "interruptible": false,
           "lock_ms": 0
         },
         "range_attacking": {
@@ -51,21 +49,18 @@
           ],
           "animation_frame_ms": 300,
           "collider_box": [[7, 5], [159, 5], [159, 121], [7, 121]],
-          "interruptible": true,
           "lock_ms": 0
         },
         "damaged": {
           "animation": ["sprites/cockroach/cockroach-hit.png"],
           "animation_frame_ms": 300,
           "collider_box": [[14, 5], [150, 5], [150, 123], [14, 123]],
-          "interruptible": false,
           "lock_ms": 300
         },
         "moving": {
           "animation": ["sprites/cockroach/cockroach-walk-1.png", "sprites/cockroach/cockroach-walk-2.png"],
           "animation_frame_ms": 300,
           "collider_box": [[17, 5], [153, 5], [153, 121], [17, 121]],
-          "interruptible": true,
           "lock_ms": 0
         }
       }

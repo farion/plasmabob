@@ -12,7 +12,6 @@
           "animation": ["sprites/stoneplatform2/stoneplatform2-default.png"],
           "animation_frame_ms": 180,
           "collider_box": [[0, 0], [509, 0], [509, 60], [0, 60]],
-          "interruptible": true,
           "lock_ms": 0
         }
       }

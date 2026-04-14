@@ -257,9 +257,9 @@ fn start_level(
         world = progress.world_index,
         planet = progress.planet_index,
         level = progress.level_index,
-        "StartView: Transitioning to GameView"
+        "StartView: Transitioning to LoadView"
     );
-    next_state.set(AppState::GameView);
+    next_state.set(AppState::LoadView);
 }
 
 fn return_to_main_menu_or_world_map(

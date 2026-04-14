@@ -2,6 +2,7 @@ use crate::game::game_view::GameViewPlugin;
 use bevy::prelude::*;
 
 pub mod main_view;
+mod load_view;
 
 mod about_view;
 mod settings_view;
@@ -21,6 +22,7 @@ impl Plugin for ViewsPlugin {
             about_view::AboutViewPlugin,
             story_view::StoryViewPlugin,
             world_map_view::WorldMapViewPlugin,
+            load_view::LoadViewPlugin,
         ));
     }
 }

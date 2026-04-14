@@ -12,27 +12,29 @@ use crate::game::components::{AutoMovement, ControlledMovement, RigidBody};
 /// Facing is only updated when the relevant axis value is non-zero; the last known direction
 /// is preserved while the entity is standing still.
 pub fn orientation_update_system(
-    mut controlled: Query<(&RigidBody, &mut Orientation), With<ControlledMovement>>,
+    mut controlled: Query<(&RigidBody, &mut Orientation, &mut Sprite), With<ControlledMovement>>,
     mut auto_mover: Query<
-        (&AutoMovement, &mut Orientation),
+        (&AutoMovement, &mut Orientation, &mut Sprite),
         Without<ControlledMovement>,
     >,
 ) {
-    for (rb, mut orientation) in &mut controlled {
+    for (rb, mut orientation, mut sprite) in &mut controlled {
         if rb.velocity.x < -f32::EPSILON {
             orientation.facing = FacingDirection::Left;
         } else if rb.velocity.x > f32::EPSILON {
             orientation.facing = FacingDirection::Right;
         }
+        sprite.flip_x = matches!(orientation.facing, FacingDirection::Left);
         // Velocity near zero: keep current facing direction.
     }
 
-    for (auto_mov, mut orientation) in &mut auto_mover {
+    for (auto_mov, mut orientation, mut sprite) in &mut auto_mover {
         if auto_mov.direction.x < -f32::EPSILON {
             orientation.facing = FacingDirection::Left;
         } else if auto_mov.direction.x > f32::EPSILON {
             orientation.facing = FacingDirection::Right;
         }
+        sprite.flip_x = matches!(orientation.facing, FacingDirection::Left);
     }
 }
 

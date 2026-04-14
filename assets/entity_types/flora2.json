@@ -11,7 +11,6 @@
           "animation": ["sprites/flora2/flora2-default.png"],
           "animation_frame_ms": 500,
           "collider_box": [[0, 2], [130, 2], [130, 80], [0, 80]],
-          "interruptible": true,
           "lock_ms": 0
         }
       }

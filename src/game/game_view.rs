@@ -43,12 +43,21 @@ impl Plugin for GameViewPlugin {
 /// Loads the level specified by the global `LevelSelection` resource using
 /// `game::level::loader::load_level_from_asset` and inserts/overwrites the
 /// `CachedLevelDefinition` resource so game systems can consume it.
+///
+/// When coming from `LoadView` the `CachedLevelDefinition` is already present;
+/// this system skips reloading in that case to avoid redundant IO.
 fn load_selected_level(
     asset_server: Res<AssetServer>,
     level_selection: Res<crate::LevelSelection>,
+    existing: Option<Res<crate::game::level::types::CachedLevelDefinition>>,
     mut commands: Commands,
     mut music_request: ResMut<crate::helper::music::MusicRequest>,
 ) {
+    // If LoadView already populated the resource, nothing to do.
+    if existing.is_some() {
+        tracing::debug!("load_selected_level: CachedLevelDefinition already present, skipping");
+        return;
+    }
     // Defer to the existing loader which performs all IO and parsing and
     // returns a `CachedLevelDefinition` on success.
     match crate::game::level::loader::load_level_from_asset(&asset_server, level_selection.asset_path()) {

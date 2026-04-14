@@ -1,4 +1,5 @@
 pub mod enemy_random_patrol_system;
+pub mod animation_system;
 pub mod beam_update_system;
 pub mod gravity_integration_system;
 pub mod grounding_evaluation_system;
@@ -10,6 +11,7 @@ pub mod player_shoot_system;
 pub mod plugin;
 pub mod projectile_collision_system;
 pub mod projectile_movement_system;
+pub mod sound_system;
 pub mod state_machine_update_system;
 pub mod track_previous_transform_system;
 pub mod init_parallax_system;

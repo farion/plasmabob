@@ -1,6 +1,8 @@
 use bevy::prelude::*;
+use bevy::audio::AudioSource;
 use serde_json::Value as JsonValue;
 
+use crate::game::components::orientation::FacingDirection;
 use crate::game::components::{AutoMovement, Blocking, Collider, ColliderShape, ControlledMovement, Damageable, GameEntity, Gravity, Health, MovingPlatform, Orientation, RigidBody, StateMachine};
 use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::auto_range_attack::AutoRangeAttack;
@@ -11,25 +13,26 @@ use crate::game::components::team::Team;
 use crate::game::level::types::{
     CachedLevelDefinition, EntityTypeDefinition, LevelBounds, StateConfig, StateMachineConfig, PropValue,
 };
-use crate::game::runtime_components::AnimationConfig;
+use crate::game::runtime_components::{AnimationConfig, SoundState};
 use crate::game::runtime_components::SpawnedLevelEntity;
+use crate::game::setup::collider_helper::build_collider_from_box;
+use crate::game::setup::entity_type_assets::EntityTypeAssets;
 use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag};
+
+/// Red fallback color used when a sprite is missing.
+const MISSING_SPRITE_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
 
 /// Spawns all entities defined in the level at their configured world positions,
 /// with the correct initial animation state and gameplay components attached.
 ///
-/// Coordinate mapping
-/// ──────────────────
-/// Level JSON uses a bottom-left origin (x right, y up). Entity positions
-/// mark the bottom-left corner of the sprite. Bevy sprites are centred on
-/// their `Transform`, so we offset by half the sprite size:
-///
-///   bevy_x = entity.x + sprite_width  / 2
-///   bevy_y = entity.y + sprite_height / 2
+/// Sprite handles and state metadata are looked up from [`EntityTypeAssets`] when
+/// available (pre-loaded by `LoadView`).  Falls back to on-demand `AssetServer::load`
+/// when the resource is absent (e.g. dev hot-reload straight into GameView).
 pub fn spawn_entities(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     cached: Res<CachedLevelDefinition>,
+    entity_type_assets: Option<Res<EntityTypeAssets>>,
 ) {
     let Some(level) = &cached.level else {
         tracing::warn!("spawn_entities: no level loaded, skipping entity spawn");
@@ -65,11 +68,13 @@ pub fn spawn_entities(
             continue;
         };
 
-        let initial_state_name = sm_cfg.initial_state.as_str();
-        let Some(state_cfg) = sm_cfg.states.get(initial_state_name) else {
+        let initial_state_name = sm_cfg.initial_state.to_ascii_lowercase();
+        let Some(state_cfg) = sm_cfg.states.get(&initial_state_name)
+            .or_else(|| sm_cfg.states.get(&sm_cfg.initial_state)) else
+        {
             tracing::warn!(
                 id = %entity.id,
-                state = %initial_state_name,
+                state = %sm_cfg.initial_state,
                 "spawn_entities: initial state not found in states map, skipping"
             );
             continue;
@@ -78,40 +83,9 @@ pub fn spawn_entities(
         let sprite_w = entity_type.width.unwrap_or(128) as f32;
         let sprite_h = entity_type.height.unwrap_or(128) as f32;
 
-        // Place transform at sprite centre (level coords use bottom-left).
-        let x = entity.x + sprite_w / 2.0;
-        let y = entity.y + sprite_h / 2.0;
-        let z = entity.z_index;
-
-        let first_frame = state_cfg.animation.first().cloned().unwrap_or_default();
-
-        let sprite = Sprite {
-            image: asset_server.load(&first_frame),
-            custom_size: Some(Vec2::new(sprite_w, sprite_h)),
-            ..default()
-        };
-        let transform = Transform::from_xyz(x, y, z);
-        let anim_cfg =
-            AnimationConfig::new(state_cfg.animation.clone(), state_cfg.animation_frame_ms);
-        let state_machine = StateMachine::new(parse_entity_state(initial_state_name));
-        let collider = build_collider(state_cfg, sprite_w, sprite_h);
-
-        // Generic component assignment: add only components explicitly listed
-        // in the entity-type JSON (`entity_type.component`) or present in the
-        // type's `components` object. This avoids implicit category-based
-        // wiring and keeps component assignment fully data-driven.
-        let mut ent_cmd = commands.spawn((sprite, transform, anim_cfg, state_machine, GameEntity));
-        let mut assigned_components: Vec<String> = Vec::new();
-
-        // Merge entity-type components with any per-entity overrides found in
-        // the level JSON. Level entities may include a `components` object to
-        // override default component values for that instance. We accept the
-        // instance `components` as JSON (stored in `LevelEntity.properties` as
-        // a serialized value) and merge keys — instance values overwrite type
-        // defaults.
+        // Merge entity-type components with optional level-entity overrides.
         let mut merged_components: std::collections::HashMap<String, serde_json::Value> =
             entity_type.components.clone().unwrap_or_default();
-
         if let Some(prop) = entity.properties.get("components") {
             match prop {
                 PropValue::Other(s) | PropValue::String(s) => {
@@ -129,7 +103,6 @@ pub fn spawn_entities(
             }
         }
 
-        // Helper closures to read optional properties from the merged components map.
         let components_obj = if merged_components.is_empty() { None } else { Some(&merged_components) };
         let get_u64 = |key: &str| -> Option<u64> {
             components_obj
@@ -147,6 +120,63 @@ pub fn spawn_entities(
         // and can be overridden via JSON key `orientation`.
         let orientation = Orientation::default()
             .override_from_json(merged_components.get("orientation"));
+
+        // Place transform at sprite centre (level coords use bottom-left).
+        let x = entity.x + sprite_w / 2.0;
+        let y = entity.y + sprite_h / 2.0;
+        let z = entity.z_index;
+
+        // ── Resolve animation frames ──────────────────────────────────────────
+        let (frames, sprite_image, sprite_color) = if let Some(ref eta) = entity_type_assets {
+            if let Some(state_assets) = eta.get_state(&entity.entity_type, &initial_state_name) {
+                let first = state_assets.frames.first().cloned();
+                if let Some(h) = first {
+                    (state_assets.frames.clone(), h, Color::WHITE)
+                } else {
+                    // Missing sprite → red fallback
+                    tracing::warn!(
+                        entity_type = %entity.entity_type,
+                        state = %initial_state_name,
+                        "spawn_entities: no frames in EntityTypeAssets, using red fallback"
+                    );
+                    (vec![], asset_server.load(""), MISSING_SPRITE_COLOR)
+                }
+            } else {
+                // State not in cache, fall back
+                build_frames_from_cfg(state_cfg, &asset_server)
+            }
+        } else {
+            // No EntityTypeAssets available → load on the fly
+            build_frames_from_cfg(state_cfg, &asset_server)
+        };
+
+        let anim_cfg = AnimationConfig::new(frames, state_cfg.animation_frame_ms);
+
+        // ── Collider ──────────────────────────────────────────────────────────
+        let collider = build_collider_from_box(state_cfg.collider_box.as_deref(), sprite_w, sprite_h);
+
+        // ── StateMachine ──────────────────────────────────────────────────────
+        let initial_state_enum = parse_entity_state(&initial_state_name);
+        let state_machine = StateMachine::new(initial_state_enum);
+
+        // ── SoundState ────────────────────────────────────────────────────────
+        let sound_state = SoundState::new(initial_state_enum);
+
+        let sprite = Sprite {
+            image: sprite_image,
+            color: sprite_color,
+            custom_size: Some(Vec2::new(sprite_w, sprite_h)),
+            flip_x: matches!(orientation.facing, FacingDirection::Left),
+            ..default()
+        };
+        let transform = Transform::from_xyz(x, y, z);
+
+        // Generic component assignment: add only components explicitly listed
+        // in the entity-type JSON (`entity_type.component`) or present in the
+        // type's `components` object.
+        let mut ent_cmd = commands.spawn((sprite, transform, anim_cfg, state_machine, sound_state, GameEntity));
+        let mut assigned_components: Vec<String> = Vec::new();
+
         ent_cmd.insert(orientation);
 
         // Debug: if a moving_platform override is present in the merged map,
@@ -281,11 +311,24 @@ pub fn spawn_entities(
             layer: entity.layer.clone(),
         });
 
-        tracing::info!(id = %entity.id, x, y, assigned_components = ?assigned_components, "Spawned entity with data-driven components");
+        tracing::info!(id = %entity.id, x, y, assigned_components = ?assigned_components, "Spawned entity");
     }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Build animation frames from a `StateConfig` by loading each path via the AssetServer.
+/// Returns (handles, first_handle, color).
+fn build_frames_from_cfg(
+    state_cfg: &StateConfig,
+    asset_server: &AssetServer,
+) -> (Vec<Handle<Image>>, Handle<Image>, Color) {
+    let frames: Vec<Handle<Image>> = state_cfg.animation.iter()
+        .map(|p| asset_server.load::<Image>(p))
+        .collect();
+    let first = frames.first().cloned().unwrap_or_else(|| asset_server.load(""));
+    (frames, first, Color::WHITE)
+}
 
 /// Map a state name string to the typed `EntityState` enum.
 fn parse_entity_state(s: &str) -> EntityState {
@@ -304,49 +347,5 @@ fn parse_entity_state(s: &str) -> EntityState {
             tracing::warn!(state = %s, "Unknown entity state string, defaulting to Idle");
             EntityState::Idle
         }
-    }
-}
-
-/// Build a `Collider` from a state's `collider_box` (pixel coords in image
-/// space, origin top-left). Falls back to the full sprite rectangle when the
-/// collider box is absent.
-///
-/// Conversion from image space to entity-local Bevy space:
-///   local_x = pixel_x − sprite_w / 2          (shift origin to centre)
-///   local_y = sprite_h / 2 − pixel_y          (flip Y axis)
-fn build_collider(state_cfg: &StateConfig, sprite_w: f32, sprite_h: f32) -> Collider {
-    if let Some(pts) = &state_cfg.collider_box {
-        if pts.len() >= 2 {
-            let min_x = pts.iter().map(|p| p[0]).fold(f32::MAX, f32::min);
-            let max_x = pts.iter().map(|p| p[0]).fold(f32::MIN, f32::max);
-            let min_y = pts.iter().map(|p| p[1]).fold(f32::MAX, f32::min);
-            let max_y = pts.iter().map(|p| p[1]).fold(f32::MIN, f32::max);
-
-            let half_w = (max_x - min_x) / 2.0;
-            let half_h = (max_y - min_y) / 2.0;
-
-            // Centre of the box in image space → entity-local Bevy space.
-            let cx_img = (min_x + max_x) / 2.0;
-            let cy_img = (min_y + max_y) / 2.0;
-            let offset_x = cx_img - sprite_w / 2.0;
-            let offset_y = sprite_h / 2.0 - cy_img;
-
-            return Collider {
-                offset: Vec2::new(offset_x, offset_y),
-                shape: ColliderShape::Rectangle {
-                    half_extents: Vec2::new(half_w, half_h),
-                },
-                is_trigger: false,
-            };
-        }
-    }
-
-    // Fallback: full sprite bounding box centred at origin.
-    Collider {
-        offset: Vec2::ZERO,
-        shape: ColliderShape::Rectangle {
-            half_extents: Vec2::new(sprite_w / 2.0, sprite_h / 2.0),
-        },
-        is_trigger: false,
     }
 }

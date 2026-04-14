@@ -41,12 +41,18 @@ pub struct StateConfig {
     /// Collision box as a list of [x, y] pixel points in sprite-image space.
     #[serde(default)]
     pub collider_box: Option<Vec<[f32; 2]>>,
-    /// Whether another state can interrupt this one before lock_ms elapses.
-    #[serde(default)]
-    pub interruptible: bool,
     /// Minimum time (ms) to stay in this state before transitioning.
     #[serde(default)]
     pub lock_ms: u64,
+    /// Sound played once when entering this state.
+    #[serde(default)]
+    pub sound_start: Option<String>,
+    /// Sound looped while this state is active (starts after sound_start ends).
+    #[serde(default)]
+    pub sound_loop: Option<String>,
+    /// Sound played once when leaving this state.
+    #[serde(default)]
+    pub sound_end: Option<String>,
 }
 
 fn default_animation_frame_ms() -> u64 {
@@ -191,7 +197,7 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
 
 /// Cached representation of a loaded level. The GameView can insert this
 /// Resource (or call `refresh`) to make a loaded level available to systems.
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug, Default, Clone)]
 pub(crate) struct CachedLevelDefinition {
     pub asset_path: Option<String>,
     pub level: Option<LevelDefinition>,

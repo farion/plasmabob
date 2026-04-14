@@ -13,7 +13,8 @@
       "projectile_type": "player_projectile",
       "speed": 2000.0,
       "range": 1000.0,
-      "cooldown_ms": 500
+      "cooldown_ms": 500,
+      "damage": 20
     },
     "controlled_movement": {
       "speed": 300.0,
@@ -26,42 +27,40 @@
           "animation": ["sprites/bob/bob-default.png"],
           "animation_frame_ms": 180,
           "collider_box": [[31, 10], [98, 10], [98, 118], [31, 118]],
-          "interruptible": true,
           "lock_ms": 0
         },
         "dead": {
           "animation": ["sprites/bob/bob-die.png"],
           "animation_frame_ms": 180,
+          "sound_start": "sounds/bob-die.wav",
           "collider_box": [[5, 19], [98, 19], [98, 76], [5, 76]],
-          "interruptible": false,
           "lock_ms": 0
         },
         "range_attacking": {
           "animation": ["sprites/bob/bob-fight.png"],
           "animation_frame_ms": 180,
           "collider_box": [[35, 10], [96, 10], [96, 121], [35, 121]],
-          "interruptible": true,
-          "lock_ms": 0
+          "lock_ms": 500
         },
         "damaged": {
           "animation": ["sprites/bob/bob-hit.png"],
           "animation_frame_ms": 180,
           "collider_box": [[28, 11], [90, 11], [90, 121], [28, 121]],
-          "interruptible": false,
           "lock_ms": 300
         },
         "jumping": {
           "animation": ["sprites/bob/bob-jump.png"],
           "animation_frame_ms": 180,
           "collider_box": [[29, 19], [92, 19], [92, 124], [29, 124]],
-          "interruptible": true,
           "lock_ms": 0
         },
         "moving": {
           "animation": ["sprites/bob/bob-walk-1.png", "sprites/bob/bob-walk-2.png"],
           "animation_frame_ms": 180,
+          "sound_start": "sounds/bob-startwalk.wav",
+          "sound_loop": "sounds/bob-walk.wav",
+          "sound_end": "sounds/bob-walk.wav",
           "collider_box": [[32, 7], [102, 7], [102, 120], [32, 120]],
-          "interruptible": true,
           "lock_ms": 0
         }
       }

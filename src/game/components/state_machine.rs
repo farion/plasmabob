@@ -122,3 +122,21 @@ impl StateMachine {
     }
 }
 
+impl EntityState {
+    /// Return the canonical lowercase state name used in JSON and the asset cache.
+    pub fn to_state_name(self) -> &'static str {
+        match self {
+            EntityState::Idle => "idle",
+            EntityState::Moving => "moving",
+            EntityState::Jumping => "jumping",
+            EntityState::Falling => "falling",
+            EntityState::Damaged => "damaged",
+            EntityState::Dying => "dying",
+            EntityState::Dead => "dead",
+            EntityState::MeleeAttacking => "melee_attacking",
+            EntityState::RangeAttacking => "range_attacking",
+            EntityState::Crouching => "crouching",
+        }
+    }
+}
+

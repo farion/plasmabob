@@ -12,7 +12,6 @@
           "animation": ["sprites/street/street-default.png"],
           "animation_frame_ms": 500,
           "collider_box": [[0, 0], [1522, 0], [1522, 155], [0, 155]],
-          "interruptible": true,
           "lock_ms": 0
         }
       }

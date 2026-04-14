@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::app_model::AppState;
 
+use crate::game::systems::animation_system::animation_tick_system;
 use crate::game::systems::enemy_random_patrol_system::enemy_random_patrol_system;
 use crate::game::systems::beam_update_system::beam_update_system;
 use crate::game::systems::gravity_integration_system::gravity_integration_system;
@@ -13,6 +14,7 @@ use crate::game::systems::player_control_system::player_control_system;
 use crate::game::systems::player_shoot_system::player_shoot_system;
 use crate::game::systems::projectile_collision_system::projectile_collision_system;
 use crate::game::systems::projectile_movement_system::projectile_movement_system;
+use crate::game::systems::sound_system::sound_system;
 use crate::game::systems::state_machine_update_system::state_machine_update_system;
 use crate::game::systems::track_previous_transform_system::track_previous_transform_system;
 use crate::game::systems::toggle_parallax_system::toggle_parallax_system;
@@ -54,6 +56,7 @@ impl Plugin for SystemsPlugin {
                 .chain()
                 .run_if(in_state(AppState::GameView)),
         )
+        // Split into two add_systems calls to stay within Bevy's 20-item tuple limit.
         .add_systems(
             Update,
             (
@@ -76,10 +79,23 @@ impl Plugin for SystemsPlugin {
                     .in_set(GameplaySet::Projectile)
                     .after(projectile_movement_system),
                 track_previous_transform_system.in_set(GameplaySet::Finalize),
+            ),
+        )
+        .add_systems(
+            Update,
+            (
                 orientation_update_system.in_set(GameplaySet::Finalize),
                 state_machine_update_system
                     .in_set(GameplaySet::Finalize)
                     .after(orientation_update_system),
+                // Animate sprites based on AnimationConfig frame timer.
+                animation_tick_system
+                    .in_set(GameplaySet::Finalize)
+                    .after(state_machine_update_system),
+                // Drive per-entity state sounds (start → loop → end sequencing).
+                sound_system
+                    .in_set(GameplaySet::Finalize)
+                    .after(state_machine_update_system),
                 // Debug maintenance systems
                 toggle_hitbox_debug_lines.in_set(GameplaySet::Input),
                 toggle_parallax_system.in_set(GameplaySet::Input),

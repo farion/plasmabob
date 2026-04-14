@@ -1,10 +1,14 @@
 use bevy::prelude::*;
 
 pub mod cleanup_level;
+pub mod collider_helper;
+pub mod entity_type_assets;
 pub mod follow_camera;
 pub mod setup_background;
 pub mod setup_canvas;
 pub mod spawn_entities;
+
+pub use entity_type_assets::{EntityTypeAsset, EntityTypeAssets, StateAssets};
 
 use crate::app_model::AppState;
 use crate::game::game_view::GameSetupSet;
@@ -19,7 +23,7 @@ use crate::game::systems::init_parallax_system::init_parallax_system;
 ///   1. `setup_canvas`      – position the camera at the player spawn
 ///   2. `setup_background`  – spawn tiled background sprites
 ///   3. `spawn_entities`    – spawn all level entities
-///
+///c
 /// An `Update` system (`follow_camera`) runs every frame while in `GameView`
 /// to keep the camera tracking the player at the configured screen anchor.
 /// A `PostUpdate` resize system reapplies the same camera rules immediately

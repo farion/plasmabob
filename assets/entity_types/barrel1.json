@@ -23,7 +23,6 @@
           "animation": ["sprites/barrel1/barrel1-default.png"],
           "animation_frame_ms": 500,
           "collider_box": [[1, 3], [67, 3], [67, 100], [1, 100]],
-          "interruptible": false,
           "lock_ms": 500
         }
       }

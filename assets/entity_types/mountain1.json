@@ -11,7 +11,6 @@
           "animation": ["sprites/mountain1/mountain1-default.png"],
           "animation_frame_ms": 500,
           "collider_box": [[0, 0], [945, 0], [945, 384], [0, 384]],
-          "interruptible": true,
           "lock_ms": 0
         }
       }
