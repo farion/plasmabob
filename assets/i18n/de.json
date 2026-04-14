@@ -31,6 +31,7 @@
   "action.move_left": "Laufen Links",
   "action.move_right": "Laufen Rechts",
   "action.jump": "Springen",
+  "action.crouch": "Ducken",
   "action.shoot": "Schießen",
   "action.fullscreen": "Vollbild",
   "action.toggle_mute": "Musik stummschalten",

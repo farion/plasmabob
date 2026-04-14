@@ -149,6 +149,7 @@ pub fn player_shoot_system(
         );
 
         attack.cooldown.reset();
+        attack.just_fired = true;
         *fire_requested = false;
     }
 

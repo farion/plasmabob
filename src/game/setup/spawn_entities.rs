@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde_json::Value as JsonValue;
 
-use crate::game::components::{AutoMovement, Blocking, Collider, ColliderShape, ControlledMovement, Damageable, GameEntity, Gravity, Health, MovingPlatform, RigidBody, StateMachine};
+use crate::game::components::{AutoMovement, Blocking, Collider, ColliderShape, ControlledMovement, Damageable, GameEntity, Gravity, Health, MovingPlatform, Orientation, RigidBody, StateMachine};
 use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::auto_range_attack::AutoRangeAttack;
 use crate::game::components::controlled_melee_attack::ControlledMeleeAttack;
@@ -143,6 +143,12 @@ pub fn spawn_entities(
                 .map(|s| s.to_string())
         };
 
+        // Orientation is always present on every entity (defaults to Right / 0°)
+        // and can be overridden via JSON key `orientation`.
+        let orientation = Orientation::default()
+            .override_from_json(merged_components.get("orientation"));
+        ent_cmd.insert(orientation);
+
         // Debug: if a moving_platform override is present in the merged map,
         // log the merged value so we can confirm level overrides are applied.
         if let Some(mp_val) = merged_components.get("moving_platform").or_else(|| merged_components.get("movingPlatform")).or_else(|| merged_components.get("moving-platform")) {
@@ -232,6 +238,9 @@ pub fn spawn_entities(
                     ent_cmd.insert(team);
                     assigned_components.push("Team".to_string());
                 }
+                // Orientation is always spawned with defaults; the key is accepted here
+                // so it doesn't produce an "unknown component" warning.
+                "orientation" => {}
                 other => {
                     // Unknown component names are currently ignored; designers
                     // must reference existing runtime components by name in JSON.

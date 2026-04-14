@@ -22,6 +22,9 @@ pub struct StateMachine {
     pub prev_state: Option<EntityState>,
     /// Time in seconds the entity has been in `state`.
     pub state_time: f32,
+    /// Duration in seconds the entity stays in the Dying state before transitioning to Dead.
+    /// Can be overridden via JSON key `dying_duration_secs`. Defaults to 1.0.
+    pub dying_duration_secs: f32,
 }
 
 impl StateMachine {
@@ -31,6 +34,7 @@ impl StateMachine {
             state,
             prev_state: None,
             state_time: 0.0,
+            dying_duration_secs: 1.0,
         }
     }
 
@@ -72,9 +76,11 @@ impl Default for StateMachine {
 
 impl StateMachine {
     /// Apply overrides from a JSON `components.state_machine` object.
+    ///
     /// Supported keys:
-    /// - `initial_state`: string name of the starting state (e.g. "idle", "moving")
+    /// - `initial_state`: string name of the starting state (e.g. `"idle"`, `"moving"`)
     /// - `state_time`: optional number to initialize the state's timer
+    /// - `dying_duration_secs`: number — how long the entity stays in Dying before transitioning to Dead
     pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
         if let Some(serde_json::Value::Object(map)) = comp_obj {
             if let Some(s) = map.get("initial_state").and_then(|v| v.as_str()) {
@@ -82,6 +88,9 @@ impl StateMachine {
             }
             if let Some(t) = map.get("state_time").and_then(|v| v.as_f64()) {
                 self.state_time = t as f32;
+            }
+            if let Some(d) = map.get("dying_duration_secs").and_then(|v| v.as_f64()) {
+                self.dying_duration_secs = (d as f32).max(0.0);
             }
         }
         self

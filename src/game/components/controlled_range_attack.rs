@@ -17,6 +17,9 @@ pub struct ControlledRangeAttack {
     pub shoot_effect: Option<String>,
     /// Name of the impact visual effect.
     pub impact_effect: Option<String>,
+    /// Set to `true` for exactly one frame when this entity fires a projectile.
+    /// Cleared by `state_machine_update_system` after it reads the signal.
+    pub just_fired: bool,
 }
 
 impl ControlledRangeAttack {
@@ -34,6 +37,7 @@ impl ControlledRangeAttack {
             projectile_type: None,
             shoot_effect: Some("plasma_shoot".to_string()),
             impact_effect: Some("plasma_impact".to_string()),
+            just_fired: false,
         }
     }
 }

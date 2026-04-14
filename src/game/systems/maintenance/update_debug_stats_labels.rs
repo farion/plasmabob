@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::runtime_components::SpawnedLevelEntity;
-use crate::game::components::{Collider, ColliderShape, Health, StateMachine};
+use crate::game::components::{Collider, ColliderShape, Health, Orientation, StateMachine};
 
 use super::draw_hitbox_debug_lines::DebugOwner;
 
@@ -24,12 +24,13 @@ pub(crate) fn update_debug_stats_labels(
         &Collider,
         Option<&Health>,
         Option<&StateMachine>,
+        Option<&Orientation>,
         Option<&crate::game::tags::PlayerTag>,
         Option<&crate::game::tags::EnemyTag>,
     )>,
 ) {
     for (dbg_owner, mut transform, mut text, text_font_opt, text_color_opt) in &mut query_labels {
-        if let Ok((spawned, owner_tf, collider, health_opt, sm_opt, player_opt, enemy_opt)) = owners.get(dbg_owner.0) {
+        if let Ok((spawned, owner_tf, collider, health_opt, sm_opt, orientation_opt, player_opt, enemy_opt)) = owners.get(dbg_owner.0) {
             let mut lines: Vec<String> = Vec::new();
             lines.push(format!("{} : {}", spawned.entity_type, spawned.id));
             if let Some(h) = health_opt {
@@ -37,6 +38,17 @@ pub(crate) fn update_debug_stats_labels(
             }
             if let Some(sm) = sm_opt {
                 lines.push(format!("State: {:?}", sm.state));
+            }
+            if let Some(orientation) = orientation_opt {
+                // Derive angle in degrees from the surface_alignment Vec2.
+                // Vec2::ZERO yields 0°; any non-zero vector yields the angle
+                // it makes with the positive X axis (world right).
+                let angle_deg = if orientation.surface_alignment.length_squared() > f32::EPSILON {
+                    orientation.surface_alignment.y.atan2(orientation.surface_alignment.x).to_degrees()
+                } else {
+                    0.0
+                };
+                lines.push(format!("Orientation: {:?} {:.0}°", orientation.facing, angle_deg));
             }
             let joined = lines.join("\n");
             text.0 = joined;

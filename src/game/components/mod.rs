@@ -14,6 +14,7 @@ pub mod damageable;
 pub mod team;
 pub mod moving_platform;
 pub mod plasma;
+pub mod orientation;
 
 // Re-exports for convenience
 pub use collider::{Collider, ColliderShape};
@@ -24,6 +25,7 @@ pub use controlled_movement::ControlledMovement;
 pub use blocking::Blocking;
 pub use gravity::Gravity;
 pub use state_machine::{StateMachine, EntityState};
+pub use orientation::{Orientation, FacingDirection};
 // GameEntity is defined in runtime_components; re-export it here so callers
 // that expect `crate::game::components::GameEntity` continue to work.
 pub use crate::game::runtime_components::game_entity::GameEntity;

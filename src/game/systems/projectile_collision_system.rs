@@ -28,13 +28,13 @@ pub fn projectile_collision_system(
             &Transform,
             &Collider,
             Option<&Blocking>,
-            Option<&Damageable>,
             Option<&RigidBody>,
             Option<&Team>,
         ),
     >,
     teams: Query<&Team>,
     mut health_query: Query<&mut Health>,
+    mut damageable_query: Query<&mut Damageable>,
     mut beams: Query<(Entity, &mut PlasmaBeam)>,
 ) {
     let dt = time.delta_secs();
@@ -59,7 +59,7 @@ pub fn projectile_collision_system(
 
         let mut best_hit: Option<HitCandidate> = None;
 
-        for (target_entity, target_transform, target_collider, blocking, damageable, target_body, target_team) in
+        for (target_entity, target_transform, target_collider, blocking, target_body, target_team) in
             &targets
         {
             if target_entity == projectile.owner || target_entity == projectile_entity {
@@ -67,7 +67,7 @@ pub fn projectile_collision_system(
             }
 
             let is_blocking = blocking.is_some();
-            let is_damageable = damageable.is_some();
+            let is_damageable = damageable_query.contains(target_entity);
             if !is_blocking && !is_damageable {
                 continue;
             }
@@ -117,6 +117,10 @@ pub fn projectile_collision_system(
             if hit.is_damageable {
                 if let Ok(mut health) = health_query.get_mut(hit.entity) {
                     health.damage(projectile.damage);
+                }
+                // Trigger the Damaged state by resetting the damaged timer.
+                if let Ok(mut dmg) = damageable_query.get_mut(hit.entity) {
+                    dmg.damaged_timer = dmg.damaged_duration_secs;
                 }
             }
 

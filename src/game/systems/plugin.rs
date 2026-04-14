@@ -8,10 +8,12 @@ use crate::game::systems::gravity_integration_system::gravity_integration_system
 use crate::game::systems::grounding_evaluation_system::grounding_evaluation_system;
 use crate::game::systems::moving_platform_system::moving_platform_system;
 use crate::game::systems::movement_resolution_system::movement_resolution_system;
+use crate::game::systems::orientation_update_system::orientation_update_system;
 use crate::game::systems::player_control_system::player_control_system;
 use crate::game::systems::player_shoot_system::player_shoot_system;
 use crate::game::systems::projectile_collision_system::projectile_collision_system;
 use crate::game::systems::projectile_movement_system::projectile_movement_system;
+use crate::game::systems::state_machine_update_system::state_machine_update_system;
 use crate::game::systems::track_previous_transform_system::track_previous_transform_system;
 use crate::game::systems::toggle_parallax_system::toggle_parallax_system;
 use crate::game::systems::maintenance::{
@@ -74,6 +76,10 @@ impl Plugin for SystemsPlugin {
                     .in_set(GameplaySet::Projectile)
                     .after(projectile_movement_system),
                 track_previous_transform_system.in_set(GameplaySet::Finalize),
+                orientation_update_system.in_set(GameplaySet::Finalize),
+                state_machine_update_system
+                    .in_set(GameplaySet::Finalize)
+                    .after(orientation_update_system),
                 // Debug maintenance systems
                 toggle_hitbox_debug_lines.in_set(GameplaySet::Input),
                 toggle_parallax_system.in_set(GameplaySet::Input),
