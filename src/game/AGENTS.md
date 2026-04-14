@@ -170,3 +170,7 @@ Styling of the elements:
 Basically all bars are looking the same, just with different colors and icons. The health bar is red, the plasma cooldown is blue, and the ego bar is yellow. The bars also have a white border. Each bar has an icon on the left side that represents what the bar is for, a heart icon (icons/heart.png) for the health bar, a lightning bolt icon (icons/lightning.png) for the plasma cooldown, and a brain icon (icons/ego.png) for the ego bar. The level time and score are displayed in white text with a black outline for better visibility against different backgrounds. The lives are displayed as heart icons (icons/heart.png) in the bottom left corner of the screen, with each icon representing one life. 
 
 The implementation for the HUD lives in src/game/hud
+
+
+If an entity is dying or dead it should not be able to deal damage, interact with the player in any way or got hit/block projectiles, but it can still be affected by gravity and other environmental factors until it is removed from the game world.
+The health component defines the despawn. `despawn_on_death` which is a bool defines if the entity despawns on death and `despawn_delay_ms` defines how long it will take. If the `despawn_delay_ms` is over the entity will fade out for 500 ms and then be removed from the game world. If `despawn_on_death` is false, the entity will not despawn on death and will remain in the game world, but it will still be considered dead.

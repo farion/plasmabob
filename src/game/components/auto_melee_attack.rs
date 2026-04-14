@@ -1,4 +1,5 @@
 use bevy::prelude::{Component, Timer, TimerMode};
+use std::time::Duration;
 
 /// Simple autonomous melee attack (enemies that swipe or bite).
 #[derive(Component, Debug, Clone)]
@@ -11,11 +12,18 @@ pub struct AutoMeleeAttack {
     pub cooldown: Timer,
     /// Enabled flag.
     pub enabled: bool,
+    /// One-frame signal set by `auto_melee_attack_system` when an attack fires.
+    /// Read and cleared by `state_machine_update_system` to trigger `MeleeAttacking`.
+    pub just_attacked: bool,
 }
 
 impl AutoMeleeAttack {
     pub fn new(damage: i32, range: f32, interval_s: f32) -> Self {
-        AutoMeleeAttack { damage, range, cooldown: Timer::from_seconds(interval_s, TimerMode::Repeating), enabled: true }
+        let duration = Duration::from_secs_f32(interval_s.max(f32::EPSILON));
+        let mut cooldown = Timer::new(duration, TimerMode::Repeating);
+        // Pre-elapse the timer so the first overlap fires damage immediately.
+        cooldown.set_elapsed(duration);
+        AutoMeleeAttack { damage, range, cooldown, enabled: true, just_attacked: false }
     }
 }
 
@@ -36,9 +44,15 @@ impl AutoMeleeAttack {
                 self.range = r as f32;
             }
             if let Some(ms) = map.get("cooldown_ms").and_then(|n| n.as_u64()) {
-                self.cooldown = Timer::from_seconds(ms as f32 / 1000.0, TimerMode::Repeating);
+                let dur = Duration::from_millis(ms.max(1));
+                let mut t = Timer::new(dur, TimerMode::Repeating);
+                t.set_elapsed(dur);
+                self.cooldown = t;
             } else if let Some(s) = map.get("interval_s").and_then(|n| n.as_f64()) {
-                self.cooldown = Timer::from_seconds(s as f32, TimerMode::Repeating);
+                let dur = Duration::from_secs_f32((s as f32).max(f32::EPSILON));
+                let mut t = Timer::new(dur, TimerMode::Repeating);
+                t.set_elapsed(dur);
+                self.cooldown = t;
             }
             if let Some(b) = map.get("enabled").and_then(|n| n.as_bool()) {
                 self.enabled = b;

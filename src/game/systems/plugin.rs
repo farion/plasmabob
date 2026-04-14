@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::app_model::AppState;
 
 use crate::game::systems::animation_system::animation_tick_system;
+use crate::game::systems::auto_melee_attack_system::auto_melee_attack_system;
 use crate::game::systems::enemy_random_patrol_system::enemy_random_patrol_system;
 use crate::game::systems::beam_update_system::beam_update_system;
 use crate::game::systems::gravity_integration_system::gravity_integration_system;
@@ -65,6 +66,7 @@ impl Plugin for SystemsPlugin {
                     .in_set(GameplaySet::Input)
                     .after(player_control_system),
                 enemy_random_patrol_system.in_set(GameplaySet::Ai),
+                auto_melee_attack_system.in_set(GameplaySet::Ai),
                 gravity_integration_system.in_set(GameplaySet::Physics),
                 moving_platform_system
                     .in_set(GameplaySet::Physics)

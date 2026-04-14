@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::components::controlled_range_attack::ControlledRangeAttack;
+use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::{
     AutoMovement, Collider, ControlledMovement, Damageable, EntityState, Gravity, Health,
     MovingPlatform, RigidBody, StateMachine,
@@ -14,14 +15,15 @@ use crate::helper::key_bindings::KeyBindings;
 /// combat and damage signals.
 ///
 /// Priority order (highest wins):
-///   Dead > Dying > RangeAttacking > Damaged > Jumping / Crouching / Falling > Moving > Idle
+///   Dead > Dying > MeleeAttacking > RangeAttacking > Damaged > Jumping / Crouching / Falling > Moving > Idle
 ///
 /// Rules:
 /// - **Dead**: terminal — no further transitions.
 /// - **Dying**: waits `dying_duration_secs` (tracked via `state_time`) then becomes Dead.
 /// - **Dying (new)**: triggered when `Health.is_dead()` is true.
+/// - **MeleeAttacking**: one-frame signal from `AutoMeleeAttack.just_attacked`; cleared here.
 /// - **RangeAttacking**: one-frame signal from `ControlledRangeAttack.just_fired`; cleared here.
-/// - **Damaged**: `Damageable.damaged_timer > 0` (set by `projectile_collision_system`; ticked down here).
+/// - **Damaged**: `Damageable.damaged_timer > 0` (set by collision systems; ticked down here).
 /// - **Jumping**: `ControlledMovement` entity, airborne, moving upward.
 /// - **Crouching**: `ControlledMovement` entity, crouch key held.
 /// - **Falling**: any entity with `Gravity`, airborne, moving downward.
@@ -37,6 +39,7 @@ pub fn state_machine_update_system(
         Option<&mut Damageable>,
         Option<&Health>,
         Option<&mut ControlledRangeAttack>,
+        Option<&mut AutoMeleeAttack>,
         Option<&ControlledMovement>,
         Option<&AutoMovement>,
         Option<&MovingPlatform>,
@@ -56,6 +59,7 @@ pub fn state_machine_update_system(
         mut damageable,
         health,
         mut controlled_attack,
+        mut auto_melee,
         controlled_movement,
         auto_movement,
         moving_platform,
@@ -105,6 +109,15 @@ pub fn state_machine_update_system(
             atk.just_fired = false;
         }
 
+        // --- Read and immediately clear the one-frame melee-attack signal ---
+        let is_melee_attacking = auto_melee
+            .as_ref()
+            .map(|a| a.just_attacked)
+            .unwrap_or(false);
+        if let Some(ref mut ma) = auto_melee {
+            ma.just_attacked = false;
+        }
+
         // --- Damaged: timer was decremented above; check remaining time ---
         let is_damaged = damageable
             .as_ref()
@@ -128,7 +141,9 @@ pub fn state_machine_update_system(
             || moving_platform.map(|mp| mp.can_move()).unwrap_or(false);
 
         // --- Apply priority ladder (highest-priority condition wins) ---
-        let new_state = if is_range_attacking {
+        let new_state = if is_melee_attacking {
+            EntityState::MeleeAttacking
+        } else if is_range_attacking {
             EntityState::RangeAttacking
         } else if is_damaged {
             EntityState::Damaged

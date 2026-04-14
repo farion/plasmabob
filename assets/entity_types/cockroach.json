@@ -8,7 +8,11 @@
     "gravity": {},
     "rigid_body": {},
     "team": { "name": "enemy" },
-    "health": { "health": 30 },
+    "health": {
+      "health": 30,
+      "despawn_on_death": true,
+      "despawn_delay_ms": 5000
+    },
     "auto_range_attack": {
       "damage": 10,
       "range": 1000,
@@ -17,7 +21,6 @@
     },
     "auto_melee_attack": {
       "damage": 10,
-      "range": 50,
       "cooldown_ms": 1000
     },
     "auto_movement": {
@@ -40,6 +43,17 @@
           "collider_box": [[0, 0], [166, 0], [166, 94], [0, 94]],
           "lock_ms": 0
         },
+        "melee_attacking": {
+          "animation": [
+            "sprites/cockroach/cockroach-attack-1.png",
+            "sprites/cockroach/cockroach-attack-2.png",
+            "sprites/cockroach/cockroach-attack-3.png",
+            "sprites/cockroach/cockroach-range_attack.png"
+          ],
+          "animation_frame_ms": 300,
+          "collider_box": [[7, 5], [159, 5], [159, 121], [7, 121]],
+          "lock_ms": 500
+        },
         "range_attacking": {
           "animation": [
             "sprites/cockroach/cockroach-attack-1.png",
@@ -49,7 +63,7 @@
           ],
           "animation_frame_ms": 300,
           "collider_box": [[7, 5], [159, 5], [159, 121], [7, 121]],
-          "lock_ms": 0
+          "lock_ms": 500
         },
         "damaged": {
           "animation": ["sprites/cockroach/cockroach-hit.png"],
