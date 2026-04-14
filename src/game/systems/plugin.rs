@@ -25,7 +25,7 @@ use crate::game::systems::maintenance::{
     update_debug_stats_labels::update_debug_stats_labels,
 };
 use crate::game::systems::level_end::check_level_end;
-use crate::game::systems::hud::pause_menu::{update_pause_menu, PauseMenuState};
+use crate::game::hud::pause_menu::{update_pause_menu, PauseMenuState};
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GameplaySet {

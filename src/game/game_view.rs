@@ -35,6 +35,7 @@ impl Plugin for GameViewPlugin {
             OnExit(AppState::GameView),
             (cleanup_cached_level, reset_main_camera, reset_music_to_menu),
         )
+        .add_plugins(crate::game::hud::HudPlugin)
         .add_plugins(crate::game::setup::SetupPlugin)
         .add_plugins(crate::game::systems::SystemsPlugin);
     }
