@@ -29,6 +29,37 @@ pub(crate) fn ensure_plasma_particle_image(
     handle
 }
 
+#[derive(Resource)]
+pub(crate) struct PlasmaParticleImage(pub Handle<Image>);
+
+pub(crate) fn preload_plasma_particle_image(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+) {
+    let handle = images.add(create_plasma_particle_image(PLASMA_PARTICLE_TEXTURE_SIZE));
+    commands.insert_resource(PlasmaParticleImage(handle));
+}
+
+/// Clean up the preloaded plasma particle image resource and remove the
+/// generated Image from the asset storage. This should be called when the
+/// level (GameView) exits so we don't keep the generated texture resident
+/// across levels or in the main menu.
+pub(crate) fn cleanup_plasma_particle_image(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    plasma_res: Option<Res<PlasmaParticleImage>>,
+) {
+    if let Some(res) = plasma_res {
+        // Remove the image asset from the Assets<Image> pool. Clone the
+        // handle because `remove` takes ownership.
+        let handle = res.0.clone();
+        // `Assets::remove` expects the handle id/asset id; use `handle.id()`.
+        images.remove(handle.id());
+        // Remove the resource so subsequent levels can preload afresh.
+        commands.remove_resource::<PlasmaParticleImage>();
+    }
+}
+
 pub(crate) fn spawn_plasma_beam_particles(
     beam_entity: &mut EntityCommands,
     particle_image: &Handle<Image>,

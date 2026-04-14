@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-use crate::game::components::plasma::PLASMA_Z;
 use crate::game::gfx::helpers::PlasmaImpactParticle;
 use crate::game::gfx::plasma_sizes::{
     PLASMA_IMPACT_AFTERGLOW_SIZE_MIN, PLASMA_IMPACT_AFTERGLOW_SIZE_RANGE,
@@ -15,8 +14,9 @@ pub(crate) fn spawn_plasma_impact_explosion(
     commands: &mut Commands,
     particle_image: &Handle<Image>,
     impact_position: Vec2,
+    impact_z: f32,
 ) {
-    let z = PLASMA_Z + 0.25;
+    let z = impact_z + 0.25;
     let base_seed = impact_position.x.to_bits().wrapping_mul(31)
         ^ impact_position.y.to_bits().wrapping_mul(131)
         ^ 0xA531_77D3;

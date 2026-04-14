@@ -21,9 +21,11 @@ pub struct ControlledRangeAttack {
 
 impl ControlledRangeAttack {
     pub fn new(damage: i32, range: f32, speed: f32, cooldown_s: f32) -> Self {
-        let mut cooldown = Timer::from_seconds(cooldown_s, TimerMode::Repeating);
-        // Start ready so the player can fire immediately.
-        cooldown.tick(std::time::Duration::from_secs_f32(cooldown_s.max(0.0)));
+        let cooldown_secs = cooldown_s.max(0.0);
+        // Use a one-shot timer: ready state stays true after finishing until reset on fire.
+        let mut cooldown = Timer::from_seconds(cooldown_secs, TimerMode::Once);
+        // Start ready so the very first trigger press fires immediately.
+        cooldown.tick(std::time::Duration::from_secs_f32(cooldown_secs));
         ControlledRangeAttack {
             damage,
             range,
@@ -61,12 +63,12 @@ impl ControlledRangeAttack {
             }
             if let Some(ms) = map.get("cooldown_ms").and_then(|n| n.as_u64()) {
                 let cooldown_s = ms as f32 / 1000.0;
-                self.cooldown = Timer::from_seconds(cooldown_s, TimerMode::Repeating);
+                self.cooldown = Timer::from_seconds(cooldown_s.max(0.0), TimerMode::Once);
                 self.cooldown
                     .tick(std::time::Duration::from_secs_f32(cooldown_s.max(0.0)));
             } else if let Some(s) = map.get("cooldown_s").and_then(|n| n.as_f64()) {
                 let cooldown_s = s as f32;
-                self.cooldown = Timer::from_seconds(cooldown_s, TimerMode::Repeating);
+                self.cooldown = Timer::from_seconds(cooldown_s.max(0.0), TimerMode::Once);
                 self.cooldown
                     .tick(std::time::Duration::from_secs_f32(cooldown_s.max(0.0)));
             }

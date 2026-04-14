@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::{Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, Team};
 use crate::game::gfx::plasma_impact::spawn_plasma_impact_explosion;
-use crate::game::gfx::plasma_shoot::ensure_plasma_particle_image;
+use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, PlasmaParticleImage};
 use crate::game::runtime_components::Projectile;
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::sounds::spawn_combat_sfx;
@@ -20,6 +20,7 @@ pub fn projectile_collision_system(
     audio_settings: Res<AudioSettings>,
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
+    particle_image_res: Option<Res<PlasmaParticleImage>>,
     projectiles: Query<(Entity, &Transform, &Collider, &RigidBody, &Projectile)>,
     targets: Query<
         (
@@ -125,8 +126,13 @@ pub fn projectile_collision_system(
                 .unwrap_or("plasma_impact")
                 .eq_ignore_ascii_case("plasma_impact")
             {
-                let particle_image = ensure_plasma_particle_image(&mut plasma_particle_image, &mut images);
-                spawn_plasma_impact_explosion(&mut commands, &particle_image, hit.impact_position);
+                let particle_image = if let Some(resource) = particle_image_res.as_ref() {
+                    resource.0.clone()
+                } else {
+                    ensure_plasma_particle_image(&mut plasma_particle_image, &mut images)
+                };
+                let impact_z = projectile_transform.translation.z;
+                spawn_plasma_impact_explosion(&mut commands, &particle_image, hit.impact_position, impact_z);
             }
             spawn_combat_sfx(
                 &mut commands,

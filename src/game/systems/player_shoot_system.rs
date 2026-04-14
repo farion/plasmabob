@@ -1,10 +1,13 @@
 use bevy::prelude::*;
+// InheritedVisibility is available via the prelude import above (bevy::prelude::*).
 // No debug logging in hot input path to avoid spam in release runs.
 
 use crate::game::components::controlled_range_attack::ControlledRangeAttack;
 use crate::game::components::plasma::{PlasmaBeam, PLASMA_Z};
 use crate::game::components::{Collider, ColliderShape, RigidBody};
-use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, spawn_plasma_beam_particles};
+use crate::game::gfx::plasma_shoot::{
+    ensure_plasma_particle_image, spawn_plasma_beam_particles, PlasmaParticleImage,
+};
 use crate::game::runtime_components::{Facing, GameEntity, Projectile};
 use crate::game::tags::PlayerTag;
 use crate::helper::audio_settings::AudioSettings;
@@ -23,6 +26,7 @@ pub fn player_shoot_system(
     audio_settings: Res<AudioSettings>,
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
+    particle_image_res: Option<Res<PlasmaParticleImage>>,
     // Per-system local request flag: stores whether the player tapped shoot
     // and awaits cooldown completion. Also track previous pressed state to
     // detect presses that sometimes aren't reported as just_pressed due to
@@ -44,6 +48,9 @@ pub fn player_shoot_system(
     // Set the request flag when the key was just pressed.
     if shoot_just_pressed {
         *fire_requested = true;
+        // Log the raw input event once per press so we can diagnose perceived input latency.
+        // This is intentionally an info-level, one-shot log to avoid spamming the hot input path.
+        info!("Shoot key pressed - enqueued fire request");
     }
 
     // (global input detection already logged above when just pressed)
@@ -56,6 +63,16 @@ pub fn player_shoot_system(
         // If the player requested a shot and the cooldown is ready, fire.
         let cooldown_fraction = attack.cooldown.fraction();
         let cooldown_ready = attack.cooldown.just_finished() || attack.cooldown.is_finished();
+        // If this press happened this frame, log whether the cooldown is ready so
+        // it's possible to determine if the delay is input->spawn or cooldown-related.
+        if shoot_just_pressed {
+            if cooldown_ready {
+                info!("Player {:?} - shoot pressed and cooldown ready (fraction={:.2})", player_entity, cooldown_fraction);
+            } else {
+                info!("Player {:?} - shoot pressed but cooldown NOT ready (fraction={:.2}); request queued", player_entity, cooldown_fraction);
+            }
+        }
+
         if !*fire_requested || !cooldown_ready {
             continue;
         }
@@ -67,10 +84,11 @@ pub fn player_shoot_system(
         };
 
         let origin = player_transform.translation.truncate();
+        let entity_z = player_transform.translation.z;
         let projectile_entity = commands
             .spawn((
                 Name::new("PlayerProjectile"),
-                Transform::from_xyz(origin.x, origin.y, PLASMA_Z),
+                Transform::from_xyz(origin.x, origin.y, entity_z),
                 Collider {
                     offset: Vec2::ZERO,
                     shape: ColliderShape::Rectangle {
@@ -94,6 +112,7 @@ pub fn player_shoot_system(
             ))
             .id();
 
+        info!("Player {:?} spawned projectile {:?} (speed={}, damage={})", player_entity, projectile_entity, attack.speed, attack.damage);
         // projectile spawned
 
         if attack
@@ -103,12 +122,19 @@ pub fn player_shoot_system(
             .eq_ignore_ascii_case("plasma_shoot")
         {
             // plasma beam spawned
-            let particle_image =
-                ensure_plasma_particle_image(&mut plasma_particle_image, &mut images);
+            let particle_image = if let Some(resource) = particle_image_res.as_ref() {
+                resource.0.clone()
+            } else {
+                ensure_plasma_particle_image(&mut plasma_particle_image, &mut images)
+            };
             let mut beam_cmd = commands.spawn((
                 Name::new("PlasmaBeam"),
-                Transform::from_xyz(origin.x, origin.y, PLASMA_Z),
+                Transform::from_xyz(origin.x, origin.y, entity_z),
                 GlobalTransform::default(),
+                // Ensure parent has Visibility/ComputedVisibility so child sprites using
+                // inherited visibility don't trigger Bevy warning B0004.
+                Visibility::default(),
+                InheritedVisibility::default(),
                 PlasmaBeam::new(origin, facing_dir.x.signum(), Some(projectile_entity)),
                 GameEntity,
             ));

@@ -13,7 +13,7 @@
       "projectile_type": "player_projectile",
       "speed": 2000.0,
       "range": 1000.0,
-      "cooldown_ms": 1000
+      "cooldown_ms": 500
     },
     "controlled_movement": {
       "speed": 300.0,

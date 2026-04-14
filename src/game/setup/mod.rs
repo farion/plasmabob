@@ -8,6 +8,7 @@ pub mod spawn_entities;
 
 use crate::app_model::AppState;
 use crate::game::game_view::GameSetupSet;
+use crate::game::gfx::plasma_shoot::{preload_plasma_particle_image, cleanup_plasma_particle_image};
 
 /// Plugin that registers the initial level-setup systems and the exit cleanup.
 ///
@@ -31,6 +32,9 @@ impl Plugin for SetupPlugin {
         app.add_systems(
             OnEnter(AppState::GameView),
             (
+                // Preload plasma particle image at level start so beam/impact
+                // visuals are available for the current level only.
+                preload_plasma_particle_image,
                 setup_canvas::setup_canvas,
                 setup_background::setup_background,
                 spawn_entities::spawn_entities,
@@ -48,7 +52,12 @@ impl Plugin for SetupPlugin {
         )
         .add_systems(
             OnExit(AppState::GameView),
-            cleanup_level::cleanup_game_entities,
+            (
+                cleanup_level::cleanup_game_entities,
+                // Remove the preloaded plasma particle image and free the
+                // generated texture so it doesn't persist between levels.
+                cleanup_plasma_particle_image,
+            ),
         );
     }
 }
