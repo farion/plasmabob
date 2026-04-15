@@ -2,8 +2,11 @@ use bevy::prelude::*;
 
 use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::{Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, StateMachine, Team};
+use crate::game::gfx::fire::spawn_fire_particles;
 use crate::game::gfx::plasma_impact::spawn_plasma_impact_explosion;
 use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, PlasmaParticleImage};
+use crate::game::gfx::poison::spawn_poison_particles;
+use crate::game::gfx::spit::spawn_spit_particles;
 use crate::game::runtime_components::Projectile;
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::sounds::spawn_combat_sfx;
@@ -89,7 +92,7 @@ pub fn projectile_collision_system(
             let target_team_name = target_team
                 .map(|team| team.name.as_str())
                 .unwrap_or(NEUTRAL_TEAM);
-            if owner_team == target_team_name {
+            if is_damageable && owner_team == target_team_name {
                 continue;
             }
 
@@ -138,19 +141,23 @@ pub fn projectile_collision_system(
                 }
             }
 
-            if projectile
-                .impact_effect
-                .as_deref()
-                .unwrap_or("plasma_impact")
-                .eq_ignore_ascii_case("plasma_impact")
-            {
+            let impact_effect = projectile.impact_effect.as_deref().unwrap_or("plasma_impact");
+            if is_supported_impact_effect(impact_effect) {
                 let particle_image = if let Some(resource) = particle_image_res.as_ref() {
                     resource.0.clone()
                 } else {
                     ensure_plasma_particle_image(&mut plasma_particle_image, &mut images)
                 };
                 let impact_z = projectile_transform.translation.z;
-                spawn_plasma_impact_explosion(&mut commands, &particle_image, hit.impact_position, impact_z);
+                spawn_projectile_impact_effect(
+                    &mut commands,
+                    &particle_image,
+                    impact_effect,
+                    hit.impact_position,
+                    impact_z,
+                    projectile_body.velocity,
+                    entity_seed(projectile_entity),
+                );
             }
             spawn_combat_sfx(
                 &mut commands,
@@ -163,6 +170,51 @@ pub fn projectile_collision_system(
             commands.entity(projectile_entity).despawn();
         }
     }
+}
+
+fn is_supported_impact_effect(effect: &str) -> bool {
+    effect.eq_ignore_ascii_case("plasma_impact")
+        || effect.eq_ignore_ascii_case("fire_impact")
+        || effect.eq_ignore_ascii_case("poison_impact")
+        || effect.eq_ignore_ascii_case("spit_impact")
+}
+
+fn spawn_projectile_impact_effect(
+    commands: &mut Commands,
+    particle_image: &Handle<Image>,
+    impact_effect: &str,
+    position: Vec2,
+    z: f32,
+    projectile_velocity: Vec2,
+    seed_base: u32,
+) {
+    if impact_effect.eq_ignore_ascii_case("plasma_impact") {
+        spawn_plasma_impact_explosion(commands, particle_image, position, z);
+    } else if impact_effect.eq_ignore_ascii_case("fire_impact") {
+        spawn_fire_particles(
+            commands,
+            particle_image,
+            position,
+            z,
+            seed_base,
+            projectile_velocity.normalize_or_zero(),
+        );
+    } else if impact_effect.eq_ignore_ascii_case("poison_impact") {
+        spawn_poison_particles(
+            commands,
+            particle_image,
+            position,
+            z,
+            seed_base,
+            projectile_velocity * 0.2,
+        );
+    } else if impact_effect.eq_ignore_ascii_case("spit_impact") {
+        spawn_spit_particles(commands, particle_image, position, z, seed_base);
+    }
+}
+
+fn entity_seed(entity: Entity) -> u32 {
+    (entity.to_bits() & 0xFFFF_FFFF) as u32
 }
 
 #[derive(Debug, Clone, Copy)]

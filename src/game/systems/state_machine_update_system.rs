@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::game::components::controlled_range_attack::ControlledRangeAttack;
 use crate::game::components::auto_melee_attack::AutoMeleeAttack;
+use crate::game::components::auto_range_attack::AutoRangeAttack;
 use crate::game::components::{
     AutoMovement, Collider, ControlledMovement, Damageable, EntityState, Gravity, Health,
     MovingPlatform, RigidBody, StateMachine,
@@ -39,6 +40,7 @@ pub fn state_machine_update_system(
         Option<&mut Damageable>,
         Option<&Health>,
         Option<&mut ControlledRangeAttack>,
+        Option<&mut AutoRangeAttack>,
         Option<&mut AutoMeleeAttack>,
         Option<&ControlledMovement>,
         Option<&AutoMovement>,
@@ -59,6 +61,7 @@ pub fn state_machine_update_system(
         mut damageable,
         health,
         mut controlled_attack,
+        mut auto_range_attack,
         mut auto_melee,
         controlled_movement,
         auto_movement,
@@ -104,8 +107,15 @@ pub fn state_machine_update_system(
         let is_range_attacking = controlled_attack
             .as_ref()
             .map(|a| a.just_fired)
-            .unwrap_or(false);
+            .unwrap_or(false)
+            || auto_range_attack
+                .as_ref()
+                .map(|a| a.just_fired)
+                .unwrap_or(false);
         if let Some(ref mut atk) = controlled_attack {
+            atk.just_fired = false;
+        }
+        if let Some(ref mut atk) = auto_range_attack {
             atk.just_fired = false;
         }
 

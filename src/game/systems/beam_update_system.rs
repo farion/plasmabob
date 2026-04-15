@@ -1,5 +1,5 @@
 use crate::game::components::plasma::PlasmaBeam;
-use crate::game::gfx::helpers::{PlasmaBeamParticle, PlasmaImpactParticle};
+use crate::game::gfx::helpers::{PlasmaBeamParticle, PlasmaImpactParticle, ProjectileEffectParticle};
 use crate::game::gfx::plasma_shoot::update_beam_particles;
 use bevy::prelude::*;
 
@@ -39,6 +39,15 @@ pub fn beam_update_system(
         (
             Without<PlasmaBeamParticle>,
             Without<crate::game::runtime_components::Projectile>,
+        ),
+    >,
+    mut projectile_effect_particles: Query<
+        (Entity, &mut ProjectileEffectParticle, &mut Transform, &mut Sprite),
+        (
+            Without<PlasmaBeamParticle>,
+            Without<PlasmaImpactParticle>,
+            Without<crate::game::runtime_components::Projectile>,
+            Without<PlasmaBeam>,
         ),
     >,
 ) {
@@ -90,6 +99,24 @@ pub fn beam_update_system(
         sprite.custom_size = Some(Vec2::splat(size));
         sprite.color.set_alpha((1.08 - fraction * 0.72).clamp(0.0, 1.0));
         if impact.lifetime.just_finished() {
+            commands.entity(particle_entity).despawn();
+        }
+    }
+
+    for (particle_entity, mut particle, mut transform, mut sprite) in &mut projectile_effect_particles {
+        particle.lifetime.tick(time.delta());
+        transform.translation.x += particle.velocity.x * dt;
+        transform.translation.y += particle.velocity.y * dt;
+
+        let fraction = particle.lifetime.fraction();
+        let size = (particle.start_size * (1.0 - fraction * 0.35)).max(0.0);
+        sprite.custom_size = Some(Vec2::splat(size));
+
+        let mut color = particle.base_color;
+        color.set_alpha((1.0 - fraction * 0.85).clamp(0.0, 1.0));
+        sprite.color = color;
+
+        if particle.lifetime.just_finished() {
             commands.entity(particle_entity).despawn();
         }
     }
