@@ -12,6 +12,7 @@ pub use entity_type_assets::{EntityTypeAsset, EntityTypeAssets, StateAssets};
 
 use crate::app_model::AppState;
 use crate::game::game_view::GameSetupSet;
+use crate::game::gfx::fire_shoot::{preload_fire_particle_image, cleanup_fire_particle_image};
 use crate::game::gfx::plasma_shoot::{preload_plasma_particle_image, cleanup_plasma_particle_image};
 use crate::game::systems::apply_parallax_system::apply_parallax_system;
 use crate::game::systems::init_parallax_system::init_parallax_system;
@@ -38,9 +39,10 @@ impl Plugin for SetupPlugin {
         app.add_systems(
             OnEnter(AppState::GameView),
             (
-                // Preload plasma particle image at level start so beam/impact
-                // visuals are available for the current level only.
+                // Preload particle images at level start so visuals are available
+                // for the current level only.
                 preload_plasma_particle_image,
+                preload_fire_particle_image,
                 setup_canvas::setup_canvas,
                 setup_background::setup_background,
                 spawn_entities::spawn_entities,
@@ -65,9 +67,10 @@ impl Plugin for SetupPlugin {
             OnExit(AppState::GameView),
             (
                 cleanup_level::cleanup_game_entities,
-                // Remove the preloaded plasma particle image and free the
-                // generated texture so it doesn't persist between levels.
+                // Remove the preloaded particle images and free the generated
+                // textures so they don't persist between levels.
                 cleanup_plasma_particle_image,
+                cleanup_fire_particle_image,
             ),
         );
     }

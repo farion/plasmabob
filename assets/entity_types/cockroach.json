@@ -19,7 +19,7 @@
       "cooldown_ms": 2000,
       "particle_effect": "fire",
       "aggro_range": 500,
-      "speed": 400
+      "speed": 200
     },
     "auto_melee_attack": {
       "damage": 10,

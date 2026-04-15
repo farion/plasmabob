@@ -2,7 +2,8 @@ use bevy::prelude::*;
 
 use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::{Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, StateMachine, Team};
-use crate::game::gfx::fire::spawn_fire_particles;
+use crate::game::gfx::fire_impact::spawn_fire_impact_explosion;
+use crate::game::gfx::fire_shoot::{ensure_fire_particle_image, FireParticleImage};
 use crate::game::gfx::plasma_impact::spawn_plasma_impact_explosion;
 use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, PlasmaParticleImage};
 use crate::game::gfx::poison::spawn_poison_particles;
@@ -23,7 +24,9 @@ pub fn projectile_collision_system(
     audio_settings: Res<AudioSettings>,
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
+    mut fire_particle_image: Local<Option<Handle<Image>>>,
     particle_image_res: Option<Res<PlasmaParticleImage>>,
+    fire_particle_image_res: Option<Res<FireParticleImage>>,
     projectiles: Query<(Entity, &Transform, &Collider, &RigidBody, &Projectile)>,
     targets: Query<
         (
@@ -143,7 +146,14 @@ pub fn projectile_collision_system(
 
             let impact_effect = projectile.impact_effect.as_deref().unwrap_or("plasma_impact");
             if is_supported_impact_effect(impact_effect) {
-                let particle_image = if let Some(resource) = particle_image_res.as_ref() {
+                // Fire uses its own dedicated particle image; all others share the plasma image.
+                let particle_image = if impact_effect.eq_ignore_ascii_case("fire_impact") {
+                    if let Some(resource) = fire_particle_image_res.as_ref() {
+                        resource.0.clone()
+                    } else {
+                        ensure_fire_particle_image(&mut fire_particle_image, &mut images)
+                    }
+                } else if let Some(resource) = particle_image_res.as_ref() {
                     resource.0.clone()
                 } else {
                     ensure_plasma_particle_image(&mut plasma_particle_image, &mut images)
@@ -191,14 +201,7 @@ fn spawn_projectile_impact_effect(
     if impact_effect.eq_ignore_ascii_case("plasma_impact") {
         spawn_plasma_impact_explosion(commands, particle_image, position, z);
     } else if impact_effect.eq_ignore_ascii_case("fire_impact") {
-        spawn_fire_particles(
-            commands,
-            particle_image,
-            position,
-            z,
-            seed_base,
-            projectile_velocity.normalize_or_zero(),
-        );
+        spawn_fire_impact_explosion(commands, particle_image, position, z);
     } else if impact_effect.eq_ignore_ascii_case("poison_impact") {
         spawn_poison_particles(
             commands,

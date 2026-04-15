@@ -3,7 +3,7 @@ use bevy::window::PrimaryWindow;
 use std::f32::consts::TAU;
 
 use crate::app_model::AppState;
-use crate::helper::particles::create_round_particle_image;
+use crate::game::gfx::particles::create_round_particle_image;
 use crate::i18n::{CurrentLanguage, Translations};
 use crate::world::WorldCatalog;
 use crate::world::find_directional_neighbor;

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::RigidBody;
-use crate::game::gfx::fire::spawn_fire_particles;
+use crate::game::gfx::fire_shoot::{ensure_fire_particle_image, FireParticleImage, spawn_fire_shoot_particles};
 use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, PlasmaParticleImage};
 use crate::game::gfx::poison::spawn_poison_particles;
 use crate::game::gfx::spit::spawn_spit_particles;
@@ -15,7 +15,9 @@ pub fn projectile_movement_system(
     time: Res<Time>,
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
+    mut fire_particle_image: Local<Option<Handle<Image>>>,
     particle_image_res: Option<Res<PlasmaParticleImage>>,
+    fire_particle_image_res: Option<Res<FireParticleImage>>,
     mut trail_tick: Local<u64>,
     mut projectiles: Query<(Entity, &mut Transform, &RigidBody, &mut Projectile)>,
     mut beams: Query<(Entity, &mut PlasmaBeam)>,
@@ -37,10 +39,17 @@ pub fn projectile_movement_system(
 
         // Keep non-plasma balls visible while they fly using particle-only trails.
         // Emit trails at a moderate rate to form a continuous plume without overdraw.
-        if *trail_tick % 3 == 0 {
+        if *trail_tick % 2 == 0 {
             let shoot_effect = projectile.shoot_effect.as_deref().unwrap_or("plasma_shoot");
             if is_ball_shoot_effect(shoot_effect) {
-                let particle_image = if let Some(resource) = particle_image_res.as_ref() {
+                // Fire uses its own dedicated particle image; other effects use the plasma image.
+                let particle_image = if shoot_effect.eq_ignore_ascii_case("fire_shoot") {
+                    if let Some(resource) = fire_particle_image_res.as_ref() {
+                        resource.0.clone()
+                    } else {
+                        ensure_fire_particle_image(&mut fire_particle_image, &mut images)
+                    }
+                } else if let Some(resource) = particle_image_res.as_ref() {
                     resource.0.clone()
                 } else {
                     ensure_plasma_particle_image(&mut plasma_particle_image, &mut images)
@@ -101,7 +110,7 @@ fn spawn_projectile_trail(
     let seed = entity_seed ^ tick_seed;
     if shoot_effect.eq_ignore_ascii_case("fire_shoot") {
         let direction = velocity.normalize_or_zero();
-        spawn_fire_particles(commands, particle_image, position, z, seed, direction);
+        spawn_fire_shoot_particles(commands, particle_image, position, z, seed, direction);
     } else if shoot_effect.eq_ignore_ascii_case("poison_shoot") {
         spawn_poison_particles(commands, particle_image, position, z, seed, velocity * 0.25);
     } else if shoot_effect.eq_ignore_ascii_case("spit_shoot") {

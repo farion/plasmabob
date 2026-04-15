@@ -1,6 +1,7 @@
 # Phase 1 - Replace old implementation
 
 [ ] AutoRangeAttack
+[ ] Mirror sprites on the center of the hitbox instead of the center of the sprite.
 [ ] Damage and Heal Numbers
 [ ] Level End
 [ ] Final Level Table
@@ -10,6 +11,10 @@
 [ ] Enemy AI. Faster with Aggro. Avoid falling. Jumps? 
 [ ] Stomp Effect
 [ ] Controlled Melee Attack?
+
+## Editor
+[ ] Adapt Level editor to new format.
+[ ] Adapt entity editor to new format.
 
 -> Develop Merge
 

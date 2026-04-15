@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::game::components::auto_range_attack::AutoRangeAttack;
 use crate::game::components::{Collider, ColliderShape, Damageable, RigidBody, StateMachine, Team};
 use crate::game::components::plasma::PlasmaBeam;
-use crate::game::gfx::fire::spawn_fire_particles;
+use crate::game::gfx::fire_shoot::{ensure_fire_particle_image, FireParticleImage, spawn_fire_shoot_particles};
 use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, spawn_plasma_beam_particles, PlasmaParticleImage};
 use crate::game::gfx::poison::spawn_poison_particles;
 use crate::game::gfx::spit::spawn_spit_particles;
@@ -22,7 +22,9 @@ pub fn auto_range_attack_system(
     audio_settings: Res<AudioSettings>,
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
+    mut fire_particle_image: Local<Option<Handle<Image>>>,
     particle_image_res: Option<Res<PlasmaParticleImage>>,
+    fire_particle_image_res: Option<Res<FireParticleImage>>,
     mut attackers: Query<(
         Entity,
         &Transform,
@@ -146,7 +148,18 @@ pub fn auto_range_attack_system(
         ))
             .id();
 
-        let particle_image = if let Some(resource) = particle_image_res.as_ref() {
+        // Fire uses its own dedicated particle image; all other effects share the plasma image.
+        let particle_image = if shoot_effect
+            .as_deref()
+            .unwrap_or("plasma_shoot")
+            .eq_ignore_ascii_case("fire_shoot")
+        {
+            if let Some(resource) = fire_particle_image_res.as_ref() {
+                resource.0.clone()
+            } else {
+                ensure_fire_particle_image(&mut fire_particle_image, &mut images)
+            }
+        } else if let Some(resource) = particle_image_res.as_ref() {
             resource.0.clone()
         } else {
             ensure_plasma_particle_image(&mut plasma_particle_image, &mut images)
@@ -219,7 +232,7 @@ fn spawn_shoot_effect(
     };
 
     if effect.eq_ignore_ascii_case("fire_shoot") {
-        spawn_fire_particles(commands, particle_image, origin, z, seed_base, direction);
+        spawn_fire_shoot_particles(commands, particle_image, origin, z, seed_base, direction);
     } else if effect.eq_ignore_ascii_case("poison_shoot") {
         spawn_poison_particles(
             commands,

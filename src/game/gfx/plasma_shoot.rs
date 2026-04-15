@@ -6,7 +6,7 @@ use crate::game::gfx::plasma_sizes::{
     PLASMA_CORE_WIDTH, PLASMA_GLOW_PARTICLE_SIZE, PLASMA_GLOW_WIDTH,
     PLASMA_PARTICLE_TEXTURE_SIZE,
 };
-use crate::helper::particles::create_plasma_particle_image;
+use crate::game::gfx::particles::create_plasma_particle_image;
 
 use super::helpers::hash_to_unit;
 
