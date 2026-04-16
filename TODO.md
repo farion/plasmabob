@@ -1,11 +1,12 @@
 # Phase 1 - Replace old implementation
 
-[ ] AutoRangeAttack
-[ ] Mirror sprites on the center of the hitbox instead of the center of the sprite.
+[X] AutoRangeAttack
+[X] Mirror sprites on the center of the hitbox instead of the center of the sprite.
+[ ] Health Potion
+[ ] Clean Code / Fix Warnings
 [ ] Damage and Heal Numbers
 [ ] Level End
 [ ] Final Level Table
-[ ] Health Potion
 [ ] Crouching
 [ ] Auto Betty Assets
 [ ] Enemy AI. Faster with Aggro. Avoid falling. Jumps? 
@@ -21,6 +22,9 @@
 # Phase 2 Features
 
 [ ] Boss Fight
+[ ] Poison Range Attack
+[ ] Spit Range Attack
+[ ] Laser Range Attack
 [ ] Doors
 [ ] Blocking Doors / Exit
 [ ] Keys

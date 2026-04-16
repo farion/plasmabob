@@ -93,6 +93,7 @@ Cross-cutting helpers and global modules live at the crate root and are importan
 - One file per system
 - One file per component
 - No logic code in mod.rs, only `pub mod` declarations and re-exports if needed.
+- No backwards compatibility on changes is required if not explicitly mentioned in the prompt.
 
 ## Internationalization (i18n)
 
@@ -101,7 +102,8 @@ keys translated in those files must be used to bring texts in the game.
 
 ## Commenting
 
-All commenting must happen in english.
+- All commenting must happen in english.
+- Do not add comments for removed features or code that is not used anymore. If you remove a feature, remove all comments related to it as well.
 
 ## Best Practices
 

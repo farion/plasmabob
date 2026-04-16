@@ -156,6 +156,7 @@ pub(crate) struct LevelEntity {
     pub x: f32,
     pub y: f32,
     pub z_index: f32,
+    pub name: String,
     pub layer: String,
     pub properties: HashMap<String, PropValue>,
 }
@@ -174,10 +175,14 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
         let y = map.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
         let z_index = map.get("z_index").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
         let layer = map.get("layer").and_then(|v| v.as_str()).unwrap_or("gameplay").to_string();
-
+        let name = map.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_else(|| id.clone());
+        
         let mut properties: HashMap<String, PropValue> = HashMap::new();
         for (k, v) in map.into_iter() {
-            if k == "id" || k == "entity_type" || k == "x" || k == "y" || k == "z_index" || k == "layer" {
+            // Skip known/consumed top-level fields so they don't end up in
+            // the `properties` map. Note we also skip `name` since it's now
+            // captured separately above.
+            if k == "id" || k == "entity_type" || k == "x" || k == "y" || k == "z_index" || k == "layer" || k == "name" {
                 continue;
             }
             properties.insert(k, PropValue::from(v));
@@ -189,6 +194,7 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
             x,
             y,
             z_index,
+            name,
             layer,
             properties,
         })

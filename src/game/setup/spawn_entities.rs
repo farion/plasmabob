@@ -153,66 +153,26 @@ pub fn spawn_entities(
 
         let anim_cfg = AnimationConfig::new(frames, state_cfg.animation_frame_ms);
 
-        // ── Collider ──────────────────────────────────────────────────────────
-        let collider = build_collider_from_box(state_cfg.collider_box.as_deref(), sprite_w, sprite_h);
-
-        // ── StateMachine ──────────────────────────────────────────────────────
-        let initial_state_enum = parse_entity_state(&initial_state_name);
-        let state_machine = StateMachine::new(initial_state_enum);
-
-        // ── SoundState ────────────────────────────────────────────────────────
-        let sound_state = SoundState::new(initial_state_enum);
-
-        // Adjust sprite pivot for flipping so the horizontal mirror axis is
-        // the horizontal middle of the hitbox (collider) instead of the
-        // sprite's centre. We use a helper that toggles flip and shifts the
-        // transform and collider offset so the collider world centre stays
-        // unchanged. If no collider exists we fall back to flipping around
-        // the sprite centre.
-        let mut collider = collider; // make mutable (shadowing)
-        let has_collider = components_obj
-            .map(|m| m.contains_key("collider"))
-            .unwrap_or(false)
-            || state_cfg.collider_box.is_some();
-
         let desired_flip = matches!(orientation.facing, FacingDirection::Left);
 
         let mut transform = Transform::from_xyz(x, y, z);
         let mut sprite = Sprite {
-            image: sprite_image,
+            image: sprite_image.clone(),
             color: sprite_color,
             custom_size: Some(Vec2::new(sprite_w, sprite_h)),
-            // default false; helper will set flip and adjust transform when needed
-            flip_x: false,
+            flip_x: desired_flip,
             ..default()
         };
 
-        if has_collider {
-            if desired_flip {
-                flip_entity_preserve_collider(&mut transform, &mut collider, &mut sprite, true);
-            } else {
-                // ensure sprite not flipped and collider remains as-built
-                sprite.flip_x = false;
-            }
-        } else {
-            // No hitbox to preserve: simple flip around sprite centre
-            sprite.flip_x = desired_flip;
-        }
 
         // Generic component assignment: add only components explicitly listed
         // in the entity-type JSON (`entity_type.component`) or present in the
         // type's `components` object.
-        let mut ent_cmd = commands.spawn((sprite, transform, anim_cfg, state_machine, sound_state, GameEntity));
+        let mut ent_cmd = commands.spawn((sprite, transform, anim_cfg, GameEntity));
         let mut assigned_components: Vec<String> = Vec::new();
 
         ent_cmd.insert(orientation);
 
-        // Insert collider if explicitly present in the components map or the
-        // state defines a collider box.
-        if has_collider {
-            ent_cmd.insert(collider.clone());
-            assigned_components.push("Collider".to_string());
-        }
 
         // Iterate declared component keys in the entity-type `components` map.
         let comp_keys: Vec<String> = components_obj
@@ -289,6 +249,46 @@ pub fn spawn_entities(
                 // Orientation is always spawned with defaults; the key is accepted here
                 // so it doesn't produce an "unknown component" warning.
                 "orientation" => {}
+                "statemachine" | "state_machine" | "state-machine" => {
+                    // Create StateMachine only when explicitly declared in the
+                    // entity's components map. Use the entity-type state's
+                    // configured initial state as the start state.
+                    let initial_state_enum = parse_entity_state(&initial_state_name);
+                    let sm = StateMachine::new(initial_state_enum);
+                    ent_cmd.insert(sm);
+                    // Also insert SoundState tied to the same initial state.
+                    let ss = SoundState::new(initial_state_enum);
+                    ent_cmd.insert(ss);
+                    assigned_components.push("StateMachine".to_string());
+                    assigned_components.push("SoundState".to_string());
+                }
+                "collider" => {
+                    // Only create and insert a collider if the components map
+                    // explicitly requested one. Build the collider from the
+                    // state's collider_box and, if the entity is initially
+                    // flipped, mirror the collider and adjust the entity's
+                    // Transform so the collider world centre remains stable.
+                    let mut col = build_collider_from_box(state_cfg.collider_box.as_deref(), sprite_w, sprite_h);
+                    if desired_flip {
+                        let cx = col.offset.x;
+                        let transform_x = x + 2.0 * cx;
+                        col.offset.x = -cx;
+                        // Replace Transform and Sprite on the just-spawned entity
+                        ent_cmd.insert(col.clone());
+                        ent_cmd.insert(Transform::from_xyz(transform_x, y, z));
+                        let spr = Sprite {
+                            image: sprite_image.clone(),
+                            color: sprite_color,
+                            custom_size: Some(Vec2::new(sprite_w, sprite_h)),
+                            flip_x: true,
+                            ..default()
+                        };
+                        ent_cmd.insert(spr);
+                    } else {
+                        ent_cmd.insert(col.clone());
+                    }
+                    assigned_components.push("Collider".to_string());
+                }
                 other => {
                     // Unknown component names are currently ignored; designers
                     // must reference existing runtime components by name in JSON.
@@ -329,7 +329,8 @@ pub fn spawn_entities(
             layer: entity.layer.clone(),
         });
 
-        tracing::info!(id = %entity.id, x, y, assigned_components = ?assigned_components, "Spawned entity");
+        tracing::info!(id = %entity.id, entity_type = %entity.entity_type, x, y, assigned_components = ?assigned_components,
+            "Spawned {}", entity.name.clone());
     }
 }
 
