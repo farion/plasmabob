@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 pub mod cleanup_level;
 pub mod collider_helper;
+pub mod flip_utils;
 pub mod entity_type_assets;
 pub mod follow_camera;
 pub mod setup_background;

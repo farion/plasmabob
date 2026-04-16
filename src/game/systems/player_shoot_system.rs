@@ -57,9 +57,6 @@ pub fn player_shoot_system(
     // Set the request flag when the key was just pressed.
     if shoot_just_pressed {
         *fire_requested = true;
-        // Log the raw input event once per press so we can diagnose perceived input latency.
-        // This is intentionally an info-level, one-shot log to avoid spamming the hot input path.
-        info!("Shoot key pressed - enqueued fire request");
     }
 
     // (global input detection already logged above when just pressed)
@@ -77,15 +74,6 @@ pub fn player_shoot_system(
         // If the player requested a shot and the cooldown is ready, fire.
         let cooldown_fraction = attack.cooldown.fraction();
         let cooldown_ready = attack.cooldown.just_finished() || attack.cooldown.is_finished();
-        // If this press happened this frame, log whether the cooldown is ready so
-        // it's possible to determine if the delay is input->spawn or cooldown-related.
-        if shoot_just_pressed {
-            if cooldown_ready {
-                info!("Player {:?} - shoot pressed and cooldown ready (fraction={:.2})", player_entity, cooldown_fraction);
-            } else {
-                info!("Player {:?} - shoot pressed but cooldown NOT ready (fraction={:.2}); request queued", player_entity, cooldown_fraction);
-            }
-        }
 
         if !*fire_requested || !cooldown_ready {
             continue;
@@ -125,9 +113,6 @@ pub fn player_shoot_system(
                 GameEntity,
             ))
             .id();
-
-        info!("Player {:?} spawned projectile {:?} (speed={}, damage={})", player_entity, projectile_entity, attack.speed, attack.damage);
-        // projectile spawned
 
         if attack
             .shoot_effect

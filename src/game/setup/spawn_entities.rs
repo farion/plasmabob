@@ -16,6 +16,7 @@ use crate::game::level::types::{
 use crate::game::runtime_components::{AnimationConfig, SoundState};
 use crate::game::runtime_components::SpawnedLevelEntity;
 use crate::game::setup::collider_helper::build_collider_from_box;
+use crate::game::setup::flip_utils::flip_entity_preserve_collider;
 use crate::game::setup::entity_type_assets::EntityTypeAssets;
 use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag};
 
@@ -162,14 +163,41 @@ pub fn spawn_entities(
         // ── SoundState ────────────────────────────────────────────────────────
         let sound_state = SoundState::new(initial_state_enum);
 
-        let sprite = Sprite {
+        // Adjust sprite pivot for flipping so the horizontal mirror axis is
+        // the horizontal middle of the hitbox (collider) instead of the
+        // sprite's centre. We use a helper that toggles flip and shifts the
+        // transform and collider offset so the collider world centre stays
+        // unchanged. If no collider exists we fall back to flipping around
+        // the sprite centre.
+        let mut collider = collider; // make mutable (shadowing)
+        let has_collider = components_obj
+            .map(|m| m.contains_key("collider"))
+            .unwrap_or(false)
+            || state_cfg.collider_box.is_some();
+
+        let desired_flip = matches!(orientation.facing, FacingDirection::Left);
+
+        let mut transform = Transform::from_xyz(x, y, z);
+        let mut sprite = Sprite {
             image: sprite_image,
             color: sprite_color,
             custom_size: Some(Vec2::new(sprite_w, sprite_h)),
-            flip_x: matches!(orientation.facing, FacingDirection::Left),
+            // default false; helper will set flip and adjust transform when needed
+            flip_x: false,
             ..default()
         };
-        let transform = Transform::from_xyz(x, y, z);
+
+        if has_collider {
+            if desired_flip {
+                flip_entity_preserve_collider(&mut transform, &mut collider, &mut sprite, true);
+            } else {
+                // ensure sprite not flipped and collider remains as-built
+                sprite.flip_x = false;
+            }
+        } else {
+            // No hitbox to preserve: simple flip around sprite centre
+            sprite.flip_x = desired_flip;
+        }
 
         // Generic component assignment: add only components explicitly listed
         // in the entity-type JSON (`entity_type.component`) or present in the
@@ -179,18 +207,8 @@ pub fn spawn_entities(
 
         ent_cmd.insert(orientation);
 
-        // Debug: if a moving_platform override is present in the merged map,
-        // log the merged value so we can confirm level overrides are applied.
-        if let Some(mp_val) = merged_components.get("moving_platform").or_else(|| merged_components.get("movingPlatform")).or_else(|| merged_components.get("moving-platform")) {
-            tracing::info!(id = %entity.id, moving_platform = ?mp_val, "spawn_entities: merged moving_platform for entity");
-        }
-
         // Insert collider if explicitly present in the components map or the
         // state defines a collider box.
-        let has_collider = components_obj
-            .map(|m| m.contains_key("collider"))
-            .unwrap_or(false)
-            || state_cfg.collider_box.is_some();
         if has_collider {
             ent_cmd.insert(collider.clone());
             assigned_components.push("Collider".to_string());
