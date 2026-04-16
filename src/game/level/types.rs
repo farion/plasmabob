@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 use crate::game::level::errors::LoadLevelError;
+use std::sync::OnceLock;
 
 // ─── Level bounds ─────────────────────────────────────────────────────────────
 
@@ -133,6 +134,10 @@ pub(crate) struct EntityTypeDefinition {
     /// Maximum health points for this entity type.
     #[serde(default)]
     pub health: Option<u32>,
+    /// The key/name used in the `entity_types` map. Not present in the JSON
+    /// and injected by the loader when the definitions are loaded.
+    #[serde(skip)]
+    pub key: String,
 }
 
 impl EntityTypeDefinition {
@@ -146,19 +151,34 @@ impl EntityTypeDefinition {
 }
 
 
-/// Entity instance parsed from the level JSON. Known fields are typed;
-/// unknown additional properties are preserved in `properties` as
-/// typed `PropValue`s (not raw JSON).
+/// Entity instance parsed from the level JSON. The `entity_type` field is
+/// deserialized from a String key in the JSON and resolved via the global
+/// entity-type registry into a typed `EntityTypeDefinition` instance. The
+/// loader must register entity types before deserializing levels.
 #[derive(Debug, Clone)]
 pub(crate) struct LevelEntity {
     pub id: String,
-    pub entity_type: String,
+    pub entity_type: EntityTypeDefinition,
     pub x: f32,
     pub y: f32,
     pub z_index: f32,
     pub name: String,
     pub layer: String,
     pub properties: HashMap<String, PropValue>,
+}
+
+// Global registry for entity type definitions used during deserialization.
+static ENTITY_TYPE_REGISTRY: OnceLock<HashMap<String, EntityTypeDefinition>> = OnceLock::new();
+
+/// Register the entity types map for subsequent `LevelEntity` deserialization.
+pub fn register_entity_types(map: HashMap<String, EntityTypeDefinition>) -> Result<(), String> {
+    ENTITY_TYPE_REGISTRY
+        .set(map)
+        .map_err(|_| "entity types already registered".to_string())
+}
+
+fn get_registered_entity_type(name: &str) -> Option<&'static EntityTypeDefinition> {
+    ENTITY_TYPE_REGISTRY.get().and_then(|m| m.get(name))
 }
 
 impl<'de> serde::Deserialize<'de> for LevelEntity {
@@ -169,19 +189,33 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
         // Deserialize into an intermediate map so we can extract known fields
         let map: serde_json::Map<String, serde_json::Value> = serde::Deserialize::deserialize(deserializer)?;
 
-        let id = map.get("id").and_then(|v| v.as_str()).ok_or_else(|| serde::de::Error::missing_field("id"))?.to_string();
-        let entity_type = map.get("entity_type").and_then(|v| v.as_str()).ok_or_else(|| serde::de::Error::missing_field("entity_type"))?.to_string();
+        let id = map
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| serde::de::Error::missing_field("id"))?
+            .to_string();
+
+        let et_key = map
+            .get("entity_type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| serde::de::Error::missing_field("entity_type"))?
+            .to_string();
+
+        // Lookup entity type in the global registry populated by the loader.
+        let et = get_registered_entity_type(&et_key)
+            .ok_or_else(|| serde::de::Error::custom(format!("unknown entity_type '{}' (registry not populated)", et_key)))?
+            .clone();
+
         let x = map.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
         let y = map.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
         let z_index = map.get("z_index").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
         let layer = map.get("layer").and_then(|v| v.as_str()).unwrap_or("gameplay").to_string();
         let name = map.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_else(|| id.clone());
-        
+
         let mut properties: HashMap<String, PropValue> = HashMap::new();
         for (k, v) in map.into_iter() {
             // Skip known/consumed top-level fields so they don't end up in
-            // the `properties` map. Note we also skip `name` since it's now
-            // captured separately above.
+            // the `properties` map.
             if k == "id" || k == "entity_type" || k == "x" || k == "y" || k == "z_index" || k == "layer" || k == "name" {
                 continue;
             }
@@ -190,7 +224,7 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
 
         Ok(LevelEntity {
             id,
-            entity_type,
+            entity_type: et,
             x,
             y,
             z_index,
@@ -267,12 +301,9 @@ mod tests {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let level_path = std::path::Path::new(manifest_dir).join("assets/worlds/auralis/viridara_level1.json");
         let content = std::fs::read_to_string(&level_path).expect("should read level json");
-
-        let lvl = parse_level_definition(&content).expect("should parse level json");
-        let entities = lvl.entities.expect("entities present");
-        assert!(entities.len() > 0, "expected some entities");
-
-        // Load all entity type JSON files from assets/entity_types
+        // Load all entity type JSON files from assets/entity_types and register
+        // them so `parse_level_definition` (which deserializes LevelEntity)
+        // can resolve typed entity types.
         let et_dir = std::path::Path::new(manifest_dir).join("assets/entity_types");
         let mut et_map = std::collections::HashMap::<String, crate::game::level::types::EntityTypeDefinition>::new();
         for entry in std::fs::read_dir(&et_dir).expect("read entity_types dir") {
@@ -283,13 +314,21 @@ mod tests {
             }
             let stem = path.file_stem().and_then(|s| s.to_str()).expect("stem").to_string();
             let txt = std::fs::read_to_string(&path).expect("read et file");
-            let et: crate::game::level::types::EntityTypeDefinition = serde_json::from_str(&txt).expect("parse et json");
+            let mut et: crate::game::level::types::EntityTypeDefinition = serde_json::from_str(&txt).expect("parse et json");
+            et.key = stem.clone();
             et_map.insert(stem, et);
         }
 
-        // Ensure every entity's entity_type has a corresponding entity type definition
+        // Register entity types for deserialization
+        crate::game::level::types::register_entity_types(et_map.clone()).expect("register entity types");
+
+        let lvl = parse_level_definition(&content).expect("should parse level json");
+        let entities = lvl.entities.expect("entities present");
+        assert!(entities.len() > 0, "expected some entities");
+
+        // Ensure every entity's entity_type key matches a loaded type
         for e in &entities {
-            assert!(et_map.contains_key(&e.entity_type), "missing entity type for {}", e.entity_type);
+            assert!(et_map.contains_key(&e.entity_type.key), "missing entity type for {}", e.entity_type.key);
         }
     }
 }

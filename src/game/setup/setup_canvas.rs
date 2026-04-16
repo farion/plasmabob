@@ -24,7 +24,7 @@ pub fn setup_canvas(
 
     // Find the player entity's spawn position.
     let entities = level.entities.as_deref().unwrap_or(&[]);
-    let player = entities.iter().find(|e| e.entity_type == "player");
+    let player = entities.iter().find(|e| e.entity_type.key == "player");
     let player_x = player.map(|e| e.x).unwrap_or(bounds.width / 2.0);
     let player_y = player.map(|e| e.y).unwrap_or(bounds.height / 2.0);
     let window = windows.single().ok();

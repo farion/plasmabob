@@ -15,12 +15,15 @@ pub fn load_level_from_asset(
     // Read level JSON text
     let content = crate::helper::asset_io::read_asset_text(asset_server, asset_path)?;
 
-    let level: LevelDefinition = serde_json::from_str(&content)?;
+    // Parse the JSON into a Value first so we can extract `entity_types_path`
+    // and load entity type definitions before deserializing `LevelDefinition`.
+    let raw: serde_json::Value = serde_json::from_str(&content)?;
 
     // Determine entity types location (file or directory). Use fallback "entity_types" when absent.
-    let entity_types_ref = level
-        .entity_types_path
-        .clone()
+    let entity_types_ref = raw
+        .get("entity_types_path")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
         .unwrap_or_else(|| "entity_types".to_string());
 
     // Attempt to load entity types. Support both single JSON file (entity_types.json)
@@ -35,11 +38,15 @@ pub fn load_level_from_asset(
                 // Try parsing as a map of entity type name -> definition first
                 let as_map: Result<HashMap<String, EntityTypeDefinition>, _> = serde_json::from_str(&text);
                 if let Ok(map) = as_map {
-                    entity_types_map.extend(map);
+                    for (k, mut et) in map.into_iter() {
+                        et.key = k.clone();
+                        entity_types_map.insert(k, et);
+                    }
                 } else {
                     // Fallback: parse as a single EntityTypeDefinition and derive key from filename
-                    let single: EntityTypeDefinition = serde_json::from_str(&text)?;
+                    let mut single: EntityTypeDefinition = serde_json::from_str(&text)?;
                     if let Some(stem) = asset_path_stem(&entity_types_ref) {
+                        single.key = stem.to_string();
                         entity_types_map.insert(stem.to_string(), single);
                     } else {
                         return Err(LoadLevelError::EntityTypes(format!("Could not determine key for entity types file '{}'", entity_types_ref)));
@@ -74,14 +81,23 @@ pub fn load_level_from_asset(
             }
             let asset_path = path.to_string_lossy().to_string();
             let txt = crate::helper::asset_io::read_asset_text(asset_server, &asset_path)?;
-            let et: EntityTypeDefinition = serde_json::from_str(&txt)?;
+            let mut et: EntityTypeDefinition = serde_json::from_str(&txt)?;
             if let Some(stem) = asset_path_stem(&asset_path) {
+                et.key = stem.to_string();
                 entity_types_map.insert(stem.to_string(), et);
             }
         }
     }
 
-    // Ensure entities are fully materialized (they are parsed already by serde into Vec<LevelEntity>)
+    // Register entity types globally so LevelEntity deserialization can
+    // resolve string keys into typed `EntityTypeDefinition` instances.
+    // We clone the map because `register_entity_types` takes ownership.
+    crate::game::level::types::register_entity_types(entity_types_map.clone())
+        .map_err(|e| LoadLevelError::EntityTypes(e))?;
+
+    // Now deserialize the LevelDefinition with typed LevelEntity instances.
+    let level: LevelDefinition = serde_json::from_value(raw)?;
+
     Ok(CachedLevelDefinition {
         asset_path: Some(asset_path.to_string()),
         level: Some(level),

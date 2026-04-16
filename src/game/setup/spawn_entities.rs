@@ -51,19 +51,13 @@ pub fn spawn_entities(
     let _bounds = level.bounds.clone().unwrap_or_default();
 
     for entity in entities {
-        let Some(entity_type) = cached.entity_types.get(&entity.entity_type) else {
-            tracing::warn!(
-                id = %entity.id,
-                entity_type = %entity.entity_type,
-                "spawn_entities: unknown entity type, skipping"
-            );
-            continue;
-        };
+        // `LevelEntity.entity_type` is now the fully-typed `EntityTypeDefinition`.
+        let entity_type = &entity.entity_type;
 
         let Some(sm_cfg) = entity_type.state_machine_config() else {
             tracing::warn!(
                 id = %entity.id,
-                entity_type = %entity.entity_type,
+                entity_type = %entity.entity_type.key,
                 "spawn_entities: no state_machine config found, skipping"
             );
             continue;
@@ -105,12 +99,12 @@ pub fn spawn_entities(
         }
 
         let components_obj = if merged_components.is_empty() { None } else { Some(&merged_components) };
-        let get_u64 = |key: &str| -> Option<u64> {
+        let _get_u64 = |key: &str| -> Option<u64> {
             components_obj
                 .and_then(|obj| obj.get(key))
                 .and_then(|v| v.as_u64())
         };
-        let get_string = |key: &str| -> Option<String> {
+        let _get_string = |key: &str| -> Option<String> {
             components_obj
                 .and_then(|obj| obj.get(key))
                 .and_then(|v| v.as_str())
@@ -129,14 +123,14 @@ pub fn spawn_entities(
 
         // ── Resolve animation frames ──────────────────────────────────────────
         let (frames, sprite_image, sprite_color) = if let Some(ref eta) = entity_type_assets {
-            if let Some(state_assets) = eta.get_state(&entity.entity_type, &initial_state_name) {
+            if let Some(state_assets) = eta.get_state(&entity.entity_type.key, &initial_state_name) {
                 let first = state_assets.frames.first().cloned();
                 if let Some(h) = first {
                     (state_assets.frames.clone(), h, Color::WHITE)
                 } else {
                     // Missing sprite → red fallback
                     tracing::warn!(
-                        entity_type = %entity.entity_type,
+                        entity_type = %entity.entity_type.key,
                         state = %initial_state_name,
                         "spawn_entities: no frames in EntityTypeAssets, using red fallback"
                     );
@@ -325,11 +319,11 @@ pub fn spawn_entities(
         // overlays and other systems can reference them.
         ent_cmd.insert(SpawnedLevelEntity {
             id: entity.id.clone(),
-            entity_type: entity.entity_type.clone(),
+            entity_type: entity.entity_type.key.clone(),
             layer: entity.layer.clone(),
         });
 
-        tracing::info!(id = %entity.id, entity_type = %entity.entity_type, x, y, assigned_components = ?assigned_components,
+        tracing::info!(id = %entity.id, entity_type = %entity.entity_type.key, x, y, assigned_components = ?assigned_components,
             "Spawned {}", entity.name.clone());
     }
 }
