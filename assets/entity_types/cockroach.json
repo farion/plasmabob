@@ -9,7 +9,7 @@
     "rigid_body": {},
     "team": { "name": "enemy" },
     "health": {
-      "health": 30,
+      "max": 30,
       "despawn_on_death": true,
       "despawn_delay_ms": 5000
     },

@@ -4,6 +4,14 @@ use std::collections::HashMap;
 
 use crate::game::level::errors::LoadLevelError;
 use std::sync::OnceLock;
+use crate::game::components::{Health, ControlledMovement, AutoMovement, MovingPlatform, RigidBody, Gravity, Blocking, Damageable, Team, Orientation};
+use crate::game::components::state_machine::StateMachine as StateMachineComponent;
+use crate::game::components::collider::Collider as ColliderComponent;
+use crate::game::components::controlled_range_attack::ControlledRangeAttack;
+use crate::game::components::auto_range_attack::AutoRangeAttack;
+use crate::game::components::auto_melee_attack::AutoMeleeAttack;
+use crate::game::components::controlled_melee_attack::ControlledMeleeAttack;
+use serde_json::Value as JsonValue;
 
 // ─── Level bounds ─────────────────────────────────────────────────────────────
 
@@ -119,14 +127,19 @@ pub(crate) struct TerrainDefinition {
 /// objects for that component.
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct EntityTypeDefinition {
-    /// Map component name -> optional configuration object.
+    /// Typed component definitions parsed from the entity type JSON.
+    ///
+    /// Each known component is represented as an optional raw JSON value so
+    /// that existing `override_from_json` helpers can consume them. Unknown
+    /// component keys are preserved in `extra` via `flatten`.
     #[serde(default)]
-    pub components: Option<HashMap<String, serde_json::Value>>,
+    pub components: Option<ComponentsDef>,
     /// Optional high-level category tag from the entity type JSON (e.g. "player", "enemy", "doodad").
     #[serde(default)]
     pub category_tag: Option<String>,
-    #[serde(default)]
-    pub states: HashMap<String, serde_json::Value>,
+    // `state_machine` config is read from the typed `components.state_machine`
+    // (see ComponentsDef) and exposed via `state_machine_config()`; the
+    // top-level `states` raw map is no longer stored here.
     #[serde(default)]
     pub width: Option<u32>,
     #[serde(default)]
@@ -142,11 +155,92 @@ pub(crate) struct EntityTypeDefinition {
 
 impl EntityTypeDefinition {
     /// Extract and parse the typed state machine configuration from the raw
-    /// `components.state_machine` field. Returns `None` when absent or malformed.
+    /// `components.state_machine` is materialized into a runtime
+    /// `StateMachineComponent` (see `ComponentsDef`). Convert that typed
+    /// runtime component back into the configuration struct so callers can
+    /// obtain the initial_state string and the per-state `StateConfig`s.
     pub fn state_machine_config(&self) -> Option<StateMachineConfig> {
-        let components = self.components.as_ref()?;
-        let sm_val = components.get("state_machine")?;
-        serde_json::from_value(sm_val.clone()).ok()
+        let comps = self.components.as_ref()?;
+        let smc = comps.state_machine.as_ref()?;
+        // Convert typed StateMachineComponent -> StateMachineConfig
+        let initial_state = smc.initial_state.to_state_name().to_string();
+        // Convert typed states map (EntityState -> StateConfig) into
+        // String-keyed map expected by StateMachineConfig
+        let mut states: HashMap<String, StateConfig> = HashMap::new();
+        for (k, v) in smc.states.iter() {
+            states.insert(k.to_state_name().to_string(), v.clone());
+        }
+        Some(StateMachineConfig { initial_state, states })
+    }
+}
+
+/// Typed representation of the `components` object in an entity type JSON.
+///
+/// This structure holds actual runtime component instances (constructed
+/// from defaults and then overridden with JSON when present). We implement
+/// a custom `Deserialize` to accept the JSON `components` object and build
+/// component instances by applying `override_from_json`.
+#[derive(Debug, Clone, Default)]
+pub struct ComponentsDef {
+    pub health: Option<Health>,
+    pub controlled_movement: Option<ControlledMovement>,
+    pub auto_movement: Option<AutoMovement>,
+    pub moving_platform: Option<MovingPlatform>,
+    pub rigid_body: Option<RigidBody>,
+    pub gravity: Option<Gravity>,
+    pub blocking: Option<Blocking>,
+    pub controlled_range_attack: Option<ControlledRangeAttack>,
+    pub auto_range_attack: Option<AutoRangeAttack>,
+    pub auto_melee_attack: Option<AutoMeleeAttack>,
+    pub controlled_melee_attack: Option<ControlledMeleeAttack>,
+    pub damageable: Option<Damageable>,
+    pub team: Option<Team>,
+    pub orientation: Option<Orientation>,
+    pub state_machine: Option<StateMachineComponent>,
+    pub collider: Option<ColliderComponent>,
+}
+
+impl<'de> serde::Deserialize<'de> for ComponentsDef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let v = serde_json::Value::deserialize(deserializer).map_err(serde::de::Error::custom)?;
+        let mut out = ComponentsDef::default();
+
+        let map = match v {
+            serde_json::Value::Object(m) => m,
+            serde_json::Value::Null => return Ok(out),
+            other => return Err(serde::de::Error::custom(format!("expected object for components, got {}", other))),
+        };
+
+        for (k, val) in map.into_iter() {
+            match k.to_ascii_lowercase().as_str() {
+                "health" => out.health = Some(Health::default().override_from_json(Some(&val))),
+                "controlledmovement" | "controlled_movement" => out.controlled_movement = Some(ControlledMovement::default().override_from_json(Some(&val))),
+                "automovement" | "auto_movement" => out.auto_movement = Some(AutoMovement::default().override_from_json(Some(&val))),
+                "movingplatform" | "moving_platform" => out.moving_platform = Some(MovingPlatform::default().override_from_json(Some(&val))),
+                "rigidbody" | "rigid_body" => out.rigid_body = Some(RigidBody::default().override_from_json(Some(&val))),
+                "gravity" => out.gravity = Some(Gravity::default().override_from_json(Some(&val))),
+                "blocking" => out.blocking = Some(Blocking::default().override_from_json(Some(&val))),
+                "controlled_range_attack" | "controlledrangeattack" => out.controlled_range_attack = Some(ControlledRangeAttack::default().override_from_json(Some(&val))),
+                "auto_range_attack" | "autorangeattack" => out.auto_range_attack = Some(AutoRangeAttack::default().override_from_json(Some(&val))),
+                "auto_melee_attack" | "automeleeattack" => out.auto_melee_attack = Some(AutoMeleeAttack::default().override_from_json(Some(&val))),
+                "controlled_melee_attack" | "controlledmeleeattack" => out.controlled_melee_attack = Some(ControlledMeleeAttack::default().override_from_json(Some(&val))),
+                "damageable" => out.damageable = Some(Damageable::default().override_from_json(Some(&val))),
+                "team" => out.team = Some(Team::default().override_from_json(Some(&val))),
+                "orientation" => out.orientation = Some(Orientation::default().override_from_json(Some(&val))),
+                "state_machine" | "statemachine" => out.state_machine = Some(StateMachineComponent::default().override_from_json(Some(&val))),
+                "collider" => out.collider = Some(ColliderComponent::default().override_from_json(Some(&val))),
+                other => {
+                    // Unknown component keys are ignored for now; log to help
+                    // designers discover typos in JSON.
+                    tracing::warn!(comp = %other, "ComponentsDef: unknown component key in entity-type, ignoring");
+                }
+            }
+        }
+
+        Ok(out)
     }
 }
 
@@ -172,6 +266,20 @@ static ENTITY_TYPE_REGISTRY: OnceLock<HashMap<String, EntityTypeDefinition>> = O
 
 /// Register the entity types map for subsequent `LevelEntity` deserialization.
 pub fn register_entity_types(map: HashMap<String, EntityTypeDefinition>) -> Result<(), String> {
+    // If the registry is already populated, treat a re-registration as
+    // idempotent when the same set of keys is being registered. This
+    // prevents failing when the loader is invoked multiple times with the
+    // same entity-types directory during development hot-reloads.
+    if let Some(existing) = ENTITY_TYPE_REGISTRY.get() {
+        // Quick sanity: if the incoming map has exactly the same keys as
+        // the existing registry, consider this a no-op and return Ok.
+        let same_keys = existing.len() == map.len() && existing.keys().all(|k| map.contains_key(k));
+        if same_keys {
+            return Ok(());
+        }
+        return Err("entity types already registered with different contents".to_string());
+    }
+
     ENTITY_TYPE_REGISTRY
         .set(map)
         .map_err(|_| "entity types already registered".to_string())

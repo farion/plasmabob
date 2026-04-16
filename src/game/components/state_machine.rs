@@ -1,7 +1,10 @@
 use bevy::prelude::Component;
+use crate::game::level::types::{StateMachineConfig, StateConfig};
+use std::collections::HashMap;
+use serde_json;
 
 /// State enum for entities. Mirrors the states described in the project AGENTS.md.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EntityState {
     Idle,
     Moving,
@@ -16,7 +19,7 @@ pub enum EntityState {
 }
 
 /// Component that holds the current state of an entity and how long it has been in that state.
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone)]
 pub struct StateMachine {
     pub state: EntityState,
     pub prev_state: Option<EntityState>,
@@ -25,6 +28,10 @@ pub struct StateMachine {
     /// Duration in seconds the entity stays in the Dying state before transitioning to Dead.
     /// Can be overridden via JSON key `dying_duration_secs`. Defaults to 1.0.
     pub dying_duration_secs: f32,
+    /// Authored initial state as an enum value parsed from the JSON name.
+    pub initial_state: EntityState,
+    /// Authored per-state configuration indexed by typed `EntityState`.
+    pub states: HashMap<EntityState, StateConfig>,
 }
 
 impl StateMachine {
@@ -35,7 +42,30 @@ impl StateMachine {
             prev_state: None,
             state_time: 0.0,
             dying_duration_secs: 1.0,
+            initial_state: state,
+            states: HashMap::new(),
         }
+    }
+
+    /// Build a runtime StateMachine from authored StateMachineConfig.
+    pub fn from_config(cfg: &StateMachineConfig) -> Self {
+        let state = Self::entity_state_from_name(&cfg.initial_state);
+        let mut sm = StateMachine::new(state);
+        sm.initial_state = state;
+        // Convert string-keyed states into typed map. Unknown state names are
+        // skipped with a warning.
+        for (name, sc) in cfg.states.iter() {
+            let es = Self::entity_state_from_name(name);
+            // If the name didn't map to a known state the function already
+            // logs a warning and returns Idle; avoid clobbering by comparing
+            // the lowercase equality to ensure mapping was explicit.
+            if name.to_ascii_lowercase() == es.to_state_name() {
+                sm.states.insert(es, sc.clone());
+            } else {
+                tracing::warn!(state = %name, "StateMachine::from_config: unknown state name, skipping");
+            }
+        }
+        sm
     }
 
     /// Convenience constructor for the default Idle state.
@@ -90,12 +120,26 @@ impl StateMachine {
         if let Some(serde_json::Value::Object(map)) = comp_obj {
             if let Some(s) = map.get("initial_state").and_then(|v| v.as_str()) {
                 self.state = Self::entity_state_from_name(s);
+                self.initial_state = Self::entity_state_from_name(s);
             }
             if let Some(t) = map.get("state_time").and_then(|v| v.as_f64()) {
                 self.state_time = t as f32;
             }
             if let Some(d) = map.get("dying_duration_secs").and_then(|v| v.as_f64()) {
                 self.dying_duration_secs = (d as f32).max(0.0);
+            }
+            if let Some(states_val) = map.get("states") {
+                if let Ok(parsed) = serde_json::from_value::<HashMap<String, StateConfig>>(states_val.clone()) {
+                    // Convert into typed map
+                    for (name, sc) in parsed.into_iter() {
+                        let es = Self::entity_state_from_name(&name);
+                        if name.to_ascii_lowercase() == es.to_state_name() {
+                            self.states.insert(es, sc);
+                        } else {
+                            tracing::warn!(state = %name, "StateMachine::override_from_json: unknown state name, skipping");
+                        }
+                    }
+                }
             }
         }
         self

@@ -2,7 +2,7 @@ use bevy::prelude::{Component, Timer, TimerMode};
 use std::time::Duration;
 
 /// Autonomous ranged attack used by enemies or turrets.
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 pub struct AutoRangeAttack {
     /// Damage dealt per projectile.
     pub damage: i32,

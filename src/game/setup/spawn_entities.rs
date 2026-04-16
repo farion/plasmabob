@@ -78,43 +78,44 @@ pub fn spawn_entities(
         let sprite_w = entity_type.width.unwrap_or(128) as f32;
         let sprite_h = entity_type.height.unwrap_or(128) as f32;
 
-        // Merge entity-type components with optional level-entity overrides.
-        let mut merged_components: std::collections::HashMap<String, serde_json::Value> =
-            entity_type.components.clone().unwrap_or_default();
-        if let Some(prop) = entity.properties.get("components") {
-            match prop {
-                PropValue::Other(s) | PropValue::String(s) => {
+        // Parse entity-type typed components and optional level-entity overrides.
+        // We no longer convert the typed `ComponentsDef` into a HashMap. Call
+        // sites must read the typed fields directly.
+        let override_map: Option<std::collections::HashMap<String, serde_json::Value>> =
+            match entity.properties.get("components") {
+                Some(PropValue::Other(s)) | Some(PropValue::String(s)) => {
                     if let Ok(serde_json::Value::Object(map)) = serde_json::from_str::<serde_json::Value>(s) {
-                        for (k, v) in map.into_iter() {
-                            merged_components.insert(k, v);
-                        }
+                        let mut hm = std::collections::HashMap::new();
+                        for (k, v) in map.into_iter() { hm.insert(k, v); }
+                        Some(hm)
                     } else {
                         tracing::warn!(id = %entity.id, "spawn_entities: could not parse entity-level 'components' override (expected object)");
+                        None
                     }
                 }
-                _ => {
+                Some(_) => {
                     tracing::warn!(id = %entity.id, "spawn_entities: unexpected 'components' property type in level entity, expected object");
+                    None
                 }
-            }
-        }
+                None => None,
+            };
 
-        let components_obj = if merged_components.is_empty() { None } else { Some(&merged_components) };
-        let _get_u64 = |key: &str| -> Option<u64> {
-            components_obj
-                .and_then(|obj| obj.get(key))
-                .and_then(|v| v.as_u64())
-        };
-        let _get_string = |key: &str| -> Option<String> {
-            components_obj
-                .and_then(|obj| obj.get(key))
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string())
+        // Helper: retrieve a per-entity override (raw JSON) if present.
+        let comps_def = entity_type.components.as_ref();
+        let get_override = |key: &str| -> Option<&serde_json::Value> {
+            override_map.as_ref().and_then(|m| m.get(key))
         };
 
         // Orientation is always present on every entity (defaults to Right / 0°)
-        // and can be overridden via JSON key `orientation`.
-        let orientation = Orientation::default()
-            .override_from_json(merged_components.get("orientation"));
+        // and can be overridden via JSON key `orientation` or provided by the
+        // entity-type's typed ComponentsDef.
+        let orientation = if let Some(ov) = get_override("orientation") {
+            Orientation::default().override_from_json(Some(ov))
+        } else if let Some(c) = comps_def.and_then(|c| c.orientation.as_ref()) {
+            c.clone()
+        } else {
+            Orientation::default()
+        };
 
         // Place transform at sprite centre (level coords use bottom-left).
         let x = entity.x + sprite_w / 2.0;
@@ -168,125 +169,198 @@ pub fn spawn_entities(
         ent_cmd.insert(orientation);
 
 
-        // Iterate declared component keys in the entity-type `components` map.
-        let comp_keys: Vec<String> = components_obj
-            .map(|m| m.keys().cloned().collect())
-            .unwrap_or_default();
-        for comp in comp_keys {
-            let comp_obj = components_obj.and_then(|m| m.get(&comp));
-            match comp.to_ascii_lowercase().as_str() {
-                "health" => {
-                    let health_comp = Health::default().override_from_json(comp_obj);
-                    ent_cmd.insert(health_comp);
-                    assigned_components.push("Health".to_string());
-                }
-                "controlledmovement" | "controlled_movement" => {
-                    let cm = ControlledMovement::default().override_from_json(comp_obj);
-                    ent_cmd.insert(cm);
-                    assigned_components.push("ControlledMovement".to_string());
-                }
-                "automovement" | "auto_movement" => {
-                    let am = AutoMovement::default().override_from_json(comp_obj);
-                    ent_cmd.insert(am);
-                    assigned_components.push("AutoMovement".to_string());
-                }
-                "movingplatform" | "moving_platform" => {
-                    let mp = MovingPlatform::default().override_from_json(comp_obj);
-                    ent_cmd.insert(mp);
-                    assigned_components.push("MovingPlatform".to_string());
-                }
-                "rigidbody" | "rigid_body" => {
-                    let rb = RigidBody::default().override_from_json(comp_obj);
-                    ent_cmd.insert(rb);
-                    assigned_components.push("RigidBody".to_string());
-                }
-                "gravity" => {
-                    let g = Gravity::default().override_from_json(comp_obj);
-                    ent_cmd.insert(g);
-                    assigned_components.push("Gravity".to_string());
-                }
-                "blocking" => {
-                    let b = Blocking::default().override_from_json(comp_obj);
-                    ent_cmd.insert(b);
-                    assigned_components.push("Blocking".to_string());
-                }
-                "controlled_range_attack" | "controlledrangeattack" | "controlled_range" => {
-                    let cra = ControlledRangeAttack::default().override_from_json(comp_obj);
-                    ent_cmd.insert(cra);
-                    assigned_components.push("ControlledRangeAttack".to_string());
-                }
-                "auto_range_attack" | "autorangeattack" | "auto_range" => {
-                    let ara = AutoRangeAttack::default().override_from_json(comp_obj);
-                    ent_cmd.insert(ara);
-                    assigned_components.push("AutoRangeAttack".to_string());
-                }
-                "auto_melee_attack" | "automeleeattack" | "auto_melee" => {
-                    let ama = AutoMeleeAttack::default().override_from_json(comp_obj);
-                    ent_cmd.insert(ama);
-                    assigned_components.push("AutoMeleeAttack".to_string());
-                }
-                "controlled_melee_attack" | "controlledmeleeattack" | "controlled_melee" => {
-                    let cma = ControlledMeleeAttack::default().override_from_json(comp_obj);
-                    ent_cmd.insert(cma);
-                    assigned_components.push("ControlledMeleeAttack".to_string());
-                }
-                "damageable" => {
-                    let d = Damageable::default().override_from_json(comp_obj);
-                    ent_cmd.insert(d);
-                    assigned_components.push("Damageable".to_string());
-                }
-                "team" => {
-                    let team = Team::default().override_from_json(comp_obj);
-                    ent_cmd.insert(team);
-                    assigned_components.push("Team".to_string());
-                }
-                // Orientation is always spawned with defaults; the key is accepted here
-                // so it doesn't produce an "unknown component" warning.
-                "orientation" => {}
-                "statemachine" | "state_machine" | "state-machine" => {
-                    // Create StateMachine only when explicitly declared in the
-                    // entity's components map. Use the entity-type state's
-                    // configured initial state as the start state.
-                    let initial_state_enum = parse_entity_state(&initial_state_name);
-                    let sm = StateMachine::new(initial_state_enum);
-                    ent_cmd.insert(sm);
-                    // Also insert SoundState tied to the same initial state.
-                    let ss = SoundState::new(initial_state_enum);
-                    ent_cmd.insert(ss);
-                    assigned_components.push("StateMachine".to_string());
-                    assigned_components.push("SoundState".to_string());
-                }
-                "collider" => {
-                    // Only create and insert a collider if the components map
-                    // explicitly requested one. Build the collider from the
-                    // state's collider_box and, if the entity is initially
-                    // flipped, mirror the collider and adjust the entity's
-                    // Transform so the collider world centre remains stable.
-                    let mut col = build_collider_from_box(state_cfg.collider_box.as_deref(), sprite_w, sprite_h);
-                    if desired_flip {
-                        let cx = col.offset.x;
-                        let transform_x = x + 2.0 * cx;
-                        col.offset.x = -cx;
-                        // Replace Transform and Sprite on the just-spawned entity
-                        ent_cmd.insert(col.clone());
-                        ent_cmd.insert(Transform::from_xyz(transform_x, y, z));
-                        let spr = Sprite {
-                            image: sprite_image.clone(),
-                            color: sprite_color,
-                            custom_size: Some(Vec2::new(sprite_w, sprite_h)),
-                            flip_x: true,
-                            ..default()
-                        };
-                        ent_cmd.insert(spr);
-                    } else {
-                        ent_cmd.insert(col.clone());
-                    }
-                    assigned_components.push("Collider".to_string());
-                }
-                other => {
-                    // Unknown component names are currently ignored; designers
-                    // must reference existing runtime components by name in JSON.
-                    tracing::warn!(id = %entity.id, comp = %other, "spawn_entities: unknown component in entity_type.component, skipping");
+        // Instantiate components from typed `ComponentsDef` or per-entity overrides.
+        // Health
+        if let Some(ov) = get_override("health") {
+            let health_comp = Health::default().override_from_json(Some(ov));
+            ent_cmd.insert(health_comp);
+            assigned_components.push("Health".to_string());
+        } else if let Some(h) = comps_def.and_then(|c| c.health.clone()) {
+            ent_cmd.insert(h);
+            assigned_components.push("Health".to_string());
+        }
+
+        // ControlledMovement
+        if let Some(ov) = get_override("controlled_movement") {
+            let cm = ControlledMovement::default().override_from_json(Some(ov));
+            ent_cmd.insert(cm);
+            assigned_components.push("ControlledMovement".to_string());
+        } else if let Some(cm) = comps_def.and_then(|c| c.controlled_movement.clone()) {
+            ent_cmd.insert(cm);
+            assigned_components.push("ControlledMovement".to_string());
+        }
+
+        // AutoMovement
+        if let Some(ov) = get_override("auto_movement") {
+            let am = AutoMovement::default().override_from_json(Some(ov));
+            ent_cmd.insert(am);
+            assigned_components.push("AutoMovement".to_string());
+        } else if let Some(am) = comps_def.and_then(|c| c.auto_movement.clone()) {
+            ent_cmd.insert(am);
+            assigned_components.push("AutoMovement".to_string());
+        }
+
+        // MovingPlatform
+        if let Some(ov) = get_override("moving_platform") {
+            let mp = MovingPlatform::default().override_from_json(Some(ov));
+            ent_cmd.insert(mp);
+            assigned_components.push("MovingPlatform".to_string());
+        } else if let Some(mp) = comps_def.and_then(|c| c.moving_platform.clone()) {
+            ent_cmd.insert(mp);
+            assigned_components.push("MovingPlatform".to_string());
+        }
+
+        // RigidBody
+        if let Some(ov) = get_override("rigid_body") {
+            let rb = RigidBody::default().override_from_json(Some(ov));
+            ent_cmd.insert(rb);
+            assigned_components.push("RigidBody".to_string());
+        } else if let Some(rb) = comps_def.and_then(|c| c.rigid_body.clone()) {
+            ent_cmd.insert(rb);
+            assigned_components.push("RigidBody".to_string());
+        }
+
+        // Gravity
+        if let Some(ov) = get_override("gravity") {
+            let g = Gravity::default().override_from_json(Some(ov));
+            ent_cmd.insert(g);
+            assigned_components.push("Gravity".to_string());
+        } else if let Some(g) = comps_def.and_then(|c| c.gravity.clone()) {
+            ent_cmd.insert(g);
+            assigned_components.push("Gravity".to_string());
+        }
+
+        // Blocking
+        if let Some(ov) = get_override("blocking") {
+            let b = Blocking::default().override_from_json(Some(ov));
+            ent_cmd.insert(b);
+            assigned_components.push("Blocking".to_string());
+        } else if let Some(b) = comps_def.and_then(|c| c.blocking.clone()) {
+            ent_cmd.insert(b);
+            assigned_components.push("Blocking".to_string());
+        }
+
+        // ControlledRangeAttack
+        if let Some(ov) = get_override("controlled_range_attack") {
+            let cra = ControlledRangeAttack::default().override_from_json(Some(ov));
+            ent_cmd.insert(cra);
+            assigned_components.push("ControlledRangeAttack".to_string());
+        } else if let Some(cra) = comps_def.and_then(|c| c.controlled_range_attack.clone()) {
+            ent_cmd.insert(cra);
+            assigned_components.push("ControlledRangeAttack".to_string());
+        }
+
+        // AutoRangeAttack
+        if let Some(ov) = get_override("auto_range_attack") {
+            let ara = AutoRangeAttack::default().override_from_json(Some(ov));
+            ent_cmd.insert(ara);
+            assigned_components.push("AutoRangeAttack".to_string());
+        } else if let Some(ara) = comps_def.and_then(|c| c.auto_range_attack.clone()) {
+            ent_cmd.insert(ara);
+            assigned_components.push("AutoRangeAttack".to_string());
+        }
+
+        // AutoMeleeAttack
+        if let Some(ov) = get_override("auto_melee_attack") {
+            let ama = AutoMeleeAttack::default().override_from_json(Some(ov));
+            ent_cmd.insert(ama);
+            assigned_components.push("AutoMeleeAttack".to_string());
+        } else if let Some(ama) = comps_def.and_then(|c| c.auto_melee_attack.clone()) {
+            ent_cmd.insert(ama);
+            assigned_components.push("AutoMeleeAttack".to_string());
+        }
+
+        // ControlledMeleeAttack
+        if let Some(ov) = get_override("controlled_melee_attack") {
+            let cma = ControlledMeleeAttack::default().override_from_json(Some(ov));
+            ent_cmd.insert(cma);
+            assigned_components.push("ControlledMeleeAttack".to_string());
+        } else if let Some(cma) = comps_def.and_then(|c| c.controlled_melee_attack.clone()) {
+            ent_cmd.insert(cma);
+            assigned_components.push("ControlledMeleeAttack".to_string());
+        }
+
+        // Damageable
+        if let Some(ov) = get_override("damageable") {
+            let d = Damageable::default().override_from_json(Some(ov));
+            ent_cmd.insert(d);
+            assigned_components.push("Damageable".to_string());
+        } else if let Some(d) = comps_def.and_then(|c| c.damageable.clone()) {
+            ent_cmd.insert(d);
+            assigned_components.push("Damageable".to_string());
+        }
+
+        // Team
+        if let Some(ov) = get_override("team") {
+            let team = Team::default().override_from_json(Some(ov));
+            ent_cmd.insert(team);
+            assigned_components.push("Team".to_string());
+        } else if let Some(team) = comps_def.and_then(|c| c.team.clone()) {
+            ent_cmd.insert(team);
+            assigned_components.push("Team".to_string());
+        }
+
+        // Create StateMachine only when explicitly declared in the entity's
+        // components. Use the entity-type state's configured initial state.
+        if get_override("state_machine").is_some() || comps_def.is_some() {
+            // Build runtime StateMachine from the typed state machine config
+            // (preferred: components.extra["state_machine"]; fallback: top-level config).
+            let sm_cfg = entity_type.state_machine_config();
+            if let Some(cfg) = sm_cfg {
+                let mut sm = StateMachine::from_config(&cfg);
+                ent_cmd.insert(sm.clone());
+                let initial_state_enum = parse_entity_state(&cfg.initial_state);
+                let ss = SoundState::new(initial_state_enum);
+                ent_cmd.insert(ss);
+                assigned_components.push("StateMachine".to_string());
+                assigned_components.push("SoundState".to_string());
+            } else {
+                // fallback: create default state machine using the initial state name
+                let initial_state_enum = parse_entity_state(&initial_state_name);
+                let sm = StateMachine::new(initial_state_enum);
+                ent_cmd.insert(sm);
+                let ss = SoundState::new(initial_state_enum);
+                ent_cmd.insert(ss);
+                assigned_components.push("StateMachine".to_string());
+                assigned_components.push("SoundState".to_string());
+            }
+        }
+
+        // Collider
+        if get_override("collider").is_some() || comps_def.and_then(|c| c.collider.as_ref()).is_some() {
+            let mut col = build_collider_from_box(state_cfg.collider_box.as_deref(), sprite_w, sprite_h);
+            if desired_flip {
+                let cx = col.offset.x;
+                let transform_x = x + 2.0 * cx;
+                col.offset.x = -cx;
+                ent_cmd.insert(col.clone());
+                ent_cmd.insert(Transform::from_xyz(transform_x, y, z));
+                let spr = Sprite {
+                    image: sprite_image.clone(),
+                    color: sprite_color,
+                    custom_size: Some(Vec2::new(sprite_w, sprite_h)),
+                    flip_x: true,
+                    ..default()
+                };
+                ent_cmd.insert(spr);
+            } else {
+                ent_cmd.insert(col.clone());
+            }
+            assigned_components.push("Collider".to_string());
+        }
+
+        // Warn about unknown override keys that are not handled explicitly.
+        if let Some(ov) = override_map.as_ref() {
+            for k in ov.keys() {
+                let canonical = k.to_ascii_lowercase();
+                let known = matches!(canonical.as_str(),
+                    "health" | "controlled_movement" | "automovement" | "auto_movement" | "moving_platform" | "movingplatform" |
+                    "rigid_body" | "rigidbody" | "gravity" | "blocking" | "controlled_range_attack" | "controlledrangeattack" |
+                    "auto_range_attack" | "autorangeattack" | "auto_melee_attack" | "automeleeattack" | "controlled_melee_attack" | "controlledmeleeattack" |
+                    "damageable" | "team" | "orientation" | "state_machine" | "statemachine" | "collider"
+                );
+                if !known {
+                    tracing::warn!(id = %entity.id, comp = %k, "spawn_entities: unknown component key in entity-level components override");
                 }
             }
         }

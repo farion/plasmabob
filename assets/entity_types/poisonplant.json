@@ -1,7 +1,6 @@
 {
   "name": "Poison Plant",
   "category_tag": "Enemy",
-  "health": 60,
   "height": 125,
   "components": {
     "collider": { "mode": "from_state" },

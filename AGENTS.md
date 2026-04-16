@@ -94,6 +94,7 @@ Cross-cutting helpers and global modules live at the crate root and are importan
 - One file per component
 - No logic code in mod.rs, only `pub mod` declarations and re-exports if needed.
 - No backwards compatibility on changes is required if not explicitly mentioned in the prompt.
+- If JSON is parsed, always use completely typed structs with `serde` (no `serde_json::Value` or untyped parsing).
 
 ## Internationalization (i18n)
 

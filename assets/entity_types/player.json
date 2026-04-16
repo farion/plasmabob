@@ -8,7 +8,7 @@
     "team": { "name": "player" },
     "gravity": {},
     "rigid_body": {},
-    "health": { "health": 100 },
+    "health": { "max": 100 },
     "controlled_range_attack": {
       "projectile_type": "player_projectile",
       "speed": 2000.0,

@@ -1,7 +1,7 @@
 use bevy::prelude::{Component, Timer, TimerMode};
 
 /// Range attack component for player-controlled ranged weapons (e.g. plasma gun).
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 pub struct ControlledRangeAttack {
     /// Damage dealt per shot.
     pub damage: i32,
