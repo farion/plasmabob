@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::app_model::AppState;
 use crate::i18n::LocalizedText;
-use crate::level::CachedLevelDefinition;
+use crate::game::level::types::CachedLevelDefinition;
 use crate::world::WorldCatalog;
 use crate::{CampaignProgress, LevelSelection, LevelStats};
 
@@ -142,18 +142,35 @@ fn setup_win_view(
                     // derive level metrics from cached level definition when available
                     let mut total_enemies: u32 = 0;
                     let mut level_length: f32 = 800.0; // fallback length in px
-                    if let Ok(level_def) = cached_level.level_definition() {
+                    if let Some(level_def) = &cached_level.level {
                         if let Some(bounds) = &level_def.bounds {
                             level_length = bounds.width.max(bounds.height);
                         }
 
-                        for ent in &level_def.entities {
-                            if let Some(entity_type_def) =
-                                level_def.entity_types.get(&ent.entity_type)
-                            {
-                                if entity_type_def.components.iter().any(|c| c == "hostile") {
-                                    total_enemies += 1;
+                        let entities = level_def.entities.as_deref().unwrap_or(&[]);
+                        for ent in entities {
+                            // Determine if this entity is an enemy/hostile.
+                            let mut is_enemy = false;
+                            if let Some(cat) = ent.entity_type.category_tag.as_ref() {
+                                if cat.eq_ignore_ascii_case("hostile") || cat.eq_ignore_ascii_case("enemy") {
+                                    is_enemy = true;
                                 }
+                            }
+
+                            if !is_enemy {
+                                if let Some(comps) = ent.entity_type.components.as_ref() {
+                                    if comps.auto_melee_attack.is_some()
+                                        || comps.auto_range_attack.is_some()
+                                        || comps.controlled_melee_attack.is_some()
+                                        || comps.controlled_range_attack.is_some()
+                                    {
+                                        is_enemy = true;
+                                    }
+                                }
+                            }
+
+                            if is_enemy {
+                                total_enemies += 1;
                             }
                         }
                     }
