@@ -44,7 +44,7 @@ pub fn sound_system(
 
             // 1. Stop the running loop (if any).
             if let SoundSeqStage::Looping { loop_entity } = ss.stage {
-                commands.entity(loop_entity).despawn();
+                commands.entity(loop_entity).try_despawn();
             }
 
             // 2. Play the old state's end sound (fire-and-forget).
@@ -114,7 +114,8 @@ pub fn sound_system(
                                 ..default()
                             },
                             StateSoundLoop,
-                        )).id();
+                        ))
+                        .id();
                         ss.stage = SoundSeqStage::Looping { loop_entity };
                     } else {
                         ss.stage = SoundSeqStage::Idle;
@@ -131,15 +132,17 @@ pub fn sound_system(
             if timer.just_finished() {
                 if let Some(loop_handle) = pending_loop.take() {
                     let vol_loop = Volume::Linear(audio_settings.sounds_volume);
-                    let loop_entity = commands.spawn((
-                        AudioPlayer::<AudioSource>::new(loop_handle),
-                        PlaybackSettings {
-                            mode: PlaybackMode::Loop,
-                            volume: vol_loop,
-                            ..default()
-                        },
-                        StateSoundLoop,
-                    )).id();
+                    let loop_entity = commands
+                        .spawn((
+                            AudioPlayer::<AudioSource>::new(loop_handle),
+                            PlaybackSettings {
+                                mode: PlaybackMode::Loop,
+                                volume: vol_loop,
+                                ..default()
+                            },
+                            StateSoundLoop,
+                        ))
+                        .id();
                     ss.stage = SoundSeqStage::Looping { loop_entity };
                 } else {
                     ss.stage = SoundSeqStage::Idle;
@@ -155,7 +158,7 @@ pub fn cleanup_state_sound_loops(
     loop_sounds: Query<Entity, With<StateSoundLoop>>,
 ) {
     for entity in &loop_sounds {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 }
 

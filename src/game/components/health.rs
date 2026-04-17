@@ -48,7 +48,8 @@ impl Default for Health {
     }
 }
 
-crate::impl_override_from_config!(Health, crate::game::level::configs::health_config::HealthConfig,
+crate::impl_override_with_u32_default!(Health, crate::game::level::configs::health_config::HealthConfig,
+    current => max,
     pick_u32 => [max, current],
     pick_bool => [despawn_on_death],
     pick_u64 => [despawn_delay_ms],

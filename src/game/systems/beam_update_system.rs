@@ -64,7 +64,7 @@ pub fn beam_update_system(
                     beam.current_length = delta.length();
                 }
             } else {
-                commands.entity(beam_entity).despawn();
+                commands.entity(beam_entity).try_despawn();
                 continue;
             }
         } else if let Some(lifetime) = beam.lifetime.as_mut() {
@@ -72,7 +72,7 @@ pub fn beam_update_system(
             alpha_multiplier = (1.0 - lifetime.fraction()).clamp(0.0, 1.0);
             // use just_finished() which indicates the timer reached its end during the last tick
             if lifetime.just_finished() {
-                commands.entity(beam_entity).despawn();
+                commands.entity(beam_entity).try_despawn();
                 continue;
             }
         }
@@ -99,7 +99,7 @@ pub fn beam_update_system(
         sprite.custom_size = Some(Vec2::splat(size));
         sprite.color.set_alpha((1.08 - fraction * 0.72).clamp(0.0, 1.0));
         if impact.lifetime.just_finished() {
-            commands.entity(particle_entity).despawn();
+            commands.entity(particle_entity).try_despawn();
         }
     }
 
@@ -117,7 +117,7 @@ pub fn beam_update_system(
         sprite.color = color;
 
         if particle.lifetime.just_finished() {
-            commands.entity(particle_entity).despawn();
+            commands.entity(particle_entity).try_despawn();
         }
     }
 }

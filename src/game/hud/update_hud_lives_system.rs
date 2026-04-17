@@ -28,7 +28,7 @@ pub fn update_hud_lives_system(
 
     for child in children.iter() {
         if hearts.get(child).is_ok() {
-            commands.entity(child).despawn();
+            commands.entity(child).try_despawn();
         }
     }
 

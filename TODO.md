@@ -2,10 +2,10 @@
 
 [X] AutoRangeAttack
 [X] Mirror sprites on the center of the hitbox instead of the center of the sprite.
+[ ] Level End
 [ ] Health Potion
 [ ] Clean Code / Fix Warnings
 [ ] Damage and Heal Numbers
-[ ] Level End
 [ ] Final Level Table
 [ ] Crouching
 [ ] Auto Betty Assets

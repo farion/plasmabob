@@ -55,7 +55,8 @@ pub fn projectile_collision_system(
         if let Ok(owner_sm) = state_machines.get(projectile.owner) {
             if owner_sm.is_non_interactive() {
                 set_beams_to_afterglow(projectile_entity, &mut beams);
-                commands.entity(projectile_entity).despawn();
+                // Use try_despawn to silently ignore duplicate despawn attempts.
+                commands.entity(projectile_entity).try_despawn();
                 continue;
             }
         }
@@ -177,7 +178,9 @@ pub fn projectile_collision_system(
             );
             set_beams_to_afterglow(projectile_entity, &mut beams);
 
-            commands.entity(projectile_entity).despawn();
+            // Use try_despawn to avoid warnings if the projectile was already scheduled
+            // for despawn by another system earlier in the same frame.
+            commands.entity(projectile_entity).try_despawn();
         }
     }
 }

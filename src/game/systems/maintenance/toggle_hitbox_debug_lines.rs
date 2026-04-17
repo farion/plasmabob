@@ -21,10 +21,10 @@ pub(crate) fn toggle_hitbox_debug_lines(
         if !debug_settings.show_hitbox_lines {
             // Despawn any debug helper entities.
             for e in &hitbox_query {
-                commands.entity(e).despawn();
+                commands.entity(e).try_despawn();
             }
             for e in &label_query {
-                commands.entity(e).despawn();
+                commands.entity(e).try_despawn();
             }
         }
     }

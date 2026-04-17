@@ -14,6 +14,27 @@ where
     level_cfg.and_then(|c| f(c)).or(entity_cfg.and_then(|c| f(c)))
 }
 
+/// Helper macro to generate an `override_from_config` impl where one u32 field
+/// should default to another u32 field when not provided. This is useful for
+/// patterns like `current` defaulting to `max` in `Health`.
+#[macro_export]
+macro_rules! impl_override_with_u32_default {
+    ($ty:ident, $cfg:path, $field:ident => $default:ident, $( $pick_fn:ident => [$($fields:ident),*] ),* $(,)?) => {
+        impl $ty {
+            pub fn override_from_config(mut self, entity_cfg: Option<&$cfg>, level_cfg: Option<&$cfg>) -> Self {
+                let entity_cfg = entity_cfg;
+                let level_cfg = level_cfg;
+                $( $crate::__impl_override_dispatch!($pick_fn, self, $ty, $cfg, entity_cfg, level_cfg, [$($fields),*]); )*
+                // If the primary field was not provided at all, use the fallback field value if present.
+                if $crate::helper::override_helpers::pick_u32(entity_cfg, level_cfg, |c| c.$field).is_none() {
+                    self.$field = $crate::helper::override_helpers::pick_u32(entity_cfg, level_cfg, |c| c.$default).map(|v| v as i32).unwrap_or(self.$field);
+                }
+                self
+            }
+        }
+    };
+}
+
 pub fn pick_i32<C, F>(entity_cfg: Option<&C>, level_cfg: Option<&C>, f: F) -> Option<i32>
 where
     F: Fn(&C) -> Option<i32>,
@@ -186,6 +207,21 @@ macro_rules! __impl_override_dispatch {
     // u32 fields in configs that map to signed i32 component fields (cast)
     (pick_u32, $recv:ident, $ty:ident, $cfg:path, $entity_cfg:ident, $level_cfg:ident, [$($field:ident),*]) => {
         $( $recv.$field = $crate::helper::override_helpers::pick_u32($entity_cfg, $level_cfg, |c| c.$field).map(|v| v as i32).unwrap_or($recv.$field); )*
+    };
+    // u32 fields with a fallback to another u32 config field (e.g. current defaulting to max)
+    // Syntax: pick_u32_default => [field:default_field]
+    (pick_u32_default, $recv:ident, $ty:ident, $cfg:path, $entity_cfg:ident, $level_cfg:ident, [$($pair:tt),*]) => {
+        __impl_override_dispatch!(@parse_u32_default_pairs $recv, $entity_cfg, $level_cfg, $($pair),*);
+    };
+
+    // Helper recursion to parse pairs like `field:default_field` and expand to code.
+    (@parse_u32_default_pairs $recv:ident, $entity_cfg:ident, $level_cfg:ident, ) => {};
+    (@parse_u32_default_pairs $recv:ident, $entity_cfg:ident, $level_cfg:ident, $field:ident : $default:ident $(, $rest:tt)*) => {
+        $recv.$field = $crate::helper::override_helpers::pick_u32($entity_cfg, $level_cfg, |c| c.$field)
+            .map(|v| v as i32)
+            .or_else(|| $crate::helper::override_helpers::pick_u32($entity_cfg, $level_cfg, |c| c.$default).map(|v| v as i32))
+            .unwrap_or($recv.$field);
+        __impl_override_dispatch!(@parse_u32_default_pairs $recv, $entity_cfg, $level_cfg $(, $rest)*);
     };
     // u8 fields in configs that map to u8 component fields
     (pick_u8, $recv:ident, $ty:ident, $cfg:path, $entity_cfg:ident, $level_cfg:ident, [$($field:ident),*]) => {

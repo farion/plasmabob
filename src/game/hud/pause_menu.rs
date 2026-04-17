@@ -77,7 +77,7 @@ pub(crate) fn update_pause_menu(
 
         virtual_time.unpause();
         for entity in &roots {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
         return;
     }

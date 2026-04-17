@@ -14,6 +14,7 @@ pub mod player_shoot_system;
 pub mod plugin;
 pub mod projectile_collision_system;
 pub mod projectile_movement_system;
+pub mod despawn_registry;
 pub mod sound_system;
 pub mod state_machine_update_system;
 pub mod track_previous_transform_system;

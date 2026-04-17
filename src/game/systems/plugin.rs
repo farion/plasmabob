@@ -93,6 +93,8 @@ impl Plugin for SystemsPlugin {
                 state_machine_update_system
                     .in_set(GameplaySet::Finalize)
                     .after(orientation_update_system),
+                // DespawnRegistry is intentionally left as a lightweight resource.
+                // If needed, a frame-clear system can be registered later.
                 death_despawn_system
                     .in_set(GameplaySet::Finalize)
                     .after(crate::game::systems::level_end::check_player_death),

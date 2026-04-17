@@ -84,8 +84,13 @@ pub fn projectile_movement_system(
     for (projectile_entity, _impact_position, _impact_z) in expired_projectiles {
         // Only set the beam to afterglow and despawn the projectile. Do not spawn impact
         // visuals or sounds for range expiration — impacts are only for real hits.
+        // Avoid double-queueing despawn commands for the same entity by consulting the
+        // DespawnRegistry resource which is updated when other systems (collision) also
+        // schedule a despawn for this projectile within the same frame.
         set_beams_to_afterglow(projectile_entity, &mut beams);
-        commands.entity(projectile_entity).despawn();
+        // Use try_despawn to silently ignore duplicate despawn attempts that may be
+        // queued by another system earlier in the same frame (deferred commands).
+        commands.entity(projectile_entity).try_despawn();
     }
 }
 

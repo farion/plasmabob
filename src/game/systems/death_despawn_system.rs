@@ -43,7 +43,9 @@ pub fn death_despawn_system(
 
         if *elapsed >= fade_start_ms + DEATH_FADE_MS {
             elapsed_by_entity_ms.remove(&entity);
-            commands.entity(entity).despawn();
+            // Use try_despawn to avoid warnings if another system already queued a despawn
+            // for this entity earlier in the same frame.
+            commands.entity(entity).try_despawn();
         }
     }
 

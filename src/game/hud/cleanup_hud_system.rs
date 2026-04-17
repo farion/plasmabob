@@ -7,7 +7,7 @@ pub fn cleanup_hud_system(
     hud_roots: Query<Entity, (With<HudRoot>, Without<ChildOf>)>,
 ) {
     for root in &hud_roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
 }
 

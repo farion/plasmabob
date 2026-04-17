@@ -164,35 +164,40 @@ pub fn spawn_fire_shoot_particles(
         );
     }
 
-    // Add a subtle trail behind the projectile: soft smoke + short-lived sparks.
-    // The trail is biased opposite to movement direction and slightly spread sideways.
+    // Add a single, chaotic flame-like trail behind the projectile. We intentionally
+    // bias lateral offsets to one side to avoid symmetric twin-tails and produce a
+    // single coherent flame plume. Trail particles are smaller and more chaotic.
     let back = -dir;
     let side = Vec2::new(-dir.y, dir.x);
 
-    for i in 0..4u32 {
+    for i in 0..5u32 {
         let seed = seed_base
             .wrapping_add(0x7821_C000)
             .wrapping_add(i.wrapping_mul(1_237));
 
-        let back_dist = (8.0 + hash_to_unit(seed.wrapping_mul(3)) * 10.0) * TRAIL_SCALE;
-        let side_offset = (hash_to_unit(seed.wrapping_mul(5)) - 0.5) * 12.0 * TRAIL_SCALE;
+        // Place particles primarily behind the fireball; lateral offset is positive-only
+        // so particles won't mirror on the opposite side producing two tails.
+        let back_dist = (6.0 + hash_to_unit(seed.wrapping_mul(3)) * 12.0) * TRAIL_SCALE;
+        let side_offset = (hash_to_unit(seed.wrapping_mul(5))) * 8.0 * TRAIL_SCALE;
+        // Add stronger random jitter to make the plume chaotic.
         let jitter = Vec2::new(
-            (hash_to_unit(seed.wrapping_mul(7)) - 0.5) * 4.0 * TRAIL_SCALE,
-            (hash_to_unit(seed.wrapping_mul(11)) - 0.5) * 4.0 * TRAIL_SCALE,
+            (hash_to_unit(seed.wrapping_mul(7)) - 0.5) * 6.0 * TRAIL_SCALE,
+            (hash_to_unit(seed.wrapping_mul(11)) - 0.5) * 6.0 * TRAIL_SCALE,
         );
 
         let position = origin + back * back_dist + side * side_offset + jitter;
-        let velocity = back * (20.0 + hash_to_unit(seed.wrapping_mul(13)) * 35.0) * TRAIL_SPEED_SCALE
-            + side * ((hash_to_unit(seed.wrapping_mul(17)) - 0.5) * 14.0) * TRAIL_SPEED_SCALE
-            + jitter * 0.3;
+        let velocity = back * (30.0 + hash_to_unit(seed.wrapping_mul(13)) * 60.0) * TRAIL_SPEED_SCALE
+            + side * ((hash_to_unit(seed.wrapping_mul(17))) * 18.0) * TRAIL_SPEED_SCALE
+            + jitter * 0.6;
 
-        let size = (10.0 + hash_to_unit(seed.wrapping_mul(19)) * 8.0) * TRAIL_SCALE;
-        let lifetime = (0.20 + hash_to_unit(seed.wrapping_mul(23)) * 0.12) * TRAIL_LIFETIME_SCALE;
+        // Make trail particles noticeably smaller than the core and more varied.
+        let size = (6.0 + hash_to_unit(seed.wrapping_mul(19)) * 6.0) * (TRAIL_SCALE * 0.6);
+        let lifetime = (0.12 + hash_to_unit(seed.wrapping_mul(23)) * 0.14) * (TRAIL_LIFETIME_SCALE * 0.9);
         let color = Color::srgba(
-            0.20 + hash_to_unit(seed.wrapping_mul(29)) * 0.10,
-            0.20 + hash_to_unit(seed.wrapping_mul(31)) * 0.10,
-            0.20 + hash_to_unit(seed.wrapping_mul(37)) * 0.10,
-            0.40 + hash_to_unit(seed.wrapping_mul(41)) * 0.18,
+            0.85 + hash_to_unit(seed.wrapping_mul(29)) * 0.10,
+            0.45 + hash_to_unit(seed.wrapping_mul(31)) * 0.25,
+            0.06 + hash_to_unit(seed.wrapping_mul(37)) * 0.08,
+            0.78 + hash_to_unit(seed.wrapping_mul(41)) * 0.18,
         );
 
         spawn_flame_particle(
@@ -208,30 +213,33 @@ pub fn spawn_fire_shoot_particles(
         );
     }
 
-    for i in 0..6u32 {
+    // Short, sharp sparks closer to the core for flicker. Make them smaller and
+    // more chaotic (angle jitter) but keep them biased behind the projectile.
+    for i in 0..8u32 {
         let seed = seed_base
             .wrapping_add(0x45AA_9000)
             .wrapping_add(i.wrapping_mul(1_409));
 
-        let back_dist = (4.0 + hash_to_unit(seed.wrapping_mul(3)) * 6.0) * TRAIL_SCALE;
-        let side_offset = (hash_to_unit(seed.wrapping_mul(5)) - 0.5) * 7.0 * TRAIL_SCALE;
+        let back_dist = (2.0 + hash_to_unit(seed.wrapping_mul(3)) * 8.0) * TRAIL_SCALE;
+        // smaller lateral variation, positive bias to remain on one side
+        let side_offset = (hash_to_unit(seed.wrapping_mul(5))) * 5.0 * TRAIL_SCALE;
         let jitter = Vec2::new(
-            (hash_to_unit(seed.wrapping_mul(7)) - 0.5) * 2.0 * TRAIL_SCALE,
-            (hash_to_unit(seed.wrapping_mul(11)) - 0.5) * 2.0 * TRAIL_SCALE,
+            (hash_to_unit(seed.wrapping_mul(7)) - 0.5) * 4.0 * TRAIL_SCALE,
+            (hash_to_unit(seed.wrapping_mul(11)) - 0.5) * 4.0 * TRAIL_SCALE,
         );
 
         let position = origin + back * back_dist + side * side_offset + jitter;
-        let velocity = back * (70.0 + hash_to_unit(seed.wrapping_mul(13)) * 80.0) * TRAIL_SPEED_SCALE
-            + side * ((hash_to_unit(seed.wrapping_mul(17)) - 0.5) * 50.0) * TRAIL_SPEED_SCALE
-            + jitter * 0.8;
+        let velocity = back * (80.0 + hash_to_unit(seed.wrapping_mul(13)) * 100.0) * TRAIL_SPEED_SCALE
+            + side * ((hash_to_unit(seed.wrapping_mul(17))) * 30.0) * TRAIL_SPEED_SCALE
+            + jitter * 1.0;
 
-        let size = (2.8 + hash_to_unit(seed.wrapping_mul(19)) * 2.8) * TRAIL_SCALE;
-        let lifetime = (0.07 + hash_to_unit(seed.wrapping_mul(23)) * 0.06) * TRAIL_LIFETIME_SCALE;
+        let size = (1.2 + hash_to_unit(seed.wrapping_mul(19)) * 1.6) * (TRAIL_SCALE * 0.5);
+        let lifetime = (0.04 + hash_to_unit(seed.wrapping_mul(23)) * 0.06) * (TRAIL_LIFETIME_SCALE * 0.8);
         let color = Color::srgba(
-            0.95 + hash_to_unit(seed.wrapping_mul(29)) * 0.05,
-            0.55 + hash_to_unit(seed.wrapping_mul(31)) * 0.27,
-            0.08 + hash_to_unit(seed.wrapping_mul(37)) * 0.10,
-            0.82 + hash_to_unit(seed.wrapping_mul(41)) * 0.16,
+            0.98 + hash_to_unit(seed.wrapping_mul(29)) * 0.02,
+            0.48 + hash_to_unit(seed.wrapping_mul(31)) * 0.24,
+            0.06 + hash_to_unit(seed.wrapping_mul(37)) * 0.08,
+            0.86 + hash_to_unit(seed.wrapping_mul(41)) * 0.14,
         );
 
         spawn_flame_particle(

@@ -15,13 +15,13 @@ pub fn cleanup_game_entities(
     // Stop loop sounds before despawning game entities.
     let mut loop_count = 0u32;
     for entity in &loop_sounds {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
         loop_count += 1;
     }
 
     let mut count = 0u32;
     for entity in &game_entities {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
         count += 1;
     }
 
