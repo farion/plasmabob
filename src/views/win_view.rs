@@ -27,7 +27,7 @@ fn setup_win_view(
     world_catalog: Res<WorldCatalog>,
     progress: Res<CampaignProgress>,
     stats: Res<LevelStats>,
-    cached_level: Res<CachedLevelDefinition>,
+    cached_level: Option<Res<CachedLevelDefinition>>,
 ) {
     let has_next_level = next_level_json(&world_catalog, &progress).is_some();
 
@@ -142,35 +142,37 @@ fn setup_win_view(
                     // derive level metrics from cached level definition when available
                     let mut total_enemies: u32 = 0;
                     let mut level_length: f32 = 800.0; // fallback length in px
-                    if let Some(level_def) = &cached_level.level {
-                        if let Some(bounds) = &level_def.bounds {
-                            level_length = bounds.width.max(bounds.height);
-                        }
-
-                        let entities = level_def.entities.as_deref().unwrap_or(&[]);
-                        for ent in entities {
-                            // Determine if this entity is an enemy/hostile.
-                            let mut is_enemy = false;
-                            if let Some(cat) = ent.entity_type.category_tag.as_ref() {
-                                if cat.eq_ignore_ascii_case("hostile") || cat.eq_ignore_ascii_case("enemy") {
-                                    is_enemy = true;
-                                }
+                    if let Some(cached_level) = &cached_level {
+                        if let Some(level_def) = &cached_level.level {
+                            if let Some(bounds) = &level_def.bounds {
+                                level_length = bounds.width.max(bounds.height);
                             }
 
-                            if !is_enemy {
-                                if let Some(comps) = ent.entity_type.components.as_ref() {
-                                    if comps.auto_melee_attack.is_some()
-                                        || comps.auto_range_attack.is_some()
-                                        || comps.controlled_melee_attack.is_some()
-                                        || comps.controlled_range_attack.is_some()
-                                    {
+                            let entities = level_def.entities.as_deref().unwrap_or(&[]);
+                            for ent in entities {
+                                // Determine if this entity is an enemy/hostile.
+                                let mut is_enemy = false;
+                                if let Some(cat) = ent.entity_type.category_tag.as_ref() {
+                                    if cat.eq_ignore_ascii_case("hostile") || cat.eq_ignore_ascii_case("enemy") {
                                         is_enemy = true;
                                     }
                                 }
-                            }
 
-                            if is_enemy {
-                                total_enemies += 1;
+                                if !is_enemy {
+                                    if let Some(comps) = ent.entity_type.components.as_ref() {
+                                        if comps.auto_melee_attack.is_some()
+                                            || comps.auto_range_attack.is_some()
+                                            || comps.controlled_melee_attack.is_some()
+                                            || comps.controlled_range_attack.is_some()
+                                        {
+                                            is_enemy = true;
+                                        }
+                                    }
+                                }
+
+                                if is_enemy {
+                                    total_enemies += 1;
+                                }
                             }
                         }
                     }
