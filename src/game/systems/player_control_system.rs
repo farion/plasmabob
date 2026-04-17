@@ -9,6 +9,7 @@ pub fn player_control_system(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     key_bindings: Res<KeyBindings>,
+    mut stats: ResMut<crate::LevelStats>,
     mut players: Query<
         (
             Entity,
@@ -51,6 +52,7 @@ pub fn player_control_system(
         if keyboard.just_pressed(key_bindings.jump) && gravity.grounded {
             rigid_body.velocity.y = movement.jump_force;
             gravity.grounded = false;
+            stats.jumps = stats.jumps.saturating_add(1);
         }
     }
 }

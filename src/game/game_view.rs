@@ -29,7 +29,12 @@ impl Plugin for GameViewPlugin {
         )
         .add_systems(
             OnEnter(AppState::GameView),
-            load_selected_level.in_set(GameSetupSet::LoadLevel),
+            (
+                reset_level_stats,
+                load_selected_level,
+            )
+                .chain()
+                .in_set(GameSetupSet::LoadLevel),
         )
         .add_systems(
             OnExit(AppState::GameView),
@@ -49,6 +54,7 @@ impl Plugin for GameViewPlugin {
 /// this system skips reloading in that case to avoid redundant IO.
 fn load_selected_level(
     asset_server: Res<AssetServer>,
+    active_character: Res<crate::helper::active_character::ActiveCharacter>,
     level_selection: Res<crate::LevelSelection>,
     existing: Option<Res<crate::game::level::types::CachedLevelDefinition>>,
     mut commands: Commands,
@@ -61,7 +67,11 @@ fn load_selected_level(
     }
     // Defer to the existing loader which performs all IO and parsing and
     // returns a `CachedLevelDefinition` on success.
-    match crate::game::level::loader::load_level_from_asset(&asset_server, level_selection.asset_path()) {
+    match crate::game::level::loader::load_level_from_asset(
+        &asset_server,
+        level_selection.asset_path(),
+        *active_character,
+    ) {
         Ok(cached) => {
             // Extract music playlist (if any) before moving `cached` into resources.
             let music_opt = cached.level.as_ref().and_then(|l| l.music.clone());
@@ -92,6 +102,10 @@ fn load_selected_level(
     }
 }
 
+fn reset_level_stats(mut level_stats: ResMut<crate::LevelStats>) {
+    *level_stats = crate::LevelStats::default();
+}
+
 /// Clean up the cached level resource when leaving the Game view to avoid
 /// stale data when returning later.
 fn cleanup_cached_level(mut commands: Commands) {
@@ -113,8 +127,7 @@ fn reset_main_camera(mut cameras: Query<&mut Transform, With<crate::MainCamera>>
 /// Restore global music to the menu track when leaving the Game view.
 fn reset_music_to_menu(
     mut music_request: ResMut<crate::helper::music::MusicRequest>,
-    active_character: Res<crate::helper::active_character::ActiveCharacter>,
 ) {
-    music_request.0 = Some(vec![active_character.menu_music_path().to_string()]);
+    music_request.0 = Some(vec!["music/start.ogg".to_string()]);
 }
 

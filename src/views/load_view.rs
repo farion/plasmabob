@@ -6,6 +6,8 @@ use std::collections::{HashMap, HashSet};
 use crate::app_model::AppState;
 use crate::game::level::types::CachedLevelDefinition;
 use crate::game::setup::entity_type_assets::{EntityTypeAsset, EntityTypeAssets, StateAssets};
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::{load_character_asset, resolve_character_asset_path};
 use crate::helper::music::MusicRequest;
 use crate::LevelSelection;
 
@@ -68,6 +70,7 @@ struct LoadProgressText;
 fn setup_load_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     level_selection: Res<LevelSelection>,
     existing_cached: Option<Res<CachedLevelDefinition>>,
     mut music_request: ResMut<MusicRequest>,
@@ -79,6 +82,7 @@ fn setup_load_view(
         match crate::game::level::loader::load_level_from_asset(
             &asset_server,
             level_selection.asset_path(),
+            *active_character,
         ) {
             Ok(c) => c,
             Err(e) => {
@@ -90,6 +94,7 @@ fn setup_load_view(
         match crate::game::level::loader::load_level_from_asset(
             &asset_server,
             level_selection.asset_path(),
+            *active_character,
         ) {
             Ok(c) => {
                 // Set up music playlist.
@@ -114,7 +119,7 @@ fn setup_load_view(
     let sprite_paths = collect_sprite_paths(&cached);
     let sprite_handles: Vec<Handle<Image>> = sprite_paths
         .iter()
-        .map(|p| asset_server.load::<Image>(p))
+        .map(|p| load_character_asset::<Image>(&asset_server, p, *active_character))
         .collect();
     let sound_paths = collect_sound_paths(&cached);
 
@@ -163,6 +168,7 @@ fn setup_load_view(
 fn tick_load_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     images: Res<Assets<Image>>,
     audio_assets: Res<Assets<AudioSource>>,
     cached: Option<Res<CachedLevelDefinition>>,
@@ -196,13 +202,17 @@ fn tick_load_view(
                 // Collect paths first to avoid borrow conflict with sound_entries.
                 let paths: Vec<String> = progress.sound_paths.clone();
                 for path in &paths {
-                    if !find_assets_dir().join(path).exists() {
+                    let resolved = resolve_character_asset_path(&asset_server, path, *active_character)
+                        .unwrap_or_else(|_| path.clone());
+
+                    if !find_assets_dir().join(&resolved).exists() {
                         tracing::warn!(path = %path, "LoadView: sound not found - ignoring");
                         continue;
                     }
 
-                    let handle: Handle<AudioSource> = asset_server.load(path);
-                    let duration_secs = probe_audio_duration(path).unwrap_or_else(|| {
+                    let handle: Handle<AudioSource> =
+                        load_character_asset::<AudioSource>(&asset_server, path, *active_character);
+                    let duration_secs = probe_audio_duration(&resolved).unwrap_or_else(|| {
                         tracing::warn!(path = %path, "LoadView: could not probe sound duration, using 0");
                         0.0
                     });

@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::app_model::{AppState, StartScreenBackground};
 use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::helper::i18n::LocalizedText;
 
 pub struct AboutViewPlugin;
@@ -27,7 +28,11 @@ fn setup_about_view(
 ) {
     // Use the same background image as the main menu for visual consistency and character theme.
     commands.spawn((
-        Sprite::from_image(asset_server.load(active_character.menu_background_path())),
+        Sprite::from_image(load_character_asset::<Image>(
+            &asset_server,
+            "start.jpg",
+            *active_character,
+        )),
         Transform::from_xyz(0.0, 0.0, -1.0),
         StartScreenBackground,
         AboutViewEntity,

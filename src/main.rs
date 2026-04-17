@@ -55,10 +55,25 @@ pub(crate) struct CampaignProgress {
 #[derive(Resource, Debug, Default, Clone)]
 pub(crate) struct LevelStats {
     pub(crate) enemies_killed: u32,
+    pub(crate) collectibles_collected: u32,
     pub(crate) total_time_seconds: f32,
     pub(crate) jumps: u32,
     pub(crate) shots: u32,
     pub(crate) hits: u32,
+    pub(crate) exit_bonus: u64,
+    pub(crate) score: u64,
+}
+
+impl LevelStats {
+    pub(crate) fn base_score(&self) -> u64 {
+        (self.enemies_killed as u64)
+            .saturating_mul(10)
+            .saturating_add((self.collectibles_collected as u64).saturating_mul(20))
+    }
+
+    pub(crate) fn recompute_score(&mut self) {
+        self.score = self.base_score().saturating_add(self.exit_bonus);
+    }
 }
 
 impl CampaignProgress {

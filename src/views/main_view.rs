@@ -7,6 +7,7 @@ use crate::app_model::{
     MenuSelection, StartScreenBackground, menu_action_label_key,
 };
 use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::helper::i18n;
 
 pub struct MainViewPlugin;
@@ -94,7 +95,11 @@ pub fn spawn_main_menu_ui(
 ) {
     // Background image
     commands.spawn((
-        Sprite::from_image(asset_server.load(active_character.menu_background_path())),
+        Sprite::from_image(load_character_asset::<Image>(
+            asset_server,
+            "start.jpg",
+            *active_character,
+        )),
         Transform::from_xyz(0.0, 0.0, -1.0),
         MainMenuEntity,
         StartScreenBackground,
@@ -110,7 +115,11 @@ pub fn spawn_main_menu_ui(
             left: Val::Px(50.0),
             ..default()
         },
-        ImageNode::new(asset_server.load(active_character.menu_logo_path())),
+        ImageNode::new(load_character_asset::<Image>(
+            asset_server,
+            "logo.png",
+            *active_character,
+        )),
         ZIndex(200),
         MainMenuEntity,
         MainMenuLogo,
@@ -216,7 +225,7 @@ pub fn setup_main_menu(
     modal_state.suppress_enter_until_release = false;
 
     // Refresh world catalog early so the main menu can make decisions.
-    world_catalog.refresh(&asset_server);
+    world_catalog.refresh(&asset_server, *active_character);
 
     // Music is now managed centrally by `helper::music::MusicPlugin`.
     // The menu view no longer spawns or manages music entities.
@@ -409,7 +418,11 @@ fn sync_main_menu_theme(
     }
 
     for mut sprite in &mut backgrounds {
-        sprite.image = asset_server.load(active_character.menu_background_path());
+        sprite.image = load_character_asset::<Image>(
+            &asset_server,
+            "start.jpg",
+            *active_character,
+        );
     }
 
     for mut text in &mut toggle_labels {
@@ -434,7 +447,11 @@ fn sync_main_menu_theme(
             left: Val::Px(50.0),
             ..default()
         },
-        ImageNode::new(asset_server.load(active_character.menu_logo_path())),
+        ImageNode::new(load_character_asset::<Image>(
+            &asset_server,
+            "logo.png",
+            *active_character,
+        )),
         ZIndex(200),
         MainMenuEntity,
         MainMenuLogo,

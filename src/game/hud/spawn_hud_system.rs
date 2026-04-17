@@ -6,6 +6,8 @@ use crate::game::hud::components::{
     ScoreTextShadowUi, ScoreTextUi, TimeTextShadowUi, TimeTextUi,
 };
 use crate::game::hud::hud_state::HudState;
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 
 const HUD_MARGIN: f32 = 20.0;
 const HUD_BAR_W: f32 = 260.0;
@@ -21,6 +23,7 @@ const HUD_LIVES_GAP: f32 = 8.0;
 pub fn spawn_hud_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     hud_state: Res<HudState>,
     existing_roots: Query<Entity, With<HudRoot>>,
 ) {
@@ -72,7 +75,11 @@ pub fn spawn_hud_system(
                         height: Val::Px(HUD_ICON_SIZE),
                         ..default()
                     },
-                    ImageNode::new(asset_server.load("icons/heart.png")),
+                    ImageNode::new(load_character_asset::<Image>(
+                        &asset_server,
+                        "icons/heart.png",
+                        *active_character,
+                    )),
                     GameEntity,
                 ));
 
@@ -117,7 +124,11 @@ pub fn spawn_hud_system(
                         height: Val::Px(HUD_ICON_SIZE),
                         ..default()
                     },
-                    ImageNode::new(asset_server.load("icons/plasma.png")),
+                    ImageNode::new(load_character_asset::<Image>(
+                        &asset_server,
+                        "icons/plasma.png",
+                        *active_character,
+                    )),
                     GameEntity,
                 ));
 
@@ -162,7 +173,11 @@ pub fn spawn_hud_system(
                         height: Val::Px(HUD_ICON_SIZE),
                         ..default()
                     },
-                    ImageNode::new(asset_server.load("icons/ego.png")),
+                    ImageNode::new(load_character_asset::<Image>(
+                        &asset_server,
+                        "icons/ego.png",
+                        *active_character,
+                    )),
                     GameEntity,
                 ));
 
@@ -302,7 +317,11 @@ pub fn spawn_hud_system(
             GameEntity,
         ))
         .with_children(|lives| {
-            let heart_image = asset_server.load("icons/heart.png");
+            let heart_image = load_character_asset::<Image>(
+                &asset_server,
+                "icons/heart.png",
+                *active_character,
+            );
             for _ in 0..hud_state.lives {
                 lives.spawn((
                     Node {

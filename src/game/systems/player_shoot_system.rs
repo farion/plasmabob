@@ -10,6 +10,7 @@ use crate::game::gfx::plasma_shoot::{
 };
 use crate::game::runtime_components::{Facing, GameEntity, Projectile};
 use crate::game::tags::PlayerTag;
+use crate::helper::active_character::ActiveCharacter;
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::key_bindings::{KeyAction, KeyBindings};
 use crate::helper::sounds::spawn_combat_sfx;
@@ -23,6 +24,7 @@ pub fn player_shoot_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     key_bindings: Res<KeyBindings>,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     audio_settings: Res<AudioSettings>,
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
@@ -33,6 +35,7 @@ pub fn player_shoot_system(
     // keyboard ghosting when multiple keys are held.
     mut prev_shoot_pressed: Local<bool>,
     mut fire_requested: Local<bool>,
+    mut stats: ResMut<crate::LevelStats>,
     mut players: Query<
         (
             Entity,
@@ -142,11 +145,13 @@ pub fn player_shoot_system(
             &mut commands,
             &asset_server,
             &audio_settings,
+            *active_character,
             PLASMA_SHOT_SFX,
         );
 
         attack.cooldown.reset();
         attack.just_fired = true;
+        stats.shots = stats.shots.saturating_add(1);
         *fire_requested = false;
     }
 

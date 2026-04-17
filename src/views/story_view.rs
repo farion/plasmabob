@@ -1,13 +1,13 @@
-use bevy::asset::io::AssetSourceId;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use futures_lite::AsyncReadExt;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use thiserror::Error;
 
 use crate::MainCamera;
 use crate::PendingStoryScreen;
 use crate::app_model::AppState;
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::i18n::{CurrentLanguage, LocalizedText, Translations};
 use crate::key_bindings::KeyBindings;
 
@@ -82,6 +82,7 @@ impl Plugin for StoryViewPlugin {
 fn setup_story_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     mut pending_story: ResMut<PendingStoryScreen>,
     mut scroll_state: ResMut<StoryScrollState>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -101,13 +102,18 @@ fn setup_story_view(
     let story_text = read_asset_text_from_server(
         &asset_server,
         &story.text_asset_path,
+        *active_character,
         &translations,
         &current,
     )
     .unwrap_or_else(|error| error.to_string());
 
     commands.spawn((
-        Sprite::from_image(asset_server.load(&story.background_asset_path)),
+        Sprite::from_image(load_character_asset::<Image>(
+            &asset_server,
+            &story.background_asset_path,
+            *active_character,
+        )),
         Transform::from_xyz(0.0, 0.0, -1.0),
         StoryBackground,
         StoryViewEntity,
@@ -368,87 +374,25 @@ fn cleanup_story_view(
 fn read_asset_text_from_server(
     asset_server: &AssetServer,
     asset_path: &str,
+    active_character: ActiveCharacter,
     translations: &Translations,
     current: &CurrentLanguage,
 ) -> Result<String, StoryLoadError> {
-    let source = asset_server
-        .get_source(AssetSourceId::Default)
+    crate::helper::asset_io::read_asset_text(asset_server, asset_path, active_character)
+        .map(|text| text.trim_start_matches('\u{feff}').to_string())
         .map_err(|error| {
             StoryLoadError::Message(
                 translations
                     .tr(&current.effective(&translations), "story.asset_read_error")
                     .map(|t| {
                         t.replace("{asset}", asset_path)
-                            .replace("{error}", &format!("{error}", error = error))
-                    })
-                    .unwrap_or_else(|| format!("Asset source error: {error}", error = error)),
-            )
-        })?;
-
-    let mut bytes = Vec::new();
-    pollster::block_on(async {
-        let mut reader = source
-            .reader()
-            .read(asset_path.as_ref())
-            .await
-            .map_err(|error| {
-                StoryLoadError::Message(
-                    translations
-                        .tr(&current.effective(&translations), "story.asset_read_error")
-                        .map(|t| {
-                            t.replace("{asset}", asset_path)
-                                .replace("{error}", &format!("{error}", error = error))
-                        })
-                        .unwrap_or_else(|| {
-                            format!(
-                                "Asset '{asset}' could not be read: {error}",
-                                asset = asset_path,
-                                error = error
-                            )
-                        }),
-                )
-            })?;
-
-        reader.read_to_end(&mut bytes).await.map_err(|error| {
-            StoryLoadError::Message(
-                translations
-                    .tr(&current.effective(&translations), "story.asset_read_error")
-                    .map(|t| {
-                        t.replace("{asset}", asset_path)
-                            .replace("{error}", &format!("{error}", error = error))
+                            .replace("{error}", &format!("{error}"))
                     })
                     .unwrap_or_else(|| {
-                        format!(
-                            "Asset bytes for '{asset}' could not be read: {error}",
-                            asset = asset_path,
-                            error = error
-                        )
+                        format!("Asset '{asset_path}' could not be read: {error}")
                     }),
             )
-        })?;
-
-        Ok::<(), StoryLoadError>(())
-    })?;
-
-    let text = String::from_utf8(bytes).map_err(|error| {
-        StoryLoadError::Message(
-            translations
-                .tr(&current.effective(&translations), "story.asset_utf8_error")
-                .map(|t| {
-                    t.replace("{asset}", asset_path)
-                        .replace("{error}", &format!("{error}", error = error))
-                })
-                .unwrap_or_else(|| {
-                    format!(
-                        "Asset '{asset}' is not valid UTF-8: {error}",
-                        asset = asset_path,
-                        error = error
-                    )
-                }),
-        )
-    })?;
-
-    Ok(text.trim_start_matches('\u{feff}').to_string())
+        })
 }
 
 #[derive(Error, Debug)]

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::app_model::AppState;
+use crate::helper::active_character::ActiveCharacter;
 use crate::i18n::{CurrentLanguage, Translations};
 use crate::world::WorldCatalog;
 use crate::{CampaignProgress, WorldListSelection};
@@ -38,13 +39,14 @@ impl Plugin for StartViewPlugin {
 
 fn refresh_world_catalog(
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     mut world_catalog: ResMut<WorldCatalog>,
     mut selection: ResMut<WorldListSelection>,
     progress: Res<CampaignProgress>,
 ) {
     // Only refresh if we're in "world selection mode" (no planet selected yet).
     if progress.planet_index.is_none() {
-        world_catalog.refresh(&asset_server);
+        world_catalog.refresh(&asset_server, *active_character);
         selection.index = 0;
     }
 }

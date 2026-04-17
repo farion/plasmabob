@@ -4,6 +4,8 @@ use std::f32::consts::TAU;
 
 use crate::app_model::AppState;
 use crate::game::gfx::particles::create_round_particle_image;
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::i18n::{CurrentLanguage, Translations};
 use crate::world::WorldCatalog;
 use crate::world::find_directional_neighbor;
@@ -64,6 +66,7 @@ impl Plugin for WorldMapViewPlugin {
 fn setup_world_map_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     mut images: ResMut<Assets<Image>>,
     world_catalog: Res<WorldCatalog>,
     mut selection: ResMut<WorldMapSelection>,
@@ -108,7 +111,11 @@ fn setup_world_map_view(
         .min(world_entry.definition.planets.len().saturating_sub(1));
 
     commands.spawn((
-        Sprite::from_image(asset_server.load(&world_entry.definition.background)),
+        Sprite::from_image(load_character_asset::<Image>(
+            &asset_server,
+            &world_entry.definition.background,
+            *active_character,
+        )),
         Transform::from_xyz(0.0, 0.0, -1.0),
         WorldMapBackground,
         WorldMapEntity,

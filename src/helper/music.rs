@@ -1,8 +1,9 @@
 use bevy::prelude::*;
-use bevy::audio::{AudioPlayer, AudioSink, PlaybackSettings, Volume};
+use bevy::audio::{AudioPlayer, AudioSink, AudioSource, PlaybackSettings, Volume};
 
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::helper::key_bindings::{KeyAction, KeyBindings};
 
 /// Pending request for the music player.
@@ -67,7 +68,11 @@ fn start_background_music(
         return;
     }
 
-    let handle = asset_server.load(active_character.menu_music_path());
+    let handle = load_character_asset::<AudioSource>(
+        &asset_server,
+        "music/start.ogg",
+        *active_character,
+    );
     let entity = commands
         .spawn((
             AudioPlayer::new(handle),
@@ -81,7 +86,7 @@ fn start_background_music(
         .id();
 
     manager.entity = Some(entity);
-    manager.current_track = Some(active_character.menu_music_path().to_string());
+    manager.current_track = "music/start.ogg".to_string().into();
 }
 
 fn sync_music_track(
@@ -95,7 +100,11 @@ fn sync_music_track(
     // If there is no music entity (e.g., was removed externally), ensure we spawn one
     if manager.entity.is_none() {
         // spawn fresh
-        let handle = asset_server.load(active_character.menu_music_path());
+        let handle = load_character_asset::<AudioSource>(
+            &asset_server,
+            "music/start.ogg",
+            *active_character,
+        );
         let entity = commands
             .spawn((
                 AudioPlayer::new(handle),
@@ -108,7 +117,7 @@ fn sync_music_track(
             ))
             .id();
         manager.entity = Some(entity);
-        manager.current_track = Some(active_character.menu_music_path().to_string());
+        manager.current_track = "music/start.ogg".to_string().into();
         return;
     }
     // Only change to the active character's menu track when the active character actually changed.
@@ -116,17 +125,18 @@ fn sync_music_track(
         return;
     }
 
-    let desired = active_character.menu_music_path().to_string();
-    if manager.current_track.as_deref() == Some(&desired) {
-        return;
-    }
+    let desired = "music/start.ogg".to_string();
 
     // despawn any existing MusicEntity entities to ensure a clean restart
     for e in &query {
         commands.entity(e).despawn();
     }
 
-    let handle = asset_server.load(active_character.menu_music_path());
+    let handle = load_character_asset::<AudioSource>(
+        &asset_server,
+        "music/start.ogg",
+        *active_character,
+    );
     let entity = commands
         .spawn((
             AudioPlayer::new(handle),
@@ -170,6 +180,7 @@ fn handle_music_requests(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     audio_settings: Res<AudioSettings>,
+    active_character: Res<ActiveCharacter>,
     mut manager: ResMut<MusicManager>,
     mut request: ResMut<MusicRequest>,
     query: Query<Entity, With<MusicEntity>>,
@@ -193,7 +204,7 @@ fn handle_music_requests(
 
     let desired = manager.playlist.as_ref().unwrap()[0].clone();
     // spawn once (we will advance manually)
-    let handle = asset_server.load(desired.clone());
+    let handle = load_character_asset::<AudioSource>(&asset_server, &desired, *active_character);
     let entity = commands
         .spawn((
             AudioPlayer::new(handle),
@@ -214,6 +225,7 @@ fn advance_playlist_if_finished(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     audio_settings: Res<AudioSettings>,
+    active_character: Res<ActiveCharacter>,
     mut manager: ResMut<MusicManager>,
     sink_query: Query<&AudioSink, With<MusicEntity>>,
     entity_query: Query<Entity, With<MusicEntity>>,
@@ -247,7 +259,7 @@ fn advance_playlist_if_finished(
         commands.entity(e).despawn();
     }
 
-    let handle = asset_server.load(next.clone());
+    let handle = load_character_asset::<AudioSource>(&asset_server, &next, *active_character);
     let entity = commands
         .spawn((
             AudioPlayer::new(handle),

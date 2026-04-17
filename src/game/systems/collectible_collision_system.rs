@@ -14,6 +14,7 @@ pub fn collectible_collision_system(
     mut collectibles: Query<(Entity, &Transform, &Collider, Option<&mut StateMachine>, Option<&CollectibleEffect>), With<CollectibleTag>>,
     mut pickers: Query<(Entity, &Transform, &Collider, Option<&mut Health>), With<ControlledMovement>>,
     damage_settings: Res<DamagePopupSettings>,
+    mut stats: ResMut<crate::LevelStats>,
 ) {
     // Simple AABB overlap test (no continuous collision).
     for (col_ent, col_tr, col_col, col_sm_opt, col_eff_opt) in &mut collectibles {
@@ -55,6 +56,9 @@ pub fn collectible_collision_system(
                     // Fallback: no StateMachine => despawn immediately.
                     commands.entity(col_ent).try_despawn();
                 }
+
+                stats.collectibles_collected = stats.collectibles_collected.saturating_add(1);
+                stats.recompute_score();
 
                 break; // collectible consumed, move to next collectible
             }

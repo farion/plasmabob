@@ -29,6 +29,7 @@ use crate::game::systems::maintenance::{
     update_debug_stats_labels::update_debug_stats_labels,
 };
 use crate::game::systems::level_end::check_level_end;
+use crate::game::systems::count_deaths_system::count_deaths_system;
 use crate::game::hud::pause_menu::{update_pause_menu, PauseMenuState};
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -95,6 +96,7 @@ impl Plugin for SystemsPlugin {
             Update,
             (
                 orientation_update_system.in_set(GameplaySet::Finalize),
+                count_deaths_system.in_set(GameplaySet::Finalize),
                 state_machine_update_system
                     .in_set(GameplaySet::Finalize)
                     .after(orientation_update_system),

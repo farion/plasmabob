@@ -5,15 +5,17 @@ use std::collections::HashMap;
 
 use crate::game::level::errors::LoadLevelError;
 use crate::game::level::types::{CachedLevelDefinition, EntityTypeDefinition, LevelDefinition};
+use crate::helper::active_character::ActiveCharacter;
 
 /// Load a level and its entity types from the given asset path into a new
 /// `CachedLevelDefinition`.
 pub fn load_level_from_asset(
     asset_server: &AssetServer,
     asset_path: &str,
+    active_character: ActiveCharacter,
 ) -> Result<CachedLevelDefinition, LoadLevelError> {
     // Read level JSON text
-    let content = crate::helper::asset_io::read_asset_text(asset_server, asset_path)?;
+    let content = crate::helper::asset_io::read_asset_text(asset_server, asset_path, active_character)?;
 
     // Parse the JSON into a Value first so we can extract `entity_types_path`
     // and load entity type definitions before deserializing `LevelDefinition`.
@@ -32,7 +34,11 @@ pub fn load_level_from_asset(
 
     if entity_types_ref.to_ascii_lowercase().ends_with(".json") {
         // Single file containing a map/object of entity types or a single entity type.
-        let txt = crate::helper::asset_io::read_asset_text(asset_server, &entity_types_ref);
+        let txt = crate::helper::asset_io::read_asset_text(
+            asset_server,
+            &entity_types_ref,
+            active_character,
+        );
         match txt {
             Ok(text) => {
                 // Try parsing as a map of entity type name -> definition first
@@ -80,7 +86,11 @@ pub fn load_level_from_asset(
                 continue;
             }
             let asset_path = path.to_string_lossy().to_string();
-            let txt = crate::helper::asset_io::read_asset_text(asset_server, &asset_path)?;
+            let txt = crate::helper::asset_io::read_asset_text(
+                asset_server,
+                &asset_path,
+                active_character,
+            )?;
             let mut et: EntityTypeDefinition = serde_json::from_str(&txt)?;
             if let Some(stem) = asset_path_stem(&asset_path) {
                 et.key = stem.to_string();

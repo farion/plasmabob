@@ -2,6 +2,8 @@ use bevy::prelude::*;
 
 use crate::game::components::GameEntity;
 use crate::game::level::types::CachedLevelDefinition;
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 
 /// Width of each background tile in world units (= virtual viewport width).
@@ -24,6 +26,7 @@ const BG_TILE_H: f32 = VIRTUAL_HEIGHT;
 pub fn setup_background(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     cached: Res<CachedLevelDefinition>,
 ) {
     let Some(level) = &cached.level else {
@@ -49,7 +52,11 @@ pub fn setup_background(
     let tile_count = tiles_x * tiles_y;
 
     // Load the image handle once and clone the cheap Arc-based handle per tile.
-    let image: Handle<Image> = asset_server.load(bg_path.clone());
+    let image: Handle<Image> = load_character_asset::<Image>(
+        &asset_server,
+        &bg_path,
+        *active_character,
+    );
 
     for ty in 0..tiles_y {
         for tx in 0..tiles_x {

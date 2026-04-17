@@ -8,6 +8,7 @@ use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, spawn_plasma_
 use crate::game::gfx::poison::spawn_poison_particles;
 use crate::game::gfx::spit::spawn_spit_particles;
 use crate::game::runtime_components::{GameEntity, Projectile};
+use crate::helper::active_character::ActiveCharacter;
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::sounds::spawn_combat_sfx;
 
@@ -19,6 +20,7 @@ pub fn auto_range_attack_system(
     mut commands: Commands,
     time: Res<Time>,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     audio_settings: Res<AudioSettings>,
     mut images: ResMut<Assets<Image>>,
     mut plasma_particle_image: Local<Option<Handle<Image>>>,
@@ -195,6 +197,7 @@ pub fn auto_range_attack_system(
             &mut commands,
             &asset_server,
             &audio_settings,
+            *active_character,
             PLASMA_SHOT_SFX,
         );
 

@@ -25,5 +25,6 @@ pub mod apply_parallax_system;
 pub mod toggle_parallax_system;
 pub mod maintenance;
 pub mod level_end;
+pub mod count_deaths_system;
 
 pub use plugin::SystemsPlugin;

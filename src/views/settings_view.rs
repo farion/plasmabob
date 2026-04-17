@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::app_model::{AppState, StartScreenBackground};
 use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::helper::audio_settings::AudioSettings;
 use crate::i18n::LocalizedText;
 use crate::key_bindings::{KeyAction, KeyBindings};
@@ -191,7 +192,11 @@ fn setup_settings_view(
     });
     // Background same as main menu / depends on active character
     commands.spawn((
-        Sprite::from_image(asset_server.load(active_character.menu_background_path())),
+        Sprite::from_image(load_character_asset::<Image>(
+            &asset_server,
+            "start.jpg",
+            *active_character,
+        )),
         Transform::from_xyz(0.0, 0.0, -1.0),
         StartScreenBackground,
         SettingsViewEntity,

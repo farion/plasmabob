@@ -3,6 +3,8 @@ use bevy::prelude::*;
 use futures_lite::stream::StreamExt as _;
 use serde::Deserialize;
 
+use crate::helper::active_character::ActiveCharacter;
+
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct WorldDefinition {
     pub(crate) name: String,
@@ -91,8 +93,8 @@ impl WorldCatalog {
         self.last_error.as_ref()
     }
 
-    pub(crate) fn refresh(&mut self, asset_server: &AssetServer) {
-        match load_world_catalog(asset_server, "worlds") {
+    pub(crate) fn refresh(&mut self, asset_server: &AssetServer, active_character: ActiveCharacter) {
+        match load_world_catalog(asset_server, "worlds", active_character) {
             Ok(worlds) => {
                 self.worlds = worlds;
                 self.last_error = None;
@@ -118,6 +120,7 @@ pub(crate) enum LoadWorldError {
 fn load_world_catalog(
     asset_server: &AssetServer,
     dir_asset_path: &str,
+    active_character: ActiveCharacter,
 ) -> Result<Vec<WorldCatalogEntry>, LoadWorldError> {
     let source = asset_server
         .get_source(AssetSourceId::Default)
@@ -155,7 +158,11 @@ fn load_world_catalog(
         }
 
         let asset_path = path.to_string_lossy().to_string();
-        let content = crate::helper::asset_io::read_asset_text(asset_server, &asset_path)?;
+        let content = crate::helper::asset_io::read_asset_text(
+            asset_server,
+            &asset_path,
+            active_character,
+        )?;
         let definition: WorldDefinition = serde_json::from_str(&content)?;
 
         worlds.push(WorldCatalogEntry {

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::ecs::system::SystemParam;
 
 use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::{Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, StateMachine, Team};
@@ -11,6 +12,7 @@ use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, PlasmaParticl
 use crate::game::gfx::poison::spawn_poison_particles;
 use crate::game::gfx::spit::spawn_spit_particles;
 use crate::game::runtime_components::Projectile;
+use crate::helper::active_character::ActiveCharacter;
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::sounds::spawn_combat_sfx;
 
@@ -19,16 +21,23 @@ const NEUTRAL_TEAM: &str = "Neutral";
 const PLASMA_HIT_SFX: &str = "audio/plasma-hit.ogg";
 const BEAM_AFTERGLOW_SECS: f32 = 0.28;
 
+#[derive(SystemParam)]
+pub(crate) struct ProjectileCollisionRuntime<'w, 's> {
+    commands: Commands<'w, 's>,
+    time: Res<'w, Time>,
+    asset_server: Res<'w, AssetServer>,
+    active_character: Res<'w, ActiveCharacter>,
+    audio_settings: Res<'w, AudioSettings>,
+    images: ResMut<'w, Assets<Image>>,
+    plasma_particle_image: Local<'s, Option<Handle<Image>>>,
+    fire_particle_image: Local<'s, Option<Handle<Image>>>,
+    particle_image_res: Option<Res<'w, PlasmaParticleImage>>,
+    fire_particle_image_res: Option<Res<'w, FireParticleImage>>,
+    stats: ResMut<'w, crate::LevelStats>,
+}
+
 pub fn projectile_collision_system(
-    mut commands: Commands,
-    time: Res<Time>,
-    asset_server: Res<AssetServer>,
-    audio_settings: Res<AudioSettings>,
-    mut images: ResMut<Assets<Image>>,
-    mut plasma_particle_image: Local<Option<Handle<Image>>>,
-    mut fire_particle_image: Local<Option<Handle<Image>>>,
-    particle_image_res: Option<Res<PlasmaParticleImage>>,
-    fire_particle_image_res: Option<Res<FireParticleImage>>,
+    mut runtime: ProjectileCollisionRuntime,
     projectiles: Query<(Entity, &Transform, &Collider, &RigidBody, &Projectile)>,
     targets: Query<
         (
@@ -47,7 +56,7 @@ pub fn projectile_collision_system(
     mut damageable_query: Query<&mut Damageable>,
     mut beams: Query<(Entity, &mut PlasmaBeam)>,
 ) {
-    let dt = time.delta_secs();
+    let dt = runtime.time.delta_secs();
     if dt <= 0.0 {
         return;
     }
@@ -59,7 +68,7 @@ pub fn projectile_collision_system(
             if owner_sm.is_non_interactive() {
                 set_beams_to_afterglow(projectile_entity, &mut beams);
                 // Use try_despawn to silently ignore duplicate despawn attempts.
-                commands.entity(projectile_entity).try_despawn();
+                runtime.commands.entity(projectile_entity).try_despawn();
                 continue;
             }
         }
@@ -142,7 +151,10 @@ pub fn projectile_collision_system(
         if let Some(hit) = best_hit {
             if hit.is_damageable {
                 if let Ok(mut health) = health_query.get_mut(hit.entity) {
-                    health.damage(projectile.damage);
+                    let dealt = health.damage(projectile.damage);
+                    if dealt > 0 {
+                        runtime.stats.hits = runtime.stats.hits.saturating_add(1);
+                    }
                 }
                 // Trigger the Damaged state by resetting the damaged timer.
                 if let Ok(mut dmg) = damageable_query.get_mut(hit.entity) {
@@ -151,26 +163,26 @@ pub fn projectile_collision_system(
 
                 // Spawn floating damage numbers at the impact position.
                 let pos = Vec3::new(hit.impact_position.x, hit.impact_position.y, hit.impact_z + 20.0);
-                spawn_damage_popup(&mut commands, pos, projectile.damage as i32, false, hit.is_controlled, &DamagePopupSettings::default());
+                spawn_damage_popup(&mut runtime.commands, pos, projectile.damage as i32, false, hit.is_controlled, &DamagePopupSettings::default());
             }
 
             let impact_effect = projectile.impact_effect.as_deref().unwrap_or("plasma_impact");
             if is_supported_impact_effect(impact_effect) {
                 // Fire uses its own dedicated particle image; all others share the plasma image.
                 let particle_image = if impact_effect.eq_ignore_ascii_case("fire_impact") {
-                    if let Some(resource) = fire_particle_image_res.as_ref() {
+                    if let Some(resource) = runtime.fire_particle_image_res.as_ref() {
                         resource.0.clone()
                     } else {
-                        ensure_fire_particle_image(&mut fire_particle_image, &mut images)
+                        ensure_fire_particle_image(&mut runtime.fire_particle_image, &mut runtime.images)
                     }
-                } else if let Some(resource) = particle_image_res.as_ref() {
+                } else if let Some(resource) = runtime.particle_image_res.as_ref() {
                     resource.0.clone()
                 } else {
-                    ensure_plasma_particle_image(&mut plasma_particle_image, &mut images)
+                    ensure_plasma_particle_image(&mut runtime.plasma_particle_image, &mut runtime.images)
                 };
                 let impact_z = projectile_transform.translation.z;
                 spawn_projectile_impact_effect(
-                    &mut commands,
+                    &mut runtime.commands,
                     &particle_image,
                     impact_effect,
                     hit.impact_position,
@@ -180,16 +192,17 @@ pub fn projectile_collision_system(
                 );
             }
             spawn_combat_sfx(
-                &mut commands,
-                &asset_server,
-                &audio_settings,
+                &mut runtime.commands,
+                &runtime.asset_server,
+                &runtime.audio_settings,
+                *runtime.active_character,
                 PLASMA_HIT_SFX,
             );
             set_beams_to_afterglow(projectile_entity, &mut beams);
 
             // Use try_despawn to avoid warnings if the projectile was already scheduled
             // for despawn by another system earlier in the same frame.
-            commands.entity(projectile_entity).try_despawn();
+            runtime.commands.entity(projectile_entity).try_despawn();
         }
     }
 }

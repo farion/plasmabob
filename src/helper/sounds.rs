@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy::audio::{AudioPlayer, AudioSink, PlaybackMode, PlaybackSettings, Volume, AudioSource};
 
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::key_bindings::{KeyAction, KeyBindings};
 
@@ -36,22 +38,23 @@ impl Plugin for SoundPlugin {
 /// does not incur an on-demand load hitch. We deliberately only call
 /// `asset_server.load()` here — the returned handles are dropped, but the
 /// AssetServer will begin loading the audio into memory immediately.
-fn preload_combat_sfx(asset_server: Res<AssetServer>) {
+fn preload_combat_sfx(asset_server: Res<AssetServer>, active_character: Res<ActiveCharacter>) {
     // These are the short SFX the game plays frequently; preloading them
     // eliminates the audible delay the first time they're played.
-    let _ = asset_server.load::<AudioSource>("audio/plasma-shot.ogg");
-    let _ = asset_server.load::<AudioSource>("audio/plasma-hit.ogg");
-    let _ = asset_server.load::<AudioSource>("audio/cockroach-die.ogg");
+    let _ = load_character_asset::<AudioSource>(&asset_server, "audio/plasma-shot.ogg", *active_character);
+    let _ = load_character_asset::<AudioSource>(&asset_server, "audio/plasma-hit.ogg", *active_character);
+    let _ = load_character_asset::<AudioSource>(&asset_server, "audio/cockroach-die.ogg", *active_character);
 }
 
 pub(crate) fn spawn_combat_sfx(
     commands: &mut Commands,
     asset_server: &AssetServer,
     audio_settings: &AudioSettings,
+    active_character: ActiveCharacter,
     path: &'static str,
 ) {
     commands.spawn((
-        AudioPlayer::new(asset_server.load(path)),
+        AudioPlayer::new(load_character_asset::<AudioSource>(asset_server, path, active_character)),
         PlaybackSettings {
             mode: PlaybackMode::Once,
             volume: Volume::Linear(audio_settings.sounds_volume),

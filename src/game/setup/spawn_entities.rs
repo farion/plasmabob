@@ -18,6 +18,8 @@ use crate::game::setup::collider_helper::build_collider_from_box;
 // flip_utils was unused here; removed to silence warnings
 use crate::game::setup::entity_type_assets::EntityTypeAssets;
 use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag, CollectibleTag};
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 
 /// Red fallback color used when a sprite is missing.
 const MISSING_SPRITE_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
@@ -31,6 +33,7 @@ const MISSING_SPRITE_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
 pub fn spawn_entities(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     cached: Res<CachedLevelDefinition>,
     entity_type_assets: Option<Res<EntityTypeAssets>>,
 ) {
@@ -109,15 +112,19 @@ pub fn spawn_entities(
                         state = %initial_state_name,
                         "spawn_entities: no frames in EntityTypeAssets, using red fallback"
                     );
-                    (vec![], asset_server.load(""), MISSING_SPRITE_COLOR)
+                    (
+                        vec![],
+                        load_character_asset::<Image>(&asset_server, "", *active_character),
+                        MISSING_SPRITE_COLOR,
+                    )
                 }
             } else {
                 // State not in cache, fall back
-                build_frames_from_cfg(state_cfg, &asset_server)
+                build_frames_from_cfg(state_cfg, &asset_server, *active_character)
             }
         } else {
             // No EntityTypeAssets available → load on the fly
-            build_frames_from_cfg(state_cfg, &asset_server)
+            build_frames_from_cfg(state_cfg, &asset_server, *active_character)
         };
 
         let anim_cfg = AnimationConfig::new(frames, state_cfg.animation_frame_ms);
@@ -332,11 +339,15 @@ pub fn spawn_entities(
 fn build_frames_from_cfg(
     state_cfg: &StateConfig,
     asset_server: &AssetServer,
+    active_character: ActiveCharacter,
 ) -> (Vec<Handle<Image>>, Handle<Image>, Color) {
     let frames: Vec<Handle<Image>> = state_cfg.animation.iter()
-        .map(|p| asset_server.load::<Image>(p))
+        .map(|p| load_character_asset::<Image>(asset_server, p, active_character))
         .collect();
-    let first = frames.first().cloned().unwrap_or_else(|| asset_server.load(""));
+    let first = frames
+        .first()
+        .cloned()
+        .unwrap_or_else(|| load_character_asset::<Image>(asset_server, "", active_character));
     (frames, first, Color::WHITE)
 }
 
