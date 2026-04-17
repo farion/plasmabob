@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::components::orientation::FacingDirection;
-use crate::game::components::{AutoMovement, Blocking, ControlledMovement, Damageable, GameEntity, Gravity, Health, MovingPlatform, Orientation, RigidBody, StateMachine};
+use crate::game::components::{AutoMovement, Blocking, CollectibleEffect, ControlledMovement, Damageable, GameEntity, Gravity, Health, MovingPlatform, Orientation, RigidBody, StateMachine};
 // component configs are parsed into `ComponentsDef` and consumed via each component's `override_from_config`
 use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::auto_range_attack::AutoRangeAttack;
@@ -17,7 +17,7 @@ use crate::game::runtime_components::SpawnedLevelEntity;
 use crate::game::setup::collider_helper::build_collider_from_box;
 // flip_utils was unused here; removed to silence warnings
 use crate::game::setup::entity_type_assets::EntityTypeAssets;
-use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag};
+use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag, CollectibleTag};
 
 /// Red fallback color used when a sprite is missing.
 const MISSING_SPRITE_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
@@ -232,6 +232,13 @@ pub fn spawn_entities(
             assigned_components.push("Team".to_string());
         }
 
+        if entity_type_comps.and_then(|c| c.collectible_effect.as_ref()).is_some() || level_comps.as_ref().and_then(|c| c.collectible_effect.as_ref()).is_some(){
+            ent_cmd.insert(CollectibleEffect::default().override_from_config(
+                entity_type_comps.and_then(|c| c.collectible_effect.as_ref()),
+                level_comps.as_ref().and_then(|c| c.collectible_effect.as_ref())));
+            assigned_components.push("CollectibleEffect".to_string());
+        }
+
 
 
 
@@ -296,6 +303,10 @@ pub fn spawn_entities(
                 "doodad" => {
                     ent_cmd.insert(DoodadTag);
                     assigned_components.push("DoodadTag".to_string());
+                }
+                "collectible" => {
+                    ent_cmd.insert(CollectibleTag);
+                    assigned_components.push("CollectibleTag".to_string());
                 }
                 _ => {}
             }

@@ -15,6 +15,7 @@ pub mod team;
 pub mod moving_platform;
 pub mod plasma;
 pub mod orientation;
+pub mod collectible_effect;
 
 // Re-exports for convenience
 pub use collider::{Collider, ColliderShape};
@@ -26,6 +27,7 @@ pub use blocking::Blocking;
 pub use gravity::Gravity;
 pub use state_machine::{StateMachine, EntityState};
 pub use orientation::Orientation;
+pub use collectible_effect::CollectibleEffect;
 // GameEntity is defined in runtime_components; re-export it here so callers
 // that expect `crate::game::components::GameEntity` continue to work.
 pub use crate::game::runtime_components::game_entity::GameEntity;

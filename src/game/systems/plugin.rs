@@ -16,6 +16,7 @@ use crate::game::systems::orientation_update_system::orientation_update_system;
 use crate::game::systems::player_control_system::player_control_system;
 use crate::game::systems::player_shoot_system::player_shoot_system;
 use crate::game::systems::projectile_collision_system::projectile_collision_system;
+use crate::game::systems::collectible_collision_system::collectible_collision_system;
 use crate::game::systems::projectile_movement_system::projectile_movement_system;
 use crate::game::systems::sound_system::sound_system;
 use crate::game::systems::state_machine_update_system::state_machine_update_system;
@@ -75,6 +76,7 @@ impl Plugin for SystemsPlugin {
                     .in_set(GameplaySet::Physics)
                     .before(movement_resolution_system),
                 movement_resolution_system.in_set(GameplaySet::Physics),
+                collectible_collision_system.in_set(GameplaySet::Projectile).after(movement_resolution_system),
                 grounding_evaluation_system.in_set(GameplaySet::Grounding),
                 projectile_collision_system.in_set(GameplaySet::Projectile),
                 projectile_movement_system

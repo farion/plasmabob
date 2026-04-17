@@ -11,6 +11,7 @@ pub enum EntityState {
     RangeAttacking,
     Damaged,
     Dying,
+    Collected,
     Dead,
     Jumping,
     Falling,
@@ -139,6 +140,7 @@ impl StateMachine {
             "falling" => EntityState::Falling,
             "damaged" | "hit" => EntityState::Damaged,
             "dying" => EntityState::Dying,
+            "collected" => EntityState::Collected,
             "dead" => EntityState::Dead,
             "melee_attacking" | "meleeattacking" => EntityState::MeleeAttacking,
             "range_attacking" | "rangeattacking" => EntityState::RangeAttacking,
@@ -159,7 +161,7 @@ impl StateMachine {
 impl EntityState {
     /// Dying/Dead entities should not be targetable or deal damage anymore.
     pub fn is_non_interactive(self) -> bool {
-        matches!(self, EntityState::Dying | EntityState::Dead)
+        matches!(self, EntityState::Dying | EntityState::Dead | EntityState::Collected)
     }
 
     /// Return the canonical lowercase state name used in JSON and the asset cache.
@@ -171,6 +173,7 @@ impl EntityState {
             EntityState::Falling => "falling",
             EntityState::Damaged => "damaged",
             EntityState::Dying => "dying",
+            EntityState::Collected => "collected",
             EntityState::Dead => "dead",
             EntityState::MeleeAttacking => "melee_attacking",
             EntityState::RangeAttacking => "range_attacking",

@@ -31,12 +31,17 @@ use crate::game::setup::flip_utils::adjust_new_collider_preserve_world_center;
 /// - **Falling**: any entity with `Gravity`, airborne, moving downward.
 /// - **Moving**: non-zero horizontal velocity (`ControlledMovement` / `AutoMovement`) or active `MovingPlatform`.
 /// - **Idle**: default when no other condition applies.
+const COLLECTED_DURATION_SECS: f32 = 1.0;
+const COLLECTED_UPWARD_SPEED: f32 = 80.0;
+
 pub fn state_machine_update_system(
+    mut commands: Commands,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
     key_bindings: Res<KeyBindings>,
     entity_type_assets: Option<Res<EntityTypeAssets>>,
     mut entities: Query<(
+        Entity,
         &mut StateMachine,
         Option<&mut Damageable>,
         Option<&Health>,
@@ -57,6 +62,7 @@ pub fn state_machine_update_system(
     let crouch_key = key_bindings.crouch;
 
     for (
+        entity,
         mut sm,
         mut damageable,
         health,
@@ -79,6 +85,22 @@ pub fn state_machine_update_system(
         // Tick the damaged timer every frame so it counts down independently of state.
         if let Some(ref mut dmg) = damageable {
             dmg.damaged_timer = (dmg.damaged_timer - dt).max(0.0);
+        }
+
+        // --- Collected: play upward + fade animation then despawn after fixed duration ---
+        if sm.is(EntityState::Collected) {
+            if let Some((_, spr, tr)) = anim_s_t.as_mut() {
+                // Move upward and fade alpha over the duration.
+                tr.translation.y += COLLECTED_UPWARD_SPEED * dt;
+                let frac = (sm.state_time / COLLECTED_DURATION_SECS).clamp(0.0, 1.0);
+                // Use srgba with preserved white tint; if a sprite uses a different
+                // tint this will be overridden by the state's configured frame.
+                spr.color = Color::srgba(1.0, 1.0, 1.0, (1.0 - frac).clamp(0.0, 1.0));
+            }
+            if sm.state_time >= COLLECTED_DURATION_SECS {
+                commands.entity(entity).try_despawn();
+            }
+            continue;
         }
 
         // --- Terminal state: Dead does not transition further ---

@@ -20,6 +20,7 @@ use crate::game::level::configs::{
     TeamConfig,
     OrientationConfig,
     ColliderConfig,
+    CollectibleEffectConfig,
 };
 // StateMachineConfig is parsed as a typed config; we don't store a runtime
 // StateMachine component in ComponentsDef anymore.
@@ -201,6 +202,7 @@ pub struct ComponentsDef {
     pub orientation: Option<OrientationConfig>,
     pub state_machine: Option<StateMachineConfig>,
     pub collider: Option<ColliderConfig>,
+    pub collectible_effect: Option<CollectibleEffectConfig>,
 }
 
 impl<'de> serde::Deserialize<'de> for ComponentsDef {
@@ -235,6 +237,7 @@ impl<'de> serde::Deserialize<'de> for ComponentsDef {
                 "orientation" => out.orientation = Some(serde_json::from_value::<OrientationConfig>(val).map_err(serde::de::Error::custom)?),
                 "state_machine" | "statemachine" => out.state_machine = Some(serde_json::from_value::<StateMachineConfig>(val).map_err(serde::de::Error::custom)?),
                 "collider" => out.collider = Some(serde_json::from_value::<ColliderConfig>(val).map_err(serde::de::Error::custom)?),
+                "collectible_effect" | "collectibleeffect" => out.collectible_effect = Some(serde_json::from_value::<CollectibleEffectConfig>(val).map_err(serde::de::Error::custom)?),
                 other => {
                     // Unknown component keys are ignored for now; log to help
                     // designers discover typos in JSON.

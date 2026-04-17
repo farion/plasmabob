@@ -2,11 +2,11 @@
   "name": "Health Potion",
   "category_tag": "collectible",
   "height": 67,
-  "effect": {
-    "heal": 30
-  },
   "components": {
     "collider": { "mode": "from_state" },
+    "collectible_effect": {
+      "heal": 30
+    },
     "state_machine": {
       "initial_state": "idle",
       "states": {

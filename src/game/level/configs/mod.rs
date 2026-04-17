@@ -44,3 +44,6 @@ pub use orientation_config::OrientationConfig;
 pub mod collider_config;
 pub use collider_config::ColliderConfig;
 
+pub mod collectible_effect_config;
+pub use collectible_effect_config::CollectibleEffectConfig;
+
