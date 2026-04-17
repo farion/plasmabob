@@ -22,6 +22,7 @@ use crate::game::systems::sound_system::sound_system;
 use crate::game::systems::state_machine_update_system::state_machine_update_system;
 use crate::game::systems::track_previous_transform_system::track_previous_transform_system;
 use crate::game::systems::toggle_parallax_system::toggle_parallax_system;
+use crate::game::systems::damage_popup_system::damage_popup_animate_system;
 use crate::game::systems::maintenance::{
     toggle_hitbox_debug_lines::toggle_hitbox_debug_lines,
     draw_hitbox_debug_lines::draw_hitbox_debug_lines,
@@ -46,6 +47,8 @@ impl Plugin for SystemsPlugin {
     fn build(&self, app: &mut App) {
         // Ensure pause menu state resource exists when game systems are added
         app.insert_resource(PauseMenuState::default());
+        // Damage popup settings (tweakable)
+        app.init_resource::<crate::game::runtime_components::DamagePopupSettings>();
 
         app.configure_sets(
             Update,
@@ -121,6 +124,8 @@ impl Plugin for SystemsPlugin {
                 update_debug_stats_labels
                     .in_set(GameplaySet::Finalize)
                     .after(draw_hitbox_debug_lines),
+                // Floating damage/heal numbers
+                damage_popup_animate_system.in_set(GameplaySet::Finalize),
             ),
         );
     }

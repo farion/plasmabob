@@ -4,8 +4,8 @@
 [X] Mirror sprites on the center of the hitbox instead of the center of the sprite.
 [X] Level End
 [X] Health Potion
-[ ] Clean Code / Fix Warnings
-[ ] Damage and Heal Numbers
+[X] Clean Code / Fix Warnings
+[X] Damage and Heal Numbers
 [ ] Final Level Table
 [ ] Crouching
 [ ] Auto Betty Assets

@@ -7,6 +7,7 @@ edition = "2024"
 avian2d = "0.6"
 bevy = { version = "0.18.1", features = ["jpeg", "wayland", "audio", "debug" ] }
 bevy_framepace = "0.21"
+rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 futures-lite = "2"

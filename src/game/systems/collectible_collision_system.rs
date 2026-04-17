@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
 use crate::game::components::{CollectibleEffect, Collider, ControlledMovement, Health, StateMachine, EntityState};
+use crate::game::systems::damage_popup_system::spawn_damage_popup;
+use crate::game::runtime_components::DamagePopupSettings;
 use crate::game::tags::CollectibleTag;
 
 /// Detect overlaps between controlled entities and collectibles. When a pickup
@@ -11,6 +13,7 @@ pub fn collectible_collision_system(
     mut commands: Commands,
     mut collectibles: Query<(Entity, &Transform, &Collider, Option<&mut StateMachine>, Option<&CollectibleEffect>), With<CollectibleTag>>,
     mut pickers: Query<(Entity, &Transform, &Collider, Option<&mut Health>), With<ControlledMovement>>,
+    damage_settings: Res<DamagePopupSettings>,
 ) {
     // Simple AABB overlap test (no continuous collision).
     for (col_ent, col_tr, col_col, col_sm_opt, col_eff_opt) in &mut collectibles {
@@ -34,6 +37,10 @@ pub fn collectible_collision_system(
                 if let Some(eff) = col_eff_opt {
                     if let Some(mut health) = picker_health_opt {
                         health.heal(eff.heal);
+
+                        // Spawn heal popup on the picker (controlled entity)
+                        let pos = picker_tr.translation + Vec3::new(0.0, 0.0, 20.0);
+                        spawn_damage_popup(&mut commands, pos, eff.heal as i32, true, true, &*damage_settings);
                     }
                 }
 

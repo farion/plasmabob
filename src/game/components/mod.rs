@@ -34,3 +34,4 @@ pub use crate::game::runtime_components::game_entity::GameEntity;
 pub use damageable::Damageable;
 pub use team::Team;
 pub use moving_platform::MovingPlatform;
+// DamagePopup is a runtime component and lives under `runtime_components`.

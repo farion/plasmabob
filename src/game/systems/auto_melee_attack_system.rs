@@ -2,8 +2,10 @@ use bevy::prelude::*;
 
 use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::{
-    Collider, ColliderShape, Damageable, Health, StateMachine, Team,
+    Collider, ColliderShape, Damageable, Health, StateMachine, Team, ControlledMovement,
 };
+use crate::game::systems::damage_popup_system::spawn_damage_popup;
+use crate::game::runtime_components::DamagePopupSettings;
 
 const NEUTRAL_TEAM: &str = "Neutral";
 
@@ -23,6 +25,7 @@ const NEUTRAL_TEAM: &str = "Neutral";
 /// (attacker + damageable) never appears in both queries simultaneously, which keeps
 /// Bevy's borrow checker happy.
 pub fn auto_melee_attack_system(
+    mut commands: Commands,
     time: Res<Time>,
     mut attackers: Query<(
         Entity,
@@ -40,6 +43,8 @@ pub fn auto_melee_attack_system(
     state_machines: Query<&StateMachine>,
     mut health_q: Query<&mut Health>,
     mut damageable_q: Query<&mut Damageable>,
+    controlled_q: Query<&ControlledMovement>,
+    damage_settings: Res<DamagePopupSettings>,
 ) {
     let dt = time.delta();
 
@@ -116,6 +121,11 @@ pub fn auto_melee_attack_system(
             // Reduce target health.
             if let Ok(mut hp) = health_q.get_mut(target_entity) {
                 hp.damage(melee.damage);
+
+                // Spawn floating damage numbers above the hit target.
+                let pos = target_transform.translation + Vec3::new(0.0, 0.0, 20.0);
+                let is_controlled = controlled_q.get(target_entity).is_ok();
+                spawn_damage_popup(&mut commands, pos, melee.damage as i32, false, is_controlled, &*damage_settings);
             }
 
             // Trigger the Damaged state on the target via its timer.

@@ -2,6 +2,8 @@ use bevy::prelude::*;
 
 use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::{Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, StateMachine, Team};
+use crate::game::systems::damage_popup_system::spawn_damage_popup;
+use crate::game::runtime_components::DamagePopupSettings;
 use crate::game::gfx::fire_impact::spawn_fire_impact_explosion;
 use crate::game::gfx::fire_shoot::{ensure_fire_particle_image, FireParticleImage};
 use crate::game::gfx::plasma_impact::spawn_plasma_impact_explosion;
@@ -36,6 +38,7 @@ pub fn projectile_collision_system(
             Option<&Blocking>,
             Option<&RigidBody>,
             Option<&Team>,
+            Option<&crate::game::tags::PlayerTag>,
         ),
     >,
     teams: Query<&Team>,
@@ -75,7 +78,7 @@ pub fn projectile_collision_system(
 
         let mut best_hit: Option<HitCandidate> = None;
 
-        for (target_entity, target_transform, target_collider, blocking, target_body, target_team) in
+        for (target_entity, target_transform, target_collider, blocking, target_body, target_team, target_player_tag) in
             &targets
         {
             if target_entity == projectile.owner || target_entity == projectile_entity {
@@ -120,13 +123,15 @@ pub fn projectile_collision_system(
 
             let distance = projectile_motion.length() * toi;
             let class_rank = if is_blocking { 0_u8 } else { 1_u8 };
-            let candidate = HitCandidate {
+                let candidate = HitCandidate {
                 entity: target_entity,
                 toi,
                 distance,
                 class_rank,
                 is_damageable,
                 impact_position: projectile_center + (projectile_motion * toi),
+                impact_z: target_transform.translation.z,
+                is_controlled: target_player_tag.is_some(),
             };
 
             if is_better_hit(candidate, best_hit) {
@@ -143,6 +148,10 @@ pub fn projectile_collision_system(
                 if let Ok(mut dmg) = damageable_query.get_mut(hit.entity) {
                     dmg.damaged_timer = dmg.damaged_duration_secs;
                 }
+
+                // Spawn floating damage numbers at the impact position.
+                let pos = Vec3::new(hit.impact_position.x, hit.impact_position.y, hit.impact_z + 20.0);
+                spawn_damage_popup(&mut commands, pos, projectile.damage as i32, false, hit.is_controlled, &DamagePopupSettings::default());
             }
 
             let impact_effect = projectile.impact_effect.as_deref().unwrap_or("plasma_impact");
@@ -231,6 +240,8 @@ struct HitCandidate {
     class_rank: u8,
     is_damageable: bool,
     impact_position: Vec2,
+    impact_z: f32,
+    is_controlled: bool,
 }
 
 fn set_beams_to_afterglow(projectile_entity: Entity, beams: &mut Query<(Entity, &mut PlasmaBeam)>) {

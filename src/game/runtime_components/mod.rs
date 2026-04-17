@@ -9,6 +9,7 @@ pub mod parallax;
 pub mod sound_state;
 
 pub mod projectile;
+pub mod damage_popup;
 
 pub use crate::game::runtime_components::animation_config::AnimationConfig;
 pub use crate::game::runtime_components::grounding_state::GroundingState;
@@ -22,3 +23,4 @@ pub use crate::game::runtime_components::parallax::{Parallax, ParallaxCameraOrig
 pub use crate::game::runtime_components::sound_state::SoundState;
 
 pub use crate::game::runtime_components::projectile::Projectile;
+pub use crate::game::runtime_components::damage_popup::{DamagePopup, DamagePopupSettings};
