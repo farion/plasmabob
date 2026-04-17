@@ -2,8 +2,8 @@
 
 [X] AutoRangeAttack
 [X] Mirror sprites on the center of the hitbox instead of the center of the sprite.
-[ ] Level End
-[ ] Health Potion
+[X] Level End
+[X] Health Potion
 [ ] Clean Code / Fix Warnings
 [ ] Damage and Heal Numbers
 [ ] Final Level Table
