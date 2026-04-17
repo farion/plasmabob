@@ -39,9 +39,9 @@ impl AutoRangeAttack {
             speed: 400.0,
             aggro_range: 300.0,
             cooldown,
-            particle_effect: Some("plasma".to_string()),
-            shoot_effect: Some("plasma_shoot".to_string()),
-            impact_effect: Some("plasma_impact".to_string()),
+            particle_effect: Some("fire".to_string()),
+            shoot_effect: Some("fire_shoot".to_string()),
+            impact_effect: Some("fire_impact".to_string()),
             enabled: true,
             just_fired: false,
         }
@@ -54,58 +54,13 @@ impl Default for AutoRangeAttack {
     }
 }
 
-impl AutoRangeAttack {
-    /// Apply overrides from JSON object.
-    ///
-    /// Supported keys: damage, range, speed/projectile_speed, aggro_range,
-    /// cooldown_ms/interval_s, particle_effect, shoot_effect, impact_effect, enabled.
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(d) = map.get("damage").and_then(|n| n.as_i64()) {
-                self.damage = d as i32;
-            }
-            if let Some(r) = map.get("range").and_then(|n| n.as_f64()) {
-                self.range = r as f32;
-            }
-            if let Some(v) = map
-                .get("projectile_speed")
-                .or_else(|| map.get("speed"))
-                .and_then(|n| n.as_f64())
-            {
-                self.speed = v as f32;
-            }
-            if let Some(v) = map.get("aggro_range").and_then(|n| n.as_f64()) {
-                self.aggro_range = v as f32;
-            }
-            if let Some(ms) = map.get("cooldown_ms").and_then(|n| n.as_u64()) {
-                let dur = Duration::from_millis(ms.max(1));
-                let mut t = Timer::new(dur, TimerMode::Repeating);
-                t.set_elapsed(dur);
-                self.cooldown = t;
-            } else if let Some(s) = map.get("interval_s").and_then(|n| n.as_f64()) {
-                let dur = Duration::from_secs_f32((s as f32).max(f32::EPSILON));
-                let mut t = Timer::new(dur, TimerMode::Repeating);
-                t.set_elapsed(dur);
-                self.cooldown = t;
-            }
-            if let Some(effect) = map.get("particle_effect").and_then(|v| v.as_str()) {
-                let effect_name = effect.to_string();
-                self.particle_effect = Some(effect_name.clone());
-                // Hardcoded mapping: <effect> -> <effect>_shoot + <effect>_impact.
-                self.shoot_effect = Some(format!("{}_shoot", effect_name));
-                self.impact_effect = Some(format!("{}_impact", effect_name));
-            }
-            if let Some(shoot_effect) = map.get("shoot_effect").and_then(|v| v.as_str()) {
-                self.shoot_effect = Some(shoot_effect.to_string());
-            }
-            if let Some(impact_effect) = map.get("impact_effect").and_then(|v| v.as_str()) {
-                self.impact_effect = Some(impact_effect.to_string());
-            }
-            if let Some(b) = map.get("enabled").and_then(|n| n.as_bool()) {
-                self.enabled = b;
-            }
-        }
-        self
-    }
-}
+// Generate a typed `override_from_config` impl using the helper macro.
+// The macro maps config fields to component fields using the pick_* helpers.
+crate::impl_override_from_config!(AutoRangeAttack, crate::game::level::configs::AutoRangeAttackConfig,
+    pick_i32 => [damage],
+    pick_f32 => [range, speed, aggro_range],
+    pick_timer => [cooldown],
+    pick_string => [particle_effect, shoot_effect, impact_effect],
+    pick_bool => [enabled],
+);
 

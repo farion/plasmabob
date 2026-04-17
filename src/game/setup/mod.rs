@@ -9,7 +9,6 @@ pub mod setup_background;
 pub mod setup_canvas;
 pub mod spawn_entities;
 
-pub use entity_type_assets::{EntityTypeAsset, EntityTypeAssets, StateAssets};
 
 use crate::app_model::AppState;
 use crate::game::game_view::GameSetupSet;

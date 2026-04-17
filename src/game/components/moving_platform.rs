@@ -30,35 +30,6 @@ impl Default for MovingPlatform {
 }
 
 impl MovingPlatform {
-    /// Apply JSON overrides from `components.moving_platform` object.
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(v) = map.get("speed").and_then(|n| n.as_f64()) {
-                self.speed = (v as f32).max(0.0);
-            }
-            if let Some(v) = map.get("repeat").and_then(|b| b.as_bool()) {
-                self.repeat = v;
-            }
-            if let Some(v) = map.get("enabled").and_then(|b| b.as_bool()) {
-                self.enabled = v;
-            }
-            if let Some(arr) = map.get("waypoints").and_then(|v| v.as_array()) {
-                self.waypoints.clear();
-                for point in arr {
-                    if let Some(point_arr) = point.as_array() {
-                        if point_arr.len() >= 2 {
-                            if let (Some(x), Some(y)) = (point_arr[0].as_f64(), point_arr[1].as_f64()) {
-                                self.waypoints.push(Vec2::new(x as f32, y as f32));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        self.target_index = if self.waypoints.len() > 1 { 1 } else { 0 };
-        self
-    }
 
     /// Returns true when authored data allows movement.
     pub fn can_move(&self) -> bool {
@@ -87,4 +58,11 @@ impl MovingPlatform {
         false
     }
 }
+
+// Use the macro to generate override_from_config and include a post-processing block
+crate::impl_override_from_config!(MovingPlatform, crate::game::level::configs::MovingPlatformConfig,
+    pick_f32 => [speed],
+    pick_bool => [repeat, enabled],
+    pick_waypoints => [waypoints],
+);
 

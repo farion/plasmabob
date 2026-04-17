@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-use crate::DebugRenderSettings;
 
 use super::draw_hitbox_debug_lines::DebugHitbox;
 use super::update_debug_stats_labels::DebugStatsLabel;

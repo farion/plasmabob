@@ -1,7 +1,6 @@
 use bevy::prelude::Component;
 use crate::game::level::types::{StateMachineConfig, StateConfig};
 use std::collections::HashMap;
-use serde_json;
 
 /// State enum for entities. Mirrors the states described in the project AGENTS.md.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -103,43 +102,29 @@ impl StateMachine {
     }
 }
 
-impl Default for StateMachine {
-    fn default() -> Self {
-        StateMachine::idle()
-    }
-}
+// JSON override removed: prefer typed `override_from_config` for StateMachine.
+// JSON override removed: prefer typed `override_from_config` for StateMachine.
 
 impl StateMachine {
-    /// Apply overrides from a JSON `components.state_machine` object.
-    ///
-    /// Supported keys:
-    /// - `initial_state`: string name of the starting state (e.g. `"idle"`, `"moving"`)
-    /// - `state_time`: optional number to initialize the state's timer
-    /// - `dying_duration_secs`: number — how long the entity stays in Dying before transitioning to Dead
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(s) = map.get("initial_state").and_then(|v| v.as_str()) {
-                self.state = Self::entity_state_from_name(s);
-                self.initial_state = Self::entity_state_from_name(s);
-            }
-            if let Some(t) = map.get("state_time").and_then(|v| v.as_f64()) {
-                self.state_time = t as f32;
-            }
-            if let Some(d) = map.get("dying_duration_secs").and_then(|v| v.as_f64()) {
-                self.dying_duration_secs = (d as f32).max(0.0);
-            }
-            if let Some(states_val) = map.get("states") {
-                if let Ok(parsed) = serde_json::from_value::<HashMap<String, StateConfig>>(states_val.clone()) {
-                    // Convert into typed map
-                    for (name, sc) in parsed.into_iter() {
-                        let es = Self::entity_state_from_name(&name);
-                        if name.to_ascii_lowercase() == es.to_state_name() {
-                            self.states.insert(es, sc);
-                        } else {
-                            tracing::warn!(state = %name, "StateMachine::override_from_json: unknown state name, skipping");
-                        }
-                    }
+
+    pub fn override_from_config(mut self, entity_cfg: Option<&StateMachine>, level_cfg: Option<&StateMachine>) -> Self {
+        // initial_state/state are enums; prefer entity then level then existing
+        self.initial_state = entity_cfg.map(|c| c.initial_state).or(level_cfg.map(|c| c.initial_state)).unwrap_or(self.initial_state);
+        self.state = entity_cfg.map(|c| c.state).or(level_cfg.map(|c| c.state)).unwrap_or(self.state);
+        self.state_time = entity_cfg.map(|c| c.state_time).or(level_cfg.map(|c| c.state_time)).unwrap_or(self.state_time);
+        self.dying_duration_secs = entity_cfg.map(|c| c.dying_duration_secs).or(level_cfg.map(|c| c.dying_duration_secs)).unwrap_or(self.dying_duration_secs);
+        // states map: prefer non-empty entity_cfg.states, else level_cfg.states, else keep existing
+        if let Some(ent) = entity_cfg {
+            if !ent.states.is_empty() {
+                self.states = ent.states.clone();
+            } else if let Some(lv) = level_cfg {
+                if !lv.states.is_empty() {
+                    self.states = lv.states.clone();
                 }
+            }
+        } else if let Some(lv) = level_cfg {
+            if !lv.states.is_empty() {
+                self.states = lv.states.clone();
             }
         }
         self

@@ -1,4 +1,4 @@
-use bevy::prelude::{Component, Vec2};
+use bevy::prelude::Component;
 
 /// Movement component for player-controlled characters.
 #[derive(Component, Debug, Clone, Copy)]
@@ -33,32 +33,10 @@ impl Default for ControlledMovement {
     }
 }
 
-impl ControlledMovement {
-    /// Apply overrides from a JSON value (expected to be an object) and
-    /// return the modified component. The JSON structure mirrors the
-    /// `components.controlled_movement` object in entity-type JSON.
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(v) = map.get("speed").and_then(|n| n.as_f64()) {
-                self.speed = v as f32;
-            }
-            if let Some(v) = map.get("jump_force").and_then(|n| n.as_f64()) {
-                self.jump_force = v as f32;
-            }
-            if let Some(b) = map.get("allow_double_jump").and_then(|n| n.as_bool()) {
-                self.allow_double_jump = b;
-            }
-            if let Some(v) = map.get("dash_force").and_then(|n| n.as_f64()) {
-                self.dash_force = v as f32;
-            }
-            if let Some(v) = map.get("max_speed").and_then(|n| n.as_f64()) {
-                self.max_speed = v as f32;
-            }
-            if let Some(v) = map.get("facing").and_then(|n| n.as_f64()) {
-                self.facing = v as f32;
-            }
-        }
-        self
-    }
-}
+// Use the macro to implement override_from_config for the component fields.
+crate::impl_override_from_config!(ControlledMovement, crate::game::level::configs::ControlledMovementConfig,
+    pick_f32 => [speed, jump_force, dash_force, max_speed, facing],
+    pick_bool => [allow_double_jump],
+    pick_u8 => [jumps_performed],
+);
 

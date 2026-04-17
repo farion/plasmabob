@@ -1,5 +1,6 @@
 use bevy::prelude::{Component, Timer, TimerMode};
 use std::time::Duration;
+// macro will reference helpers directly via crate::helper::override_helpers
 
 /// Simple autonomous melee attack (enemies that swipe or bite).
 #[derive(Component, Debug, Clone)]
@@ -33,32 +34,10 @@ impl Default for AutoMeleeAttack {
     }
 }
 
-impl AutoMeleeAttack {
-    /// Apply overrides from JSON object. Keys: damage, range, cooldown_ms or interval_s, enabled.
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(d) = map.get("damage").and_then(|n| n.as_i64()) {
-                self.damage = d as i32;
-            }
-            if let Some(r) = map.get("range").and_then(|n| n.as_f64()) {
-                self.range = r as f32;
-            }
-            if let Some(ms) = map.get("cooldown_ms").and_then(|n| n.as_u64()) {
-                let dur = Duration::from_millis(ms.max(1));
-                let mut t = Timer::new(dur, TimerMode::Repeating);
-                t.set_elapsed(dur);
-                self.cooldown = t;
-            } else if let Some(s) = map.get("interval_s").and_then(|n| n.as_f64()) {
-                let dur = Duration::from_secs_f32((s as f32).max(f32::EPSILON));
-                let mut t = Timer::new(dur, TimerMode::Repeating);
-                t.set_elapsed(dur);
-                self.cooldown = t;
-            }
-            if let Some(b) = map.get("enabled").and_then(|n| n.as_bool()) {
-                self.enabled = b;
-            }
-        }
-        self
-    }
-}
 
+crate::impl_override_from_config!(AutoMeleeAttack, crate::game::level::configs::AutoMeleeAttackConfig,
+    pick_i32 => [damage],
+    pick_f32 => [range],
+    pick_bool => [enabled],
+    pick_timer => [cooldown],
+);

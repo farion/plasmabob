@@ -48,27 +48,10 @@ impl Default for Health {
     }
 }
 
-impl Health {
-    /// Apply overrides from `components.health` JSON object. The JSON may
-    /// contain these fields:
-    /// - `health` (number): max HP (also sets current HP)
-    /// - `despawn_on_death` (bool): whether this dead entity should be removed
-    /// - `despawn_delay_ms` (number): delay before fade starts
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(v) = map.get("health").and_then(|v| v.as_u64()) {
-                let max = v as i32;
-                self.max = max;
-                self.current = max;
-            }
-            if let Some(v) = map.get("despawn_on_death").and_then(|v| v.as_bool()) {
-                self.despawn_on_death = v;
-            }
-            if let Some(v) = map.get("despawn_delay_ms").and_then(|v| v.as_u64()) {
-                self.despawn_delay_ms = v;
-            }
-        }
-        self
-    }
-}
+crate::impl_override_from_config!(Health, crate::game::level::configs::health_config::HealthConfig,
+    pick_u32 => [max, current],
+    pick_bool => [despawn_on_death],
+    pick_u64 => [despawn_delay_ms],
+);
+
 

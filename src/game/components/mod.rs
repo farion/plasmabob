@@ -25,12 +25,10 @@ pub use controlled_movement::ControlledMovement;
 pub use blocking::Blocking;
 pub use gravity::Gravity;
 pub use state_machine::{StateMachine, EntityState};
-pub use orientation::{Orientation, FacingDirection};
+pub use orientation::Orientation;
 // GameEntity is defined in runtime_components; re-export it here so callers
 // that expect `crate::game::components::GameEntity` continue to work.
 pub use crate::game::runtime_components::game_entity::GameEntity;
-pub use crate::game::runtime_components::spawned_level_entity::SpawnedLevelEntity;
 pub use damageable::Damageable;
 pub use team::Team;
 pub use moving_platform::MovingPlatform;
-pub use plasma::PlasmaBeam;

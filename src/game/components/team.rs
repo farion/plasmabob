@@ -20,16 +20,9 @@ impl Default for Team {
 	}
 }
 
-impl Team {
-	/// Apply overrides from `components.team` JSON object.
-	/// Only reads the `name` field from the provided object. Does not
-	/// perform any fallback to `category_tag` — callers must handle that.
-	pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-		if let Some(serde_json::Value::Object(map)) = comp_obj {
-			if let Some(name_v) = map.get("name").and_then(|n| n.as_str()) {
-				self.name = name_v.to_string();
-			}
-		}
-		self
-	}
-}
+
+crate::impl_override_from_config!(Team, crate::game::level::configs::team_config::TeamConfig,
+	pick_string_required => [name],
+);
+
+

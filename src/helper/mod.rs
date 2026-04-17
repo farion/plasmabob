@@ -7,3 +7,4 @@ pub mod i18n;
 pub mod key_bindings;
 pub mod music;
 pub mod sounds;
+pub mod override_helpers;

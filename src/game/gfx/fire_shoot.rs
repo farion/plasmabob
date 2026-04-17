@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
 use crate::game::gfx::helpers::{hash_to_unit, ProjectileEffectParticle};
-use crate::game::gfx::spawn_effect_particles;
 use crate::game::runtime_components::GameEntity;
 use crate::game::gfx::particles::create_fire_particle_image;
 

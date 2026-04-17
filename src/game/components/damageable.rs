@@ -27,16 +27,10 @@ impl Default for Damageable {
 }
 
 impl Damageable {
-    /// Apply overrides from JSON for Damageable.
-    ///
-    /// Supported keys:
-    /// - `damaged_duration_secs`: number — how long the Damaged state lasts after a hit.
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(v) = map.get("damaged_duration_secs").and_then(|n| n.as_f64()) {
-                self.damaged_duration_secs = (v as f32).max(0.0);
-            }
-        }
-        self
-    }
 }
+
+// Use macro-based implementation for consistency with other components.
+crate::impl_override_from_config!(Damageable, crate::game::level::configs::DamageableConfig,
+    pick_f32 => [damaged_duration_secs],
+);
+

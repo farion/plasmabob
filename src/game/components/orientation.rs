@@ -1,4 +1,5 @@
 use bevy::prelude::{Component, Vec2};
+// OrientationConfig is referenced by the override macro using its full path; the local use was unused and removed
 
 /// Left/right facing direction of an entity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,29 +37,9 @@ impl Default for Orientation {
     }
 }
 
-impl Orientation {
-    /// Apply overrides from a JSON `components.orientation` object.
-    ///
-    /// Supported keys:
-    /// - `facing`: `"left"` or `"right"` (default: `"right"`)
-    /// - `surface_alignment`: `[x, y]` array (default: `[0.0, 0.0]`)
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(s) = map.get("facing").and_then(|v| v.as_str()) {
-                self.facing = match s.to_ascii_lowercase().as_str() {
-                    "left" => FacingDirection::Left,
-                    _ => FacingDirection::Right,
-                };
-            }
-            if let Some(arr) = map.get("surface_alignment").and_then(|v| v.as_array()) {
-                if arr.len() >= 2 {
-                    if let (Some(x), Some(y)) = (arr[0].as_f64(), arr[1].as_f64()) {
-                        self.surface_alignment = Vec2::new(x as f32, y as f32);
-                    }
-                }
-            }
-        }
-        self
-    }
-}
+
+crate::impl_override_from_config!(Orientation, crate::game::level::configs::OrientationConfig,
+    pick_facing => [facing],
+    pick_vec2 => [surface_alignment],
+);
 

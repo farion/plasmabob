@@ -2,11 +2,9 @@ use bevy::asset::LoadState;
 use bevy::audio::AudioSource;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
-use std::time::Duration;
 
 use crate::app_model::AppState;
 use crate::game::level::types::CachedLevelDefinition;
-use crate::game::setup::collider_helper::build_collider_from_box;
 use crate::game::setup::entity_type_assets::{EntityTypeAsset, EntityTypeAssets, StateAssets};
 use crate::helper::music::MusicRequest;
 use crate::LevelSelection;

@@ -19,6 +19,6 @@ pub use crate::game::runtime_components::game_entity::GameEntity;
 pub use crate::game::runtime_components::spawned_level_entity::SpawnedLevelEntity;
 pub use crate::game::runtime_components::facing::Facing;
 pub use crate::game::runtime_components::parallax::{Parallax, ParallaxCameraOrigin};
-pub use crate::game::runtime_components::sound_state::{SoundState, SoundSeqStage};
+pub use crate::game::runtime_components::sound_state::SoundState;
 
 pub use crate::game::runtime_components::projectile::Projectile;

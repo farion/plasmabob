@@ -4,14 +4,25 @@ use std::collections::HashMap;
 
 use crate::game::level::errors::LoadLevelError;
 use std::sync::OnceLock;
-use crate::game::components::{Health, ControlledMovement, AutoMovement, MovingPlatform, RigidBody, Gravity, Blocking, Damageable, Team, Orientation};
-use crate::game::components::state_machine::StateMachine as StateMachineComponent;
-use crate::game::components::collider::Collider as ColliderComponent;
-use crate::game::components::controlled_range_attack::ControlledRangeAttack;
-use crate::game::components::auto_range_attack::AutoRangeAttack;
-use crate::game::components::auto_melee_attack::AutoMeleeAttack;
-use crate::game::components::controlled_melee_attack::ControlledMeleeAttack;
-use serde_json::Value as JsonValue;
+use crate::game::level::configs::{
+    HealthConfig,
+    ControlledMovementConfig,
+    AutoMovementConfig,
+    MovingPlatformConfig,
+    RigidBodyConfig,
+    GravityConfig,
+    BlockingConfig,
+    ControlledRangeAttackConfig,
+    AutoRangeAttackConfig,
+    AutoMeleeAttackConfig,
+    ControlledMeleeAttackConfig,
+    DamageableConfig,
+    TeamConfig,
+    OrientationConfig,
+    ColliderConfig,
+};
+// StateMachineConfig is parsed as a typed config; we don't store a runtime
+// StateMachine component in ComponentsDef anymore.
 
 // ─── Level bounds ─────────────────────────────────────────────────────────────
 
@@ -162,15 +173,7 @@ impl EntityTypeDefinition {
     pub fn state_machine_config(&self) -> Option<StateMachineConfig> {
         let comps = self.components.as_ref()?;
         let smc = comps.state_machine.as_ref()?;
-        // Convert typed StateMachineComponent -> StateMachineConfig
-        let initial_state = smc.initial_state.to_state_name().to_string();
-        // Convert typed states map (EntityState -> StateConfig) into
-        // String-keyed map expected by StateMachineConfig
-        let mut states: HashMap<String, StateConfig> = HashMap::new();
-        for (k, v) in smc.states.iter() {
-            states.insert(k.to_state_name().to_string(), v.clone());
-        }
-        Some(StateMachineConfig { initial_state, states })
+        Some(smc.clone())
     }
 }
 
@@ -182,22 +185,22 @@ impl EntityTypeDefinition {
 /// component instances by applying `override_from_json`.
 #[derive(Debug, Clone, Default)]
 pub struct ComponentsDef {
-    pub health: Option<Health>,
-    pub controlled_movement: Option<ControlledMovement>,
-    pub auto_movement: Option<AutoMovement>,
-    pub moving_platform: Option<MovingPlatform>,
-    pub rigid_body: Option<RigidBody>,
-    pub gravity: Option<Gravity>,
-    pub blocking: Option<Blocking>,
-    pub controlled_range_attack: Option<ControlledRangeAttack>,
-    pub auto_range_attack: Option<AutoRangeAttack>,
-    pub auto_melee_attack: Option<AutoMeleeAttack>,
-    pub controlled_melee_attack: Option<ControlledMeleeAttack>,
-    pub damageable: Option<Damageable>,
-    pub team: Option<Team>,
-    pub orientation: Option<Orientation>,
-    pub state_machine: Option<StateMachineComponent>,
-    pub collider: Option<ColliderComponent>,
+    pub health: Option<HealthConfig>,
+    pub controlled_movement: Option<ControlledMovementConfig>,
+    pub auto_movement: Option<AutoMovementConfig>,
+    pub moving_platform: Option<MovingPlatformConfig>,
+    pub rigid_body: Option<RigidBodyConfig>,
+    pub gravity: Option<GravityConfig>,
+    pub blocking: Option<BlockingConfig>,
+    pub controlled_range_attack: Option<ControlledRangeAttackConfig>,
+    pub auto_range_attack: Option<AutoRangeAttackConfig>,
+    pub auto_melee_attack: Option<AutoMeleeAttackConfig>,
+    pub controlled_melee_attack: Option<ControlledMeleeAttackConfig>,
+    pub damageable: Option<DamageableConfig>,
+    pub team: Option<TeamConfig>,
+    pub orientation: Option<OrientationConfig>,
+    pub state_machine: Option<StateMachineConfig>,
+    pub collider: Option<ColliderConfig>,
 }
 
 impl<'de> serde::Deserialize<'de> for ComponentsDef {
@@ -216,22 +219,22 @@ impl<'de> serde::Deserialize<'de> for ComponentsDef {
 
         for (k, val) in map.into_iter() {
             match k.to_ascii_lowercase().as_str() {
-                "health" => out.health = Some(Health::default().override_from_json(Some(&val))),
-                "controlledmovement" | "controlled_movement" => out.controlled_movement = Some(ControlledMovement::default().override_from_json(Some(&val))),
-                "automovement" | "auto_movement" => out.auto_movement = Some(AutoMovement::default().override_from_json(Some(&val))),
-                "movingplatform" | "moving_platform" => out.moving_platform = Some(MovingPlatform::default().override_from_json(Some(&val))),
-                "rigidbody" | "rigid_body" => out.rigid_body = Some(RigidBody::default().override_from_json(Some(&val))),
-                "gravity" => out.gravity = Some(Gravity::default().override_from_json(Some(&val))),
-                "blocking" => out.blocking = Some(Blocking::default().override_from_json(Some(&val))),
-                "controlled_range_attack" | "controlledrangeattack" => out.controlled_range_attack = Some(ControlledRangeAttack::default().override_from_json(Some(&val))),
-                "auto_range_attack" | "autorangeattack" => out.auto_range_attack = Some(AutoRangeAttack::default().override_from_json(Some(&val))),
-                "auto_melee_attack" | "automeleeattack" => out.auto_melee_attack = Some(AutoMeleeAttack::default().override_from_json(Some(&val))),
-                "controlled_melee_attack" | "controlledmeleeattack" => out.controlled_melee_attack = Some(ControlledMeleeAttack::default().override_from_json(Some(&val))),
-                "damageable" => out.damageable = Some(Damageable::default().override_from_json(Some(&val))),
-                "team" => out.team = Some(Team::default().override_from_json(Some(&val))),
-                "orientation" => out.orientation = Some(Orientation::default().override_from_json(Some(&val))),
-                "state_machine" | "statemachine" => out.state_machine = Some(StateMachineComponent::default().override_from_json(Some(&val))),
-                "collider" => out.collider = Some(ColliderComponent::default().override_from_json(Some(&val))),
+                "health" => out.health = Some(serde_json::from_value::<HealthConfig>(val).map_err(serde::de::Error::custom)?),
+                "controlledmovement" | "controlled_movement" => out.controlled_movement = Some(serde_json::from_value::<ControlledMovementConfig>(val).map_err(serde::de::Error::custom)?),
+                "automovement" | "auto_movement" => out.auto_movement = Some(serde_json::from_value::<AutoMovementConfig>(val).map_err(serde::de::Error::custom)?),
+                "movingplatform" | "moving_platform" => out.moving_platform = Some(serde_json::from_value::<MovingPlatformConfig>(val).map_err(serde::de::Error::custom)?),
+                "rigidbody" | "rigid_body" => out.rigid_body = Some(serde_json::from_value::<RigidBodyConfig>(val).map_err(serde::de::Error::custom)?),
+                "gravity" => out.gravity = Some(serde_json::from_value::<GravityConfig>(val).map_err(serde::de::Error::custom)?),
+                "blocking" => out.blocking = Some(serde_json::from_value::<BlockingConfig>(val).map_err(serde::de::Error::custom)?),
+                "controlled_range_attack" | "controlledrangeattack" => out.controlled_range_attack = Some(serde_json::from_value::<ControlledRangeAttackConfig>(val).map_err(serde::de::Error::custom)?),
+                "auto_range_attack" | "autorangeattack" => out.auto_range_attack = Some(serde_json::from_value::<AutoRangeAttackConfig>(val).map_err(serde::de::Error::custom)?),
+                "auto_melee_attack" | "automeleeattack" => out.auto_melee_attack = Some(serde_json::from_value::<AutoMeleeAttackConfig>(val).map_err(serde::de::Error::custom)?),
+                "controlled_melee_attack" | "controlledmeleeattack" => out.controlled_melee_attack = Some(serde_json::from_value::<ControlledMeleeAttackConfig>(val).map_err(serde::de::Error::custom)?),
+                "damageable" => out.damageable = Some(serde_json::from_value::<DamageableConfig>(val).map_err(serde::de::Error::custom)?),
+                "team" => out.team = Some(serde_json::from_value::<TeamConfig>(val).map_err(serde::de::Error::custom)?),
+                "orientation" => out.orientation = Some(serde_json::from_value::<OrientationConfig>(val).map_err(serde::de::Error::custom)?),
+                "state_machine" | "statemachine" => out.state_machine = Some(serde_json::from_value::<StateMachineConfig>(val).map_err(serde::de::Error::custom)?),
+                "collider" => out.collider = Some(serde_json::from_value::<ColliderConfig>(val).map_err(serde::de::Error::custom)?),
                 other => {
                     // Unknown component keys are ignored for now; log to help
                     // designers discover typos in JSON.
@@ -258,7 +261,10 @@ pub(crate) struct LevelEntity {
     pub z_index: f32,
     pub name: String,
     pub layer: String,
-    pub properties: HashMap<String, PropValue>,
+    /// Optional per-level components overrides parsed from the level JSON's
+    /// `components` object. This is a typed `ComponentsDef` (mirrors
+    /// `EntityTypeDefinition.components`).
+    pub components: Option<ComponentsDef>,
 }
 
 // Global registry for entity type definitions used during deserialization.
@@ -320,14 +326,28 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
         let layer = map.get("layer").and_then(|v| v.as_str()).unwrap_or("gameplay").to_string();
         let name = map.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_else(|| id.clone());
 
-        let mut properties: HashMap<String, PropValue> = HashMap::new();
+        let mut components: Option<ComponentsDef> = None;
         for (k, v) in map.into_iter() {
-            // Skip known/consumed top-level fields so they don't end up in
-            // the `properties` map.
+            // Skip known/consumed top-level fields so they don't end up
+            // repeated. We only extract a typed `components` object and
+            // ignore other arbitrary properties.
             if k == "id" || k == "entity_type" || k == "x" || k == "y" || k == "z_index" || k == "layer" || k == "name" {
                 continue;
             }
-            properties.insert(k, PropValue::from(v));
+            if k == "components" {
+                // `components` may be an object or a serialized string; accept both.
+                match v {
+                    serde_json::Value::Object(_) => {
+                        components = serde_json::from_value::<ComponentsDef>(v).ok();
+                    }
+                    serde_json::Value::String(s) => {
+                        components = serde_json::from_str::<ComponentsDef>(&s).ok();
+                    }
+                    _ => {
+                        // ignore non-object/string components
+                    }
+                }
+            }
         }
 
         Ok(LevelEntity {
@@ -338,7 +358,7 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
             z_index,
             name,
             layer,
-            properties,
+            components,
         })
     }
 }
@@ -439,6 +459,8 @@ mod tests {
             assert!(et_map.contains_key(&e.entity_type.key), "missing entity type for {}", e.entity_type.key);
         }
     }
+
+    // (health parsing tests removed)
 }
 
 

@@ -29,42 +29,14 @@ impl Default for Collider {
     }
 }
 
+// JSON-based override removed; prefer typed `override_from_config` where applicable.
+
 impl Collider {
-    /// Apply overrides from `components.collider` JSON object.
-    /// Supported keys:
-    /// - `offset`: [x, y]
-    /// - `is_trigger`: bool
-    /// - `shape`: object with either `rectangle` { half_extents: [w,h] } or `circle` { radius }
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(arr) = map.get("offset").and_then(|v| v.as_array()) {
-                if arr.len() >= 2 {
-                    if let (Some(x), Some(y)) = (arr[0].as_f64(), arr[1].as_f64()) {
-                        self.offset = Vec2::new(x as f32, y as f32);
-                    }
-                }
-            }
-            if let Some(b) = map.get("is_trigger").and_then(|v| v.as_bool()) {
-                self.is_trigger = b;
-            }
-            if let Some(shape_val) = map.get("shape") {
-                if let serde_json::Value::Object(shape_map) = shape_val {
-                    if let Some(rect) = shape_map.get("rectangle") {
-                        if let Some(hx) = rect.get("half_extents").and_then(|v| v.as_array()) {
-                            if hx.len() >= 2 {
-                                if let (Some(w), Some(h)) = (hx[0].as_f64(), hx[1].as_f64()) {
-                                    self.shape = ColliderShape::Rectangle { half_extents: Vec2::new(w as f32, h as f32) };
-                                }
-                            }
-                        }
-                    } else if let Some(circle) = shape_map.get("circle") {
-                        if let Some(r) = circle.get("radius").and_then(|v| v.as_f64()) {
-                            self.shape = ColliderShape::Circle { radius: r as f32 };
-                        }
-                    }
-                }
-            }
-        }
+    pub fn override_from_config(mut self, entity_cfg: Option<&Collider>, level_cfg: Option<&Collider>) -> Self {
+        self.offset = entity_cfg.map(|c| c.offset).or(level_cfg.map(|c| c.offset)).unwrap_or(self.offset);
+        self.is_trigger = entity_cfg.map(|c| c.is_trigger).or(level_cfg.map(|c| c.is_trigger)).unwrap_or(self.is_trigger);
+        // Prefer entity_cfg.shape -> level_cfg.shape -> existing
+        self.shape = entity_cfg.and_then(|c| Some(c.shape.clone())).or(level_cfg.and_then(|c| Some(c.shape.clone()))).unwrap_or_else(|| self.shape.clone());
         self
     }
 }

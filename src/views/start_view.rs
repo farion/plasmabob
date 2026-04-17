@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::app_model::AppState;
 use crate::i18n::{CurrentLanguage, Translations};
 use crate::world::WorldCatalog;
-use crate::{CampaignProgress, LevelSelection, WorldListSelection};
+use crate::{CampaignProgress, WorldListSelection};
 
 pub struct StartViewPlugin;
 

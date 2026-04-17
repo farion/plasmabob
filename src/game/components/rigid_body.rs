@@ -30,28 +30,10 @@ impl RigidBody {
     }
 }
 
-impl RigidBody {
-    /// Apply overrides from `components.rigid_body` JSON object.
-    pub fn override_from_json(mut self, comp_obj: Option<&serde_json::Value>) -> Self {
-        if let Some(serde_json::Value::Object(map)) = comp_obj {
-            if let Some(v) = map.get("mass").and_then(|n| n.as_f64()) {
-                self.mass = v as f32;
-            }
-            if let Some(v) = map.get("linear_damp").and_then(|n| n.as_f64()) {
-                self.linear_damp = v as f32;
-            }
-            if let Some(v) = map.get("restitution").and_then(|n| n.as_f64()) {
-                self.restitution = v as f32;
-            }
-            if let Some(arr) = map.get("velocity").and_then(|n| n.as_array()) {
-                if arr.len() >= 2 {
-                    if let (Some(x), Some(y)) = (arr[0].as_f64(), arr[1].as_f64()) {
-                        self.velocity = Vec2::new(x as f32, y as f32);
-                    }
-                }
-            }
-        }
-        self
-    }
-}
+// JSON-based override removed; prefer typed `override_from_config`.
+
+crate::impl_override_from_config!(RigidBody, crate::game::level::configs::RigidBodyConfig,
+    pick_vec2 => [velocity],
+    pick_f32 => [mass, linear_damp, restitution],
+);
 

@@ -4,7 +4,7 @@ use futures_lite::stream::StreamExt as _;
 use std::collections::HashMap;
 
 use crate::game::level::errors::LoadLevelError;
-use crate::game::level::types::{CachedLevelDefinition, EntityTypeDefinition, LevelDefinition, LevelEntity, PropValue};
+use crate::game::level::types::{CachedLevelDefinition, EntityTypeDefinition, LevelDefinition};
 
 /// Load a level and its entity types from the given asset path into a new
 /// `CachedLevelDefinition`.

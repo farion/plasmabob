@@ -13,7 +13,7 @@ pub fn moving_platform_system(
         return;
     }
 
-    for (entity, mut transform, mut moving_platform, rigid_body) in &mut platforms {
+    for (_entity, mut transform, mut moving_platform, rigid_body) in &mut platforms {
         let start_position = transform.translation.truncate();
 
         if !moving_platform.can_move() {
@@ -63,7 +63,7 @@ pub fn moving_platform_system(
         }
 
         // Log movement when platform actually displaced this frame
-        let disp = position - start_position;
+        let _disp = position - start_position;
     }
 }
 

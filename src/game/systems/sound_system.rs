@@ -2,7 +2,6 @@ use bevy::audio::{AudioPlayer, AudioSource, PlaybackMode, PlaybackSettings, Volu
 use bevy::prelude::*;
 use std::time::Duration;
 
-use crate::game::components::state_machine::EntityState;
 use crate::game::runtime_components::sound_state::{SoundSeqStage, SoundState};
 use crate::game::runtime_components::SpawnedLevelEntity;
 use crate::game::setup::entity_type_assets::EntityTypeAssets;
@@ -40,7 +39,7 @@ pub fn sound_system(
     for (sm, mut ss, spawned) in &mut query {
         // ── Detect state transitions ──────────────────────────────────────
         if sm.state != ss.last_state {
-            let old_state = ss.last_state;
+            let _old_state = ss.last_state;
             let new_state = sm.state;
 
             // 1. Stop the running loop (if any).

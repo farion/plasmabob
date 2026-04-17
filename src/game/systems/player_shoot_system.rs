@@ -72,7 +72,7 @@ pub fn player_shoot_system(
         attack.cooldown.tick(dt);
 
         // If the player requested a shot and the cooldown is ready, fire.
-        let cooldown_fraction = attack.cooldown.fraction();
+        let _cooldown_fraction = attack.cooldown.fraction();
         let cooldown_ready = attack.cooldown.just_finished() || attack.cooldown.is_finished();
 
         if !*fire_requested || !cooldown_ready {
