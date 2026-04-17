@@ -266,7 +266,6 @@ fn blocker_step_velocity(
 fn rectangle_half_extents(collider: &Collider) -> Option<Vec2> {
     match &collider.shape {
         ColliderShape::Rectangle { half_extents } => Some(*half_extents),
-        _ => None,
     }
 }
 

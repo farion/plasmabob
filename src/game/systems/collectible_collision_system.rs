@@ -58,7 +58,6 @@ pub fn collectible_collision_system(
 fn rectangle_half_extents(collider: &Collider) -> Option<Vec2> {
     match &collider.shape {
         crate::game::components::ColliderShape::Rectangle { half_extents } => Some(*half_extents),
-        _ => None,
     }
 }
 

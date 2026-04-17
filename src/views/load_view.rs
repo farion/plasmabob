@@ -53,8 +53,6 @@ struct LoadProgress {
     sound_paths: Vec<String>,
     sound_entries: Vec<SoundEntry>,
     sounds_issued: bool,
-    // UI
-    text_entity: Entity,
 }
 
 // ─── Marker ───────────────────────────────────────────────────────────────────
@@ -127,7 +125,7 @@ fn setup_load_view(
     );
 
     // Spawn loading UI.
-    let text_entity = commands
+    let _text_entity = commands
         .spawn((
             Node {
                 width: Val::Percent(100.0),
@@ -157,7 +155,6 @@ fn setup_load_view(
         sound_paths,
         sound_entries: vec![],
         sounds_issued: false,
-        text_entity,
     });
 }
 

@@ -23,7 +23,9 @@ mod helper;
 mod views;
 pub(crate) mod world;
 
+const MAX_FRAME_RATE: f64 = 60.0;
 const SHOW_HITBOX_DEBUG_LINES: bool = false;
+const USE_PARALAX_SCROLLING: bool = true;
 
 /// Virtual viewport width in world units. All game coordinates are designed for this width.
 pub(crate) const VIRTUAL_WIDTH: f32 = 2048.0;
@@ -96,7 +98,6 @@ pub(crate) struct LevelSelection {
 #[derive(Resource, Debug, Clone, Copy)]
 pub(crate) struct DebugRenderSettings {
     pub(crate) show_hitbox_lines: bool,
-    pub(crate) show_overlay: bool,
     pub(crate) parallax_enabled: bool,
 }
 
@@ -148,13 +149,12 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Gravity(Vector::NEG_Y * 1800.0))
         .insert_resource(FramepaceSettings {
-            limiter: Limiter::from_framerate(60.0),
+            limiter: Limiter::from_framerate(MAX_FRAME_RATE),
             ..default()
         })
         .insert_resource(DebugRenderSettings {
             show_hitbox_lines: SHOW_HITBOX_DEBUG_LINES,
-            show_overlay: false,
-            parallax_enabled: true,
+            parallax_enabled: USE_PARALAX_SCROLLING,
         })
         .init_resource::<MenuSelection>()
         .init_resource::<ExitConfirmModalState>()

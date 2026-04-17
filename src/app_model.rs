@@ -70,9 +70,6 @@ pub(crate) struct ExitConfirmModalState {
 pub(crate) struct MainMenuEntity;
 
 #[derive(Component)]
-pub(crate) struct MenuMusicEntity;
-
-#[derive(Component)]
 pub(crate) struct MenuButton {
     pub(crate) index: usize,
     pub(crate) action: MenuAction,

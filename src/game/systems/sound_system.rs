@@ -151,14 +151,3 @@ pub fn sound_system(
         }
     }
 }
-
-/// On level exit: stop any still-running state loop sounds to avoid audio leaks.
-pub fn cleanup_state_sound_loops(
-    mut commands: Commands,
-    loop_sounds: Query<Entity, With<StateSoundLoop>>,
-) {
-    for entity in &loop_sounds {
-        commands.entity(entity).try_despawn();
-    }
-}
-

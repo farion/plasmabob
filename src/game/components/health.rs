@@ -21,9 +21,6 @@ impl Health {
         }
     }
 
-    pub fn set_current(&mut self, v: i32) {
-        self.current = v.clamp(0, self.max);
-    }
 
     pub fn is_dead(&self) -> bool {
         self.current <= 0

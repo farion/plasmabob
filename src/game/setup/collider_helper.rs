@@ -34,7 +34,6 @@ pub fn build_collider_from_box(
                 shape: ColliderShape::Rectangle {
                     half_extents: Vec2::new(half_w, half_h),
                 },
-                is_trigger: false,
             };
         }
     }
@@ -45,7 +44,6 @@ pub fn build_collider_from_box(
         shape: ColliderShape::Rectangle {
             half_extents: Vec2::new(sprite_w / 2.0, sprite_h / 2.0),
         },
-        is_trigger: false,
     }
 }
 

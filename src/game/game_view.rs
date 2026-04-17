@@ -84,10 +84,8 @@ fn load_selected_level(
             // If loading fails, create a CachedLevelDefinition that contains the
             // error so UI systems (or the GameView) can display it.
             let empty = crate::game::level::types::CachedLevelDefinition {
-                asset_path: Some(level_selection.asset_path().to_string()),
                 level: None,
                 entity_types: HashMap::new(),
-                error: Some(err),
             };
             commands.insert_resource(empty);
         }

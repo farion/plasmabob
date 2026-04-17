@@ -96,7 +96,6 @@ pub fn player_shoot_system(
                     shape: ColliderShape::Rectangle {
                         half_extents: Vec2::splat(PROJECTILE_HALF_EXTENT),
                     },
-                    is_trigger: false,
                 },
                 RigidBody {
                     velocity: facing_dir * attack.speed,
@@ -105,7 +104,6 @@ pub fn player_shoot_system(
                 Projectile::new(
                     player_entity,
                     attack.damage,
-                    attack.speed,
                     attack.range,
                     attack.shoot_effect.clone(),
                     attack.impact_effect.clone(),

@@ -1,10 +1,14 @@
 use serde::Deserialize;
+use std::collections::HashMap;
+use serde_json::Value;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ColliderConfig {
-    #[serde(default)] pub offset: Option<[f32;2]>,
-    #[serde(default)] pub is_trigger: Option<bool>,
-    #[serde(default)] pub rectangle_half_extents: Option<[f32;2]>,
-    #[serde(default)] pub circle_radius: Option<f32>,
+    // Previously had typed fields (offset, is_trigger, rectangle_half_extents,
+    // circle_radius) but those were not used by runtime code. Keep a
+    // catch-all map so unknown keys in JSON are accepted without
+    // generating dead-code warnings for unused named fields.
+    #[serde(flatten)]
+    pub _extra: HashMap<String, Value>,
 }
 

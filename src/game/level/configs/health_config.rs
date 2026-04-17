@@ -14,14 +14,3 @@ pub struct HealthConfig {
     #[serde(default)]
     pub despawn_delay_ms: Option<u64>,
 }
-
-impl HealthConfig {
-    /// Merge values from `other` into `self` by replacing any `Some` fields.
-    pub fn merge_from(&mut self, other: &HealthConfig) {
-        if other.max.is_some() { self.max = other.max; }
-        if other.current.is_some() { self.current = other.current; }
-        if other.despawn_on_death.is_some() { self.despawn_on_death = other.despawn_on_death; }
-        if other.despawn_delay_ms.is_some() { self.despawn_delay_ms = other.despawn_delay_ms; }
-    }
-}
-

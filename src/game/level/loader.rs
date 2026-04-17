@@ -99,10 +99,8 @@ pub fn load_level_from_asset(
     let level: LevelDefinition = serde_json::from_value(raw)?;
 
     Ok(CachedLevelDefinition {
-        asset_path: Some(asset_path.to_string()),
         level: Some(level),
         entity_types: entity_types_map,
-        error: None,
     })
 }
 

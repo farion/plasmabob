@@ -130,7 +130,6 @@ pub fn auto_range_attack_system(
                 shape: ColliderShape::Rectangle {
                     half_extents: Vec2::splat(PROJECTILE_HALF_EXTENT),
                 },
-                is_trigger: false,
             },
             RigidBody {
                 velocity: projectile_velocity,
@@ -139,7 +138,6 @@ pub fn auto_range_attack_system(
             Projectile::new(
                 attacker_entity,
                 attack.damage,
-                attack.speed,
                 attack.range,
                 shoot_effect.clone(),
                 impact_effect,

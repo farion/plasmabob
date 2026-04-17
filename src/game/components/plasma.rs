@@ -1,8 +1,5 @@
 use bevy::prelude::{Component, Entity, Timer, Vec2};
 
-pub const PLASMA_Z: f32 = 10.0;
-
-
 #[derive(Component, Debug, Clone)]
 pub struct PlasmaBeam {
     pub origin: Vec2,

@@ -48,21 +48,11 @@ pub(crate) fn draw_hitbox_debug_lines(
             Color::srgba(1.0, 0.0, 1.0, 0.25) // pink
         };
 
-        // Calculate size and position in world space.
+        // Calculate size and position in world space. Only Rectangle colliders
+        // are supported at runtime now to reduce unused code. Use the
+        // configured half_extents directly.
         let (half_w, half_h) = match &collider.shape {
             ColliderShape::Rectangle { half_extents } => (half_extents.x, half_extents.y),
-            ColliderShape::Circle { radius } => (*radius, *radius),
-            ColliderShape::Polygon { points } => {
-                if points.is_empty() {
-                    (4.0, 4.0)
-                } else {
-                    let min_x = points.iter().map(|p| p.x).fold(f32::MAX, f32::min);
-                    let max_x = points.iter().map(|p| p.x).fold(f32::MIN, f32::max);
-                    let min_y = points.iter().map(|p| p.y).fold(f32::MAX, f32::min);
-                    let max_y = points.iter().map(|p| p.y).fold(f32::MIN, f32::max);
-                    ((max_x - min_x) * 0.5, (max_y - min_y) * 0.5)
-                }
-            }
         };
         let size = Vec2::new(half_w * 2.0, half_h * 2.0);
         let owner_pos = owner_tf.translation();

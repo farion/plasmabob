@@ -68,10 +68,6 @@ impl StateMachine {
         sm
     }
 
-    /// Convenience constructor for the default Idle state.
-    pub fn idle() -> Self {
-        StateMachine::new(EntityState::Idle)
-    }
 
     /// Transition to a new state. Resets the state timer and records the previous state.
     pub fn set_state(&mut self, new_state: EntityState) {
@@ -97,39 +93,12 @@ impl StateMachine {
         self.state_time += dt;
     }
 
-    /// Reset the state timer without changing state.
-    pub fn reset_timer(&mut self) {
-        self.state_time = 0.0;
-    }
 }
 
 // JSON override removed: prefer typed `override_from_config` for StateMachine.
 // JSON override removed: prefer typed `override_from_config` for StateMachine.
 
 impl StateMachine {
-
-    pub fn override_from_config(mut self, entity_cfg: Option<&StateMachine>, level_cfg: Option<&StateMachine>) -> Self {
-        // initial_state/state are enums; prefer entity then level then existing
-        self.initial_state = entity_cfg.map(|c| c.initial_state).or(level_cfg.map(|c| c.initial_state)).unwrap_or(self.initial_state);
-        self.state = entity_cfg.map(|c| c.state).or(level_cfg.map(|c| c.state)).unwrap_or(self.state);
-        self.state_time = entity_cfg.map(|c| c.state_time).or(level_cfg.map(|c| c.state_time)).unwrap_or(self.state_time);
-        self.dying_duration_secs = entity_cfg.map(|c| c.dying_duration_secs).or(level_cfg.map(|c| c.dying_duration_secs)).unwrap_or(self.dying_duration_secs);
-        // states map: prefer non-empty entity_cfg.states, else level_cfg.states, else keep existing
-        if let Some(ent) = entity_cfg {
-            if !ent.states.is_empty() {
-                self.states = ent.states.clone();
-            } else if let Some(lv) = level_cfg {
-                if !lv.states.is_empty() {
-                    self.states = lv.states.clone();
-                }
-            }
-        } else if let Some(lv) = level_cfg {
-            if !lv.states.is_empty() {
-                self.states = lv.states.clone();
-            }
-        }
-        self
-    }
 
     /// Convert a state name string into the typed `EntityState` enum.
     pub fn entity_state_from_name(s: &str) -> EntityState {
@@ -150,11 +119,6 @@ impl StateMachine {
                 EntityState::Idle
             }
         }
-    }
-
-    /// Create a StateMachine from a textual state name (convenience).
-    pub fn from_state_name(s: &str) -> Self {
-        StateMachine::new(Self::entity_state_from_name(s))
     }
 }
 

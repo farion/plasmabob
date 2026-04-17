@@ -274,7 +274,6 @@ fn is_better_hit(candidate: HitCandidate, current_best: Option<HitCandidate>) ->
 fn rectangle_half_extents(collider: &Collider) -> Option<Vec2> {
     match &collider.shape {
         ColliderShape::Rectangle { half_extents } => Some(*half_extents),
-        _ => None,
     }
 }
 

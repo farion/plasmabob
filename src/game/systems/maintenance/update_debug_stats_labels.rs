@@ -61,18 +61,10 @@ pub(crate) fn update_debug_stats_labels(
             let text_half_height = line_count * line_height * 0.5;
 
             // Keep the label directly above the collider top in world space.
+            // Only Rectangle colliders exist at runtime now — extract the
+            // half extent directly.
             let half_h = match &collider.shape {
                 ColliderShape::Rectangle { half_extents } => half_extents.y,
-                ColliderShape::Circle { radius } => *radius,
-                ColliderShape::Polygon { points } => {
-                    if points.is_empty() {
-                        4.0
-                    } else {
-                        let min_y = points.iter().map(|p| p.y).fold(f32::MAX, f32::min);
-                        let max_y = points.iter().map(|p| p.y).fold(f32::MIN, f32::max);
-                        (max_y - min_y) * 0.5
-                    }
-                }
             };
             let owner_pos = owner_tf.translation();
             transform.translation = Vec3::new(

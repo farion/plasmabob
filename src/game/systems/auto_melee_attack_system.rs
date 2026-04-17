@@ -145,7 +145,6 @@ pub fn auto_melee_attack_system(
 fn rectangle_half_extents(collider: &Collider) -> Option<Vec2> {
     match &collider.shape {
         ColliderShape::Rectangle { half_extents } => Some(*half_extents),
-        _ => None,
     }
 }
 

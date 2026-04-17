@@ -7,10 +7,6 @@ pub struct Team {
 }
 
 impl Team {
-	/// Convenience constructor
-	pub fn new<S: Into<String>>(name: S) -> Self {
-		Self { name: name.into() }
-	}
 }
 
 impl Default for Team {

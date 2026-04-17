@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-use crate::game::level::errors::LoadLevelError;
 use std::sync::OnceLock;
 use crate::game::level::configs::{
     HealthConfig,
@@ -82,28 +81,6 @@ fn default_animation_frame_ms() -> u64 {
 
 // ─── Primitive property values ────────────────────────────────────────────────
 
-/// Primitive property values parsed from level JSON. We avoid keeping raw
-/// serde_json::Value in the runtime cache by converting to these typed
-/// variants.
-#[derive(Debug, Clone)]
-pub enum PropValue {
-    String(String),
-    Number(f64),
-    Bool(bool),
-    Other(String), // fallback: serialized JSON for arrays/objects
-}
-
-impl From<serde_json::Value> for PropValue {
-    fn from(v: serde_json::Value) -> Self {
-        match v {
-            serde_json::Value::String(s) => PropValue::String(s),
-            serde_json::Value::Number(n) => PropValue::Number(n.as_f64().unwrap_or(0.0)),
-            serde_json::Value::Bool(b) => PropValue::Bool(b),
-            other => PropValue::Other(other.to_string()),
-        }
-    }
-}
-
 /// Minimal runtime representation of a level file used by the Game view.
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct LevelDefinition {
@@ -111,9 +88,6 @@ pub(crate) struct LevelDefinition {
     pub terrain: Option<TerrainDefinition>,
     #[serde(default, deserialize_with = "deserialize_opt_vec_string_or_seq")]
     pub music: Option<Vec<String>>,
-    /// Path (asset) to the entity types configuration or directory. Optional.
-    #[serde(default, rename = "entity_types_path")]
-    pub entity_types_path: Option<String>,
     /// Entities defined in this level.
     #[serde(default)]
     pub entities: Option<Vec<LevelEntity>>,
@@ -149,16 +123,10 @@ pub(crate) struct EntityTypeDefinition {
     /// Optional high-level category tag from the entity type JSON (e.g. "player", "enemy", "doodad").
     #[serde(default)]
     pub category_tag: Option<String>,
-    // `state_machine` config is read from the typed `components.state_machine`
-    // (see ComponentsDef) and exposed via `state_machine_config()`; the
-    // top-level `states` raw map is no longer stored here.
     #[serde(default)]
     pub width: Option<u32>,
     #[serde(default)]
     pub height: Option<u32>,
-    /// Maximum health points for this entity type.
-    #[serde(default)]
-    pub health: Option<u32>,
     /// The key/name used in the `entity_types` map. Not present in the JSON
     /// and injected by the loader when the definitions are loaded.
     #[serde(skip)]
@@ -370,19 +338,13 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
 /// Resource (or call `refresh`) to make a loaded level available to systems.
 #[derive(Resource, Debug, Default, Clone)]
 pub(crate) struct CachedLevelDefinition {
-    pub asset_path: Option<String>,
     pub level: Option<LevelDefinition>,
     pub entity_types: HashMap<String, EntityTypeDefinition>,
-    pub error: Option<LoadLevelError>,
 }
 
-// Note: the loader (in `loader.rs`) provides functions to produce a
-// `CachedLevelDefinition`. We intentionally do not implement `refresh`
-// here to avoid circular module dependencies; callers should use
-// `crate::game::level::loader::load_level_from_asset` and then populate
-// the `CachedLevelDefinition` resource as needed.
-
 // --- Parsing helpers for unit tests ---
+// Keep the helper available only for tests to avoid unused-code warnings
+#[cfg(test)]
 pub fn parse_level_definition(json: &str) -> Result<LevelDefinition, serde_json::Error> {
     serde_json::from_str(json)
 }
@@ -415,9 +377,10 @@ mod tests {
 
     #[test]
     fn parse_simple_level() {
-        let json = r#"{"entity_types_path":"entity_types","entities":[]}"#;
+        let json = r#"{"entities":[]}"#;
         let lvl = parse_level_definition(json).expect("should parse");
-        assert!(lvl.entity_types_path.is_some());
+        let ents = lvl.entities.expect("entities present");
+        assert!(ents.is_empty());
     }
 
     #[test]
