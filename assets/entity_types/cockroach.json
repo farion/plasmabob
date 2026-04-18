@@ -1,49 +1,123 @@
 {
   "name": "Cockroach",
   "category_tag": "enemy",
-  "height": 128,
+  "width": 166.0,
+  "height": 128.0,
   "components": {
-    "collider": { "mode": "from_state" },
-    "damageable": {},
-    "gravity": {},
-    "rigid_body": {},
-    "team": { "name": "enemy" },
-    "health": {
-      "max": 30,
-      "despawn_on_death": true,
-      "despawn_delay_ms": 5000
-    },
-    "auto_range_attack": {
-      "damage": 10,
-      "range": 1000,
-      "cooldown_ms": 2000,
-      "particle_effect": "fire",
-      "aggro_range": 500,
-      "speed": 200
-    },
     "auto_melee_attack": {
-      "damage": 10,
-      "cooldown_ms": 1000
+      "cooldown_ms": 1000,
+      "damage": 10
     },
     "auto_movement": {
-      "pattern": "patrol",
+      "max_speed": 60.0,
       "min_speed": 40.0,
-      "max_speed": 60.0
+      "pattern": "patrol"
     },
+    "auto_range_attack": {
+      "aggro_range": 500,
+      "cooldown_ms": 2000,
+      "damage": 10,
+      "particle_effect": "fire",
+      "range": 1000,
+      "speed": 200
+    },
+    "collider": {
+      "mode": "from_state"
+    },
+    "damageable": {},
+    "gravity": {},
+    "health": {
+      "despawn_delay_ms": 5000,
+      "despawn_on_death": true,
+      "max": 30
+    },
+    "rigid_body": {},
     "state_machine": {
       "initial_state": "idle",
       "states": {
-        "idle": {
-          "animation": ["sprites/cockroach/cockroach-default.png"],
+        "damaged": {
+          "animation": [
+            "sprites/cockroach/cockroach-hit.png"
+          ],
           "animation_frame_ms": 300,
-          "collider_box": [[13, 5], [139, 5], [139, 119], [13, 119]],
-          "lock_ms": 0
+          "collider_box": [
+            [
+              14.0,
+              5.0
+            ],
+            [
+              150.0,
+              5.0
+            ],
+            [
+              150.0,
+              123.0
+            ],
+            [
+              14.0,
+              123.0
+            ]
+          ],
+          "lock_ms": 300,
+          "sound_end": null,
+          "sound_loop": null,
+          "sound_start": null
         },
         "dead": {
-          "animation": ["sprites/cockroach/cockroach-die.png"],
+          "animation": [
+            "sprites/cockroach/cockroach-die.png"
+          ],
           "animation_frame_ms": 300,
-          "collider_box": [[0, 0], [166, 0], [166, 94], [0, 94]],
-          "lock_ms": 0
+          "collider_box": [
+            [
+              0.0,
+              6.0
+            ],
+            [
+              166.0,
+              6.0
+            ],
+            [
+              166.0,
+              102.0
+            ],
+            [
+              0.0,
+              102.0
+            ]
+          ],
+          "lock_ms": 0,
+          "sound_end": null,
+          "sound_loop": null,
+          "sound_start": null
+        },
+        "idle": {
+          "animation": [
+            "sprites/cockroach/cockroach-default.png"
+          ],
+          "animation_frame_ms": 300,
+          "collider_box": [
+            [
+              13.0,
+              5.0
+            ],
+            [
+              139.0,
+              5.0
+            ],
+            [
+              139.0,
+              119.0
+            ],
+            [
+              13.0,
+              119.0
+            ]
+          ],
+          "lock_ms": 0,
+          "sound_end": null,
+          "sound_loop": null,
+          "sound_start": null
         },
         "melee_attacking": {
           "animation": [
@@ -53,8 +127,57 @@
             "sprites/cockroach/cockroach-range_attack.png"
           ],
           "animation_frame_ms": 300,
-          "collider_box": [[7, 5], [159, 5], [159, 121], [7, 121]],
-          "lock_ms": 500
+          "collider_box": [
+            [
+              7.0,
+              5.0
+            ],
+            [
+              159.0,
+              5.0
+            ],
+            [
+              159.0,
+              121.0
+            ],
+            [
+              7.0,
+              121.0
+            ]
+          ],
+          "lock_ms": 500,
+          "sound_end": null,
+          "sound_loop": null,
+          "sound_start": null
+        },
+        "moving": {
+          "animation": [
+            "sprites/cockroach/cockroach-walk-1.png",
+            "sprites/cockroach/cockroach-walk-2.png"
+          ],
+          "animation_frame_ms": 300,
+          "collider_box": [
+            [
+              17.0,
+              5.0
+            ],
+            [
+              153.0,
+              5.0
+            ],
+            [
+              153.0,
+              121.0
+            ],
+            [
+              17.0,
+              121.0
+            ]
+          ],
+          "lock_ms": 0,
+          "sound_end": null,
+          "sound_loop": null,
+          "sound_start": null
         },
         "range_attacking": {
           "animation": [
@@ -64,23 +187,33 @@
             "sprites/cockroach/cockroach-range_attack.png"
           ],
           "animation_frame_ms": 300,
-          "collider_box": [[7, 5], [159, 5], [159, 121], [7, 121]],
-          "lock_ms": 500
-        },
-        "damaged": {
-          "animation": ["sprites/cockroach/cockroach-hit.png"],
-          "animation_frame_ms": 300,
-          "collider_box": [[14, 5], [150, 5], [150, 123], [14, 123]],
-          "lock_ms": 300
-        },
-        "moving": {
-          "animation": ["sprites/cockroach/cockroach-walk-1.png", "sprites/cockroach/cockroach-walk-2.png"],
-          "animation_frame_ms": 300,
-          "collider_box": [[17, 5], [153, 5], [153, 121], [17, 121]],
-          "lock_ms": 0
+          "collider_box": [
+            [
+              7.0,
+              5.0
+            ],
+            [
+              159.0,
+              5.0
+            ],
+            [
+              159.0,
+              121.0
+            ],
+            [
+              7.0,
+              121.0
+            ]
+          ],
+          "lock_ms": 500,
+          "sound_end": null,
+          "sound_loop": null,
+          "sound_start": null
         }
       }
+    },
+    "team": {
+      "name": "enemy"
     }
-  },
-  "width": 166
+  }
 }

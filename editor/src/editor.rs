@@ -13,11 +13,79 @@ use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
-use serde::Deserialize;
 use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, scan_worlds, LevelEntry, WorldEntry};
 use crate::dashboard;
 use crate::entity_types;
 use crate::model::{normalize_asset_reference, EntityDefinition, EntityTypeDefinition, LevelBoundsDefinition, LevelFile};
+use serde::{Deserialize, Serialize};
+use std::io;
+
+#[derive(Resource, Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum ActiveCharacter {
+    Bob,
+    Betty,
+}
+
+impl Default for ActiveCharacter {
+    fn default() -> Self {
+        ActiveCharacter::Bob
+    }
+}
+
+impl ActiveCharacter {
+    fn asset_suffix(self) -> &'static str {
+        match self {
+            ActiveCharacter::Bob => "bob",
+            ActiveCharacter::Betty => "betty",
+        }
+    }
+
+    fn load_from_disk() -> Self {
+        let path = Self::settings_path();
+        match std::fs::read_to_string(&path) {
+            Ok(content) => {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(s) = value.get("active_character").and_then(|v| v.as_str()) {
+                        match s.to_ascii_lowercase().as_str() {
+                            "betty" => ActiveCharacter::Betty,
+                            _ => ActiveCharacter::Bob,
+                        }
+                    } else {
+                        ActiveCharacter::default()
+                    }
+                } else {
+                    ActiveCharacter::default()
+                }
+            }
+            Err(_) => ActiveCharacter::default(),
+        }
+    }
+
+    fn save_to_disk(&self) -> Result<(), io::Error> {
+        let path = Self::settings_path();
+        let obj = serde_json::json!({"active_character": match self { ActiveCharacter::Bob => "bob", ActiveCharacter::Betty => "betty" }});
+        std::fs::write(path, serde_json::to_string_pretty(&obj).unwrap_or_else(|_| String::new()))
+    }
+
+    fn settings_path() -> PathBuf {
+        // Prefer to place editor settings next to the running binary (target folder).
+        // Fallback to workspace root if the binary path cannot be determined.
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(parent) = exe.parent() {
+                return parent.join("editor_settings.json");
+            }
+        }
+        crate::io::workspace_root().join("editor_settings.json")
+    }
+
+    fn toggle(&mut self) {
+        *self = match self {
+            ActiveCharacter::Bob => ActiveCharacter::Betty,
+            ActiveCharacter::Betty => ActiveCharacter::Bob,
+        }
+    }
+}
 
 fn flatten_entity_components(
     components: Option<&serde_json::Map<String, serde_json::Value>>,
@@ -83,6 +151,7 @@ pub(crate) fn run() {
         .init_resource::<SceneDirty>()
         .init_resource::<CameraFitRequested>()
         .init_resource::<ZOverlayMode>()
+        .init_resource::<HitboxOverlayState>()
         .init_resource::<SnapState>()
         .init_resource::<UndoHistory>()
         .init_resource::<UndoCaptureState>()
@@ -106,6 +175,7 @@ pub(crate) fn run() {
                 }),
         )
         .add_plugins(EguiPlugin::default())
+        .insert_resource(ActiveCharacter::load_from_disk())
         .init_state::<EditorMode>()
         .add_systems(Startup, setup_camera)
         .add_systems(Startup, setup_component_value_mapping)
@@ -114,6 +184,8 @@ pub(crate) fn run() {
         .add_systems(EguiPrimaryContextPass, entity_types::entity_type_view_ui.run_if(in_state(EditorMode::EntityTypeView)))
         .add_systems(Update, check_sync_result.run_if(in_state(EditorMode::LevelPicker)))
         .add_systems(EguiPrimaryContextPass, editing_ui.run_if(in_state(EditorMode::Editing)))
+        .add_systems(Update, toggle_hitbox_overlay.run_if(in_state(EditorMode::Editing)))
+        .add_systems(Update, draw_hitbox_outlines.run_if(in_state(EditorMode::Editing)))
         .add_systems(
             Update,
             (
@@ -134,7 +206,6 @@ pub(crate) fn run() {
                 camera_controls,
                 spawn_background_tiles_when_ready,
                 draw_level_bounds_outline,
-                draw_entity_hitboxes,
                 draw_selection_outline,
                 rebuild_scene_if_needed,
             )
@@ -242,6 +313,11 @@ struct CameraFitRequested(bool);
 
 #[derive(Resource, Default)]
 struct ZOverlayMode {
+    enabled: bool,
+}
+
+#[derive(Resource, Default)]
+struct HitboxOverlayState {
     enabled: bool,
 }
 
@@ -474,6 +550,7 @@ fn level_picker_ui(
     mut sync_state: ResMut<EntityTypesSyncState>,
     mut view_state: ResMut<EntityTypeViewState>,
     _toast: ResMut<ToastState>,
+    mut active_character: ResMut<ActiveCharacter>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
@@ -545,6 +622,26 @@ fn level_picker_ui(
             }
         }
     });
+
+    // Top-right toggle to switch active character for asset resolution in the editor
+    egui::Area::new("character_toggle_area".into())
+        .order(egui::Order::Foreground)
+        .anchor(egui::Align2::RIGHT_TOP, [-12.0, 12.0])
+        .show(ctx, |ui| {
+            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                let label = match *active_character {
+                    ActiveCharacter::Bob => "Bob -> Betty",
+                    ActiveCharacter::Betty => "Betty -> Bob",
+                };
+                if ui.button(label).clicked() {
+                    let mut ac = *active_character;
+                    ac.toggle();
+                    *active_character = ac;
+                    // try to persist; ignore errors
+                    let _ = active_character.save_to_disk();
+                }
+            });
+        });
 }
 
 fn editing_ui(
@@ -554,6 +651,7 @@ fn editing_ui(
     mut pointer_state: ResMut<PointerState>,
     mut ui_state: ResMut<EditorUiState>,
     overlay_mode: Res<ZOverlayMode>,
+    hitbox_overlay: Res<HitboxOverlayState>,
     mut toast: ResMut<ToastState>,
     mut document: ResMut<EditorDocument>,
     mut undo_history: ResMut<UndoHistory>,
@@ -844,7 +942,7 @@ fn editing_ui(
         });
 
     if ui_state.show_keyboard_legend_overlay {
-        draw_keyboard_legend_overlay(ctx, overlay_mode.enabled);
+        draw_keyboard_legend_overlay(ctx, overlay_mode.enabled, hitbox_overlay.enabled);
     }
 
     if ui_state.show_add_menu {
@@ -1022,7 +1120,11 @@ fn toggle_keyboard_legend_overlay(
     }
 }
 
-fn draw_keyboard_legend_overlay(ctx: &egui::Context, z_overlay_enabled: bool) {
+fn draw_keyboard_legend_overlay(
+    ctx: &egui::Context,
+    z_overlay_enabled: bool,
+    hitbox_overlay_enabled: bool,
+) {
 
     egui::Area::new("keyboard_legend_overlay".into())
         .order(egui::Order::Foreground)
@@ -1052,6 +1154,8 @@ fn draw_keyboard_legend_overlay(ctx: &egui::Context, z_overlay_enabled: bool) {
                     ui.label("Mouse wheel: zoom, right mouse button: pan camera");
                     let overlay_state = if z_overlay_enabled { "on" } else { "off" };
                     ui.label(format!("Z: Z-Overlay ({overlay_state})"));
+                    let hitbox_state = if hitbox_overlay_enabled { "on" } else { "off" };
+                    ui.label(format!("H: Toggle hitboxes ({hitbox_state})"));
                     ui.label("L: Toggle legend");
                     ui.label("S: Toggle snap");
                 });
@@ -1083,6 +1187,23 @@ fn toggle_z_overlay_mode(
         "Z-Overlay: off".to_string()
     });
     toast.expires_at_seconds = time.elapsed_secs_f64() + 1.5;
+}
+
+fn toggle_hitbox_overlay(
+    mut key_events: MessageReader<KeyboardInput>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut hitbox_overlay: ResMut<HitboxOverlayState>,
+) {
+    let control_pressed = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+    if control_pressed {
+        return;
+    }
+
+    if !logical_char_just_pressed(&mut key_events, "h") {
+        return;
+    }
+
+    hitbox_overlay.enabled = !hitbox_overlay.enabled;
 }
 
 fn toggle_snap(
@@ -1618,6 +1739,7 @@ fn draw_selection_outline(
     mut gizmos: Gizmos,
     selection: Res<SelectionState>,
     document: Res<EditorDocument>,
+    time: Res<Time>,
 ) {
     let Some(index) = selection.selected_index else {
         return;
@@ -1628,21 +1750,72 @@ fn draw_selection_outline(
     let Some(entity_type) = document.entity_types.get(&entity.entity_type) else {
         return;
     };
-
     let size = entity_type.size();
-    let center = Vec2::new(entity.x + size.x * 0.5, entity.y + size.y * 0.5);
-    gizmos.rect_2d(center, size + Vec2::splat(4.0), Color::srgb(1.0, 0.0, 0.0));
+
+    // Animated dotted outline ("ant trail")
+    // Parameters (tweakable): dot size, spacing and speed
+    let dot_size = 1.0_f32;
+    let spacing = 4.0_f32; // distance between dot centers along edges
+    let speed = 20.0_f64; // pixels per second along the outline
+
+    // Perimeter points are computed in clockwise order starting at left-bottom
+    let left = entity.x;
+    let bottom = entity.y;
+    let right = entity.x + size.x;
+    let top = entity.y + size.y;
+
+    // Total perimeter length
+    let perim = 2.0 * (size.x + size.y);
+
+    // Compute animation offset along perimeter in [0, spacing)
+    let t = time.elapsed_secs_f64();
+    let offset = ((t * speed) % (spacing as f64)) as f32;
+
+    // Helper to convert distance along perimeter to world position
+    let point_at = |mut dist: f32| -> Vec2 {
+        dist = dist % perim;
+        if dist <= size.x {
+            // bottom edge: left -> right
+            Vec2::new(left + dist, bottom)
+        } else if dist <= size.x + size.y {
+            // right edge: bottom -> top
+            Vec2::new(right, bottom + (dist - size.x))
+        } else if dist <= size.x + size.y + size.x {
+            // top edge: right -> left
+            Vec2::new(right - (dist - (size.x + size.y)), top)
+        } else {
+            // left edge: top -> bottom
+            Vec2::new(left, top - (dist - (size.x + size.y + size.x)))
+        }
+    };
+
+    // Place dots spaced by `spacing` along the perimeter, starting at offset
+    let mut dist = offset;
+    while dist < perim {
+        let p = point_at(dist);
+        // center the dot (small square) on the edge position
+        gizmos.rect_2d(p, Vec2::splat(dot_size), Color::srgb(0.2, 0.5, 1.0));
+        dist += spacing;
+    }
 }
 
-fn draw_entity_hitboxes(mut gizmos: Gizmos, document: Res<EditorDocument>) {
-    // Draw each entity's collider box in world-space as a red rectangle.
-    // The editor/editor_types `collider_box` is expressed in image pixels
-    // with origin bottom-left (matching runtime after our recent change).
+fn draw_hitbox_outlines(
+    mut gizmos: Gizmos,
+    document: Res<EditorDocument>,
+    hitbox_overlay: Res<HitboxOverlayState>,
+) {
+    if !hitbox_overlay.enabled {
+        return;
+    }
+
     for entity in &document.level.entities {
-        let Some(entity_type) = document.entity_types.get(&entity.entity_type) else { continue; };
+        let Some(entity_type) = document.entity_types.get(&entity.entity_type) else {
+            continue;
+        };
+
         let size = entity_type.size();
 
-        // Resolve state machine and pick the initial state's collider_box when available.
+        // Hitbox outline: red (default = full sprite bounds).
         let mut min_x = 0.0_f32;
         let mut max_x = size.x;
         let mut min_y = 0.0_f32;
@@ -1667,15 +1840,13 @@ fn draw_entity_hitboxes(mut gizmos: Gizmos, document: Res<EditorDocument>) {
             }
         }
 
-        // Compute world-space rect (entity.x/y are bottom-left of sprite).
-        let left = entity.x + min_x;
-        let bottom = entity.y + min_y;
-        let width = (max_x - min_x).max(0.0);
-        let height = (max_y - min_y).max(0.0);
-        let center = Vec2::new(left + width * 0.5, bottom + height * 0.5);
-
-        // Semi-transparent red so the sprite underneath remains visible.
-        gizmos.rect_2d(center, Vec2::new(width, height), Color::srgba(1.0, 0.0, 0.0, 0.18));
+        let hit_w = (max_x - min_x).max(0.0);
+        let hit_h = (max_y - min_y).max(0.0);
+        let hit_center = Vec2::new(
+            entity.x + min_x + hit_w * 0.5,
+            entity.y + min_y + hit_h * 0.5,
+        );
+        gizmos.rect_2d(hit_center, Vec2::new(hit_w, hit_h), Color::srgb(1.0, 0.0, 0.0));
     }
 }
 
@@ -1689,6 +1860,7 @@ fn rebuild_scene_if_needed(
     scene_entities: Query<Entity, With<SceneEntity>>,
     mut camera_query: Query<(&mut Transform, &mut Projection), With<EditorCamera>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
+    active_character: Res<ActiveCharacter>,
 ) {
     if !scene_dirty.0 {
         return;
@@ -1699,13 +1871,17 @@ fn rebuild_scene_if_needed(
     }
 
     let document_level_size = level_size(&document.level, &document.entity_types);
-    spawn_background(&mut commands, &asset_server, &document.level, document_level_size);
+    // Resolve assets using currently selected active character in the editor so the
+    // preview matches in-game behavior.
+    let active = *active_character;
+    spawn_background(&mut commands, &asset_server, &document.level, document_level_size, active);
     spawn_level_entities(
         &mut commands,
         &asset_server,
         &document.level,
         &document.entity_types,
         overlay_mode.enabled,
+        active,
     );
     if camera_fit_requested.0 {
         fit_camera_to_level(&document.level, &document.entity_types, &window_query, &mut camera_query);
@@ -1715,8 +1891,45 @@ fn rebuild_scene_if_needed(
     scene_dirty.0 = false;
 }
 
-fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, level: &LevelFile, level_size: Vec2) {
-    let background_path = level
+fn resolve_character_asset_path(original: &str, active: ActiveCharacter) -> String {
+    // Resolve an asset path for the editor by preferring the exact path first.
+    // If the exact file exists under the assets directory, return it unchanged.
+    // Only when the exact file is missing, attempt to insert the active character
+    // suffix (".bob" / ".betty") before the file extension and return that
+    // variant if it exists. If neither exists, return the normalized original
+    // path (the AssetServer will then treat it as missing).
+    let normalized = normalize_asset_reference(original);
+
+    // If the exact file exists on disk under assets/, prefer it.
+    let fs_exact = assets_dir().join(&normalized);
+    if std::fs::metadata(&fs_exact).is_ok() {
+        return normalized;
+    }
+
+    // Try suffixed variant only when the original does not exist.
+    if let Some(pos) = normalized.rfind('.') {
+        let (before_ext, ext) = normalized.split_at(pos); // ext includes the dot
+        // If the name already contains a character suffix, return normalized
+        if before_ext.ends_with(".bob") || before_ext.ends_with(".betty") {
+            return normalized;
+        }
+        let suf = match active {
+            ActiveCharacter::Bob => "bob",
+            ActiveCharacter::Betty => "betty",
+        };
+        let suffixed = format!("{}.{suf}{}", before_ext, ext);
+        let fs_suff = assets_dir().join(&suffixed);
+        if std::fs::metadata(&fs_suff).is_ok() {
+            return suffixed;
+        }
+    }
+
+    // Fallback: return the normalized original path (may not exist).
+    normalized
+}
+
+fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, level: &LevelFile, level_size: Vec2, active: ActiveCharacter) {
+    let background_candidate = level
         .background
         .as_deref()
         .filter(|path| !path.is_empty())
@@ -1725,9 +1938,14 @@ fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, level: 
                 .as_ref()
                 .map(|terrain| terrain.background.as_str())
                 .filter(|path| !path.is_empty())
-        })
-        .map(normalize_asset_reference)
-        .unwrap_or_default();
+        });
+
+    let background_path = if let Some(bp) = background_candidate {
+        resolve_character_asset_path(bp, active)
+    } else {
+        String::new()
+    };
+
     let image = asset_server.load(background_path);
 
     commands.spawn((
@@ -1813,6 +2031,7 @@ fn spawn_level_entities(
     level: &LevelFile,
     entity_types: &HashMap<String, EntityTypeDefinition>,
     spawn_z_overlays: bool,
+    active: ActiveCharacter,
 ) {
     for (index, entity) in level.entities.iter().enumerate() {
         let Some(entity_type) = entity_types.get(&entity.entity_type) else {
@@ -1825,16 +2044,28 @@ fn spawn_level_entities(
         let render_position = entity_render_center(Vec2::new(entity.x, entity.y), size);
         let transform = Transform::from_xyz(render_position.x, render_position.y, z);
 
-        // In the level editor we render a simple blue rectangle for the
-        // entity sprite (independent of whether a texture exists) so designers
-        // can focus on layout. The actual in-game texture is not shown here.
-        let sprite = Sprite::from_color(Color::srgba(0.4, 0.6, 1.0, 0.9), size);
-        commands.spawn((
-            SceneEntity,
-            RenderedLevelEntity { index },
-            sprite,
-            transform,
-        ));
+        if let Some(texture_path) = entity_type.default_texture_asset_path() {
+            // Normalize and inject active-character suffix before extension so the editor
+            // previews the correct character-specific asset variant.
+            let resolved = resolve_character_asset_path(&normalize_asset_reference(&texture_path), active);
+            let mut sprite = Sprite::from_image(asset_server.load(resolved));
+            sprite.custom_size = Some(size);
+            commands.spawn((
+                SceneEntity,
+                RenderedLevelEntity { index },
+                sprite,
+                transform,
+            ));
+        } else {
+            // Fallback when no default texture path exists.
+            let sprite = Sprite::from_color(Color::srgba(0.4, 0.6, 1.0, 0.9), size);
+            commands.spawn((
+                SceneEntity,
+                RenderedLevelEntity { index },
+                sprite,
+                transform,
+            ));
+        }
 
         if spawn_z_overlays {
             let overlay_sprite = Sprite::from_color(z_overlay_color_for_value(z), size);
