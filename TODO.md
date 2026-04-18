@@ -6,9 +6,9 @@
 [X] Health Potion
 [X] Clean Code / Fix Warnings
 [X] Damage and Heal Numbers
-[ ] Final Level Table
-[ ] Crouching
-[ ] Auto Betty Assets
+[X] Final Level Table
+[X] Crouching
+[X] Auto Betty Assets
 [ ] Enemy AI. Faster with Aggro. Avoid falling. Jumps? 
 [ ] Stomp Effect
 [ ] Controlled Melee Attack?

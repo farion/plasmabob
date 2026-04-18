@@ -19,6 +19,58 @@ use crate::dashboard;
 use crate::entity_types;
 use crate::model::{normalize_asset_reference, EntityDefinition, EntityTypeDefinition, LevelBoundsDefinition, LevelFile};
 
+fn flatten_entity_components(
+    components: Option<&serde_json::Map<String, serde_json::Value>>,
+) -> HashMap<String, serde_json::Value> {
+    let mut flat = HashMap::new();
+    let Some(components) = components else {
+        return flat;
+    };
+
+    for (component_name, component_value) in components {
+        let Some(component_object) = component_value.as_object() else {
+            continue;
+        };
+        for (attribute_name, attribute_value) in component_object {
+            flat.insert(
+                format!("{component_name}.{attribute_name}"),
+                attribute_value.clone(),
+            );
+        }
+    }
+
+    flat
+}
+
+fn apply_flat_component_updates(
+    entity: &mut EntityDefinition,
+    removals: &std::collections::HashSet<String>,
+    updates: HashMap<String, serde_json::Value>,
+) {
+    for key in removals {
+        let Some((component, attribute)) = key.split_once('.') else {
+            continue;
+        };
+        entity.remove_component_attribute(component, attribute);
+    }
+
+    for (key, value) in updates {
+        let Some((component, attribute)) = key.split_once('.') else {
+            continue;
+        };
+        entity.set_component_attribute_value(component, attribute, value);
+    }
+}
+
+fn is_player_entity_type(entity_type: &EntityTypeDefinition) -> bool {
+    entity_type
+        .category_tag
+        .as_deref()
+        .map(|tag| tag.eq_ignore_ascii_case("player"))
+        .unwrap_or(false)
+        || entity_type.has_component("controlled_movement")
+}
+
 pub(crate) fn run() {
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.08, 0.08, 0.1)))
@@ -82,6 +134,7 @@ pub(crate) fn run() {
                 camera_controls,
                 spawn_background_tiles_when_ready,
                 draw_level_bounds_outline,
+                draw_entity_hitboxes,
                 draw_selection_outline,
                 rebuild_scene_if_needed,
             )
@@ -556,7 +609,7 @@ fn editing_ui(
                     let mut z = current_z;
                     let mut changed = false;
                     // Clone override state so we don't hold a borrow into document below.
-                    let current_overrides = entity.overrides.clone();
+                    let current_overrides = flatten_entity_components(entity.components.as_ref());
                     let entity_type_def = document.entity_types.get(&entity_type_name).cloned();
 
                     ui.label(format!("ID: {}", id));
@@ -584,7 +637,8 @@ fn editing_ui(
                     let mut overrides_changed = false;
 
                     if let Some(et) = &entity_type_def {
-                        let has_overrideable = et.components.iter()
+                        let component_names = et.component_names();
+                        let has_overrideable = component_names.iter()
                             .any(|comp| mapping.components.contains_key(comp.as_str()));
 
                         if has_overrideable {
@@ -592,7 +646,7 @@ fn editing_ui(
                             ui.label(egui::RichText::new("Overrides").strong());
                             ui.add_space(4.0);
 
-                            for comp_name in &et.components {
+                            for comp_name in &component_names {
                                 let Some(attrs) = mapping.components.get(comp_name.as_str()) else {
                                     continue;
                                 };
@@ -608,10 +662,7 @@ fn editing_ui(
                                     // fall back to a reasonable default based on the attribute type
                                     // from the `ComponentValueMapping` when the nested value is absent.
                                     let entity_type_default: serde_json::Value = et
-                                        .extra
-                                        .get(comp_name.as_str())
-                                        .and_then(|v| v.as_object())
-                                        .and_then(|obj| obj.get(attr_name.as_str()))
+                                        .component_attribute_value(comp_name.as_str(), attr_name.as_str())
                                         .cloned()
                                         .unwrap_or_else(|| {
                                             match attr_def.attr_type.as_str() {
@@ -749,12 +800,7 @@ fn editing_ui(
                             entity.x = x;
                             entity.y = y;
                             entity.z_index = Some(z);
-                            for k in &override_removals {
-                                entity.overrides.remove(k);
-                            }
-                            for (k, v) in override_updates {
-                                entity.overrides.insert(k, v);
-                            }
+                            apply_flat_component_updates(entity, &override_removals, override_updates);
                         }
                         document.dirty = true;
                         scene_dirty.0 = true;
@@ -834,14 +880,14 @@ fn editing_ui(
                     let is_player = document
                         .entity_types
                         .get(&entity_type_name)
-                        .map(|et| et.components.iter().any(|c| c == "player"))
+                        .map(is_player_entity_type)
                         .unwrap_or(false);
 
                     let player_already_exists = is_player && document.level.entities.iter().any(|e| {
                         document
                             .entity_types
                             .get(&e.entity_type)
-                            .map(|et| et.components.iter().any(|c| c == "player"))
+                            .map(is_player_entity_type)
                             .unwrap_or(false)
                     });
 
@@ -857,7 +903,10 @@ fn editing_ui(
                             x: spawn_position.x,
                             y: spawn_position.y,
                             z_index: Some(100.0),
-                            overrides: HashMap::new(),
+                            name: None,
+                            layer: None,
+                            components: None,
+                            extra: HashMap::new(),
                         };
                         document.level.entities.push(new_entity);
                         selection.selected_index = Some(document.level.entities.len() - 1);
@@ -1138,7 +1187,7 @@ fn copy_entity_shortcut(
     let is_player = document
         .entity_types
         .get(&entity.entity_type)
-        .map(|et| et.components.iter().any(|c| c == "player"))
+        .map(is_player_entity_type)
         .unwrap_or(false);
 
     if is_player {
@@ -1585,6 +1634,51 @@ fn draw_selection_outline(
     gizmos.rect_2d(center, size + Vec2::splat(4.0), Color::srgb(1.0, 0.0, 0.0));
 }
 
+fn draw_entity_hitboxes(mut gizmos: Gizmos, document: Res<EditorDocument>) {
+    // Draw each entity's collider box in world-space as a red rectangle.
+    // The editor/editor_types `collider_box` is expressed in image pixels
+    // with origin bottom-left (matching runtime after our recent change).
+    for entity in &document.level.entities {
+        let Some(entity_type) = document.entity_types.get(&entity.entity_type) else { continue; };
+        let size = entity_type.size();
+
+        // Resolve state machine and pick the initial state's collider_box when available.
+        let mut min_x = 0.0_f32;
+        let mut max_x = size.x;
+        let mut min_y = 0.0_f32;
+        let mut max_y = size.y;
+
+        if let Some(sm) = entity_type.state_machine() {
+            let state_key = if !sm.initial_state.is_empty() {
+                sm.initial_state.clone()
+            } else {
+                sm.states.keys().next().cloned().unwrap_or_default()
+            };
+
+            if let Some(state_def) = sm.states.get(&state_key) {
+                if let Some(box_pts) = state_def.collider_box.as_ref() {
+                    if box_pts.len() >= 2 {
+                        min_x = box_pts.iter().map(|p| p[0]).fold(f32::INFINITY, f32::min);
+                        max_x = box_pts.iter().map(|p| p[0]).fold(f32::NEG_INFINITY, f32::max);
+                        min_y = box_pts.iter().map(|p| p[1]).fold(f32::INFINITY, f32::min);
+                        max_y = box_pts.iter().map(|p| p[1]).fold(f32::NEG_INFINITY, f32::max);
+                    }
+                }
+            }
+        }
+
+        // Compute world-space rect (entity.x/y are bottom-left of sprite).
+        let left = entity.x + min_x;
+        let bottom = entity.y + min_y;
+        let width = (max_x - min_x).max(0.0);
+        let height = (max_y - min_y).max(0.0);
+        let center = Vec2::new(left + width * 0.5, bottom + height * 0.5);
+
+        // Semi-transparent red so the sprite underneath remains visible.
+        gizmos.rect_2d(center, Vec2::new(width, height), Color::srgba(1.0, 0.0, 0.0, 0.18));
+    }
+}
+
 fn rebuild_scene_if_needed(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -1622,7 +1716,18 @@ fn rebuild_scene_if_needed(
 }
 
 fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, level: &LevelFile, level_size: Vec2) {
-    let background_path = normalize_asset_reference(&level.terrain.background);
+    let background_path = level
+        .background
+        .as_deref()
+        .filter(|path| !path.is_empty())
+        .or_else(|| {
+            level.terrain
+                .as_ref()
+                .map(|terrain| terrain.background.as_str())
+                .filter(|path| !path.is_empty())
+        })
+        .map(normalize_asset_reference)
+        .unwrap_or_default();
     let image = asset_server.load(background_path);
 
     commands.spawn((
@@ -1720,24 +1825,16 @@ fn spawn_level_entities(
         let render_position = entity_render_center(Vec2::new(entity.x, entity.y), size);
         let transform = Transform::from_xyz(render_position.x, render_position.y, z);
 
-        if let Some(texture_path) = entity_type.default_texture_asset_path() {
-            let mut sprite = Sprite::from_image(asset_server.load(texture_path));
-            sprite.custom_size = Some(size);
-            commands.spawn((
-                SceneEntity,
-                RenderedLevelEntity { index },
-                sprite,
-                transform,
-            ));
-        } else {
-            let sprite = Sprite::from_color(Color::srgba(0.4, 0.6, 1.0, 0.6), size);
-            commands.spawn((
-                SceneEntity,
-                RenderedLevelEntity { index },
-                sprite,
-                transform,
-            ));
-        }
+        // In the level editor we render a simple blue rectangle for the
+        // entity sprite (independent of whether a texture exists) so designers
+        // can focus on layout. The actual in-game texture is not shown here.
+        let sprite = Sprite::from_color(Color::srgba(0.4, 0.6, 1.0, 0.9), size);
+        commands.spawn((
+            SceneEntity,
+            RenderedLevelEntity { index },
+            sprite,
+            transform,
+        ));
 
         if spawn_z_overlays {
             let overlay_sprite = Sprite::from_color(z_overlay_color_for_value(z), size);

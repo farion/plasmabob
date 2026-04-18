@@ -3,7 +3,10 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Number, Value};
 
-use crate::model::{normalize_asset_reference, EntityDefinition, EntityTypeDefinition, LevelFile};
+use crate::model::{
+    normalize_asset_reference, EntityDefinition, EntityTypeDefinition, LevelFile,
+    StateMachineDefinition,
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct LevelEntry {
@@ -91,27 +94,20 @@ pub(crate) fn scan_game_components() -> Result<Vec<String>, String> {
     Ok(names)
 }
 
-// Overwrite the "component" array in the entity-type JSON file for `entity_type_name`.
-// Keeps other fields untouched, writes using render_value_compact_arrays for consistent formatting.
+// Overwrite the `components` object keys in the entity-type JSON file for `entity_type_name`.
+// Existing component payloads are preserved when the key stays present.
 pub(crate) fn save_entity_type_components(entity_type_name: &str, components: &[String]) -> Result<(), String> {
     let json_path = assets_dir().join("entity_types").join(format!("{entity_type_name}.json"));
 
     let content = std::fs::read_to_string(&json_path)
         .map_err(|error| format!("{}: {error}", json_path.display()))?;
-    let mut root = serde_json::from_str::<serde_json::Value>(&content)
+    let mut definition = serde_json::from_str::<EntityTypeDefinition>(&content)
         .map_err(|error| format!("{}: {error}", json_path.display()))?;
 
-    // Ensure object root
-    let obj = root
-        .as_object_mut()
-        .ok_or_else(|| format!("{}: entity type JSON must be an object", json_path.display()))?;
+    definition.set_component_names(components);
 
-    // Build array
-    let arr: Vec<serde_json::Value> = components.iter().map(|s| serde_json::Value::String(s.clone())).collect();
-    obj.insert("component".to_string(), serde_json::Value::Array(arr));
-
-    let serialized = render_value_compact_arrays(&root);
-    std::fs::write(&json_path, format!("{serialized}\n"))
+    let content = serde_json::to_string_pretty(&definition).map_err(|error| error.to_string())?;
+    std::fs::write(&json_path, format!("{content}\n"))
         .map_err(|error| format!("{}: {error}", json_path.display()))
 }
 
@@ -260,9 +256,19 @@ fn is_world_level_file_name(path: &Path) -> bool {
         return false;
     }
 
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| name.to_ascii_lowercase().contains("level"))
+    let Some(stem) = path.file_stem().and_then(|name| name.to_str()) else {
+        return false;
+    };
+
+    let stem = stem.to_ascii_lowercase();
+    let Some(level_index) = stem.find("level") else {
+        return false;
+    };
+
+    stem[level_index + "level".len()..]
+        .chars()
+        .next()
+        .map(|ch| ch.is_ascii_digit())
         .unwrap_or(false)
 }
 
@@ -373,17 +379,32 @@ fn validate_entity_type_definition(
     key: &str,
     path: &Path,
 ) -> Result<(), String> {
-    if definition.states.is_empty() {
+    let Some(state_machine) = definition.state_machine() else {
         return Err(format!(
-            "{}: entity type '{key}' requires a non-empty 'states' object",
+            "{}: entity type '{key}' requires components.state_machine",
+            path.display()
+        ));
+    };
+
+    if state_machine.states.is_empty() {
+        return Err(format!(
+            "{}: entity type '{key}' requires a non-empty 'components.state_machine.states' object",
             path.display()
         ));
     }
 
-    if !definition.states.contains_key("default") {
+    if state_machine.initial_state.is_empty() {
         return Err(format!(
-            "{}: entity type '{key}' requires a 'states.default' definition",
+            "{}: entity type '{key}' requires a non-empty 'components.state_machine.initial_state'",
             path.display()
+        ));
+    }
+
+    if !state_machine.states.contains_key(&state_machine.initial_state) {
+        return Err(format!(
+            "{}: entity type '{key}' initial_state '{}' must exist in components.state_machine.states",
+            path.display(),
+            state_machine.initial_state
         ));
     }
 
@@ -405,38 +426,32 @@ pub(crate) fn save_entity_type_hitboxes(
 
     let content = std::fs::read_to_string(&json_path)
         .map_err(|error| format!("{}: {error}", json_path.display()))?;
-    let mut root = serde_json::from_str::<Value>(&content)
+    let mut definition = serde_json::from_str::<EntityTypeDefinition>(&content)
         .map_err(|error| format!("{}: {error}", json_path.display()))?;
 
-    let states = root
-        .as_object_mut()
-        .and_then(|object| object.get_mut("states"))
-        .and_then(Value::as_object_mut)
-        .ok_or_else(|| format!("{}: missing object 'states'", json_path.display()))?;
+    let mut state_machine = definition
+        .state_machine()
+        .ok_or_else(|| format!("{}: missing object 'components.state_machine'", json_path.display()))?;
 
     for (state_key, points) in hitboxes_by_state {
-        let state_object = states
-            .get_mut(state_key)
-            .and_then(Value::as_object_mut)
-            .ok_or_else(|| format!("{}: missing object 'states.{state_key}'", json_path.display()))?;
-
         let hitbox_points = points
             .iter()
-            .map(|[x, y]| {
-                let rounded_x = x.round().max(0.0) as i64;
-                let rounded_y = y.round().max(0.0) as i64;
-                Value::Array(vec![
-                    Value::Number(Number::from(rounded_x)),
-                    Value::Number(Number::from(rounded_y)),
-                ])
-            })
+            .map(|[x, y]| [x.round().max(0.0), y.round().max(0.0)])
             .collect::<Vec<_>>();
 
-        state_object.insert("hitbox".to_string(), Value::Array(hitbox_points));
+        let state = state_machine
+            .states
+            .get_mut(state_key)
+            .ok_or_else(|| format!("{}: missing object 'components.state_machine.states.{state_key}'", json_path.display()))?;
+        state.collider_box = Some(hitbox_points);
     }
 
-    let serialized = render_value_compact_arrays(&root);
-    std::fs::write(&json_path, format!("{serialized}\n"))
+    definition
+        .set_state_machine(state_machine)
+        .map_err(|error| format!("{}: {error}", json_path.display()))?;
+
+    let content = serde_json::to_string_pretty(&definition).map_err(|error| error.to_string())?;
+    std::fs::write(&json_path, format!("{content}\n"))
         .map_err(|error| format!("{}: {error}", json_path.display()))
 }
 
@@ -551,22 +566,18 @@ fn scan_entity_type_jsons(entity_types_dir: &Path) -> Result<HashMap<String, Pat
 }
 
 pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, existing_root: Value) -> Result<Value, String> {
-    let mut root = match existing_root {
-        Value::Object(object) => object,
-            _ => {
-            return Err(format!(
-                "Entity type file for '{entity_name}' must contain a JSON object"
-            ))
-        }
-    };
+    let mut definition: EntityTypeDefinition = serde_json::from_value(existing_root).map_err(|error| {
+        format!("Entity type file for '{entity_name}' must contain a JSON object: {error}")
+    })?;
 
     let grouped_frames = collect_sprite_frames(entity_name, sprite_dir)?;
-    let mut existing_states = match root.remove("states") {
-        Some(Value::Object(states)) => states,
-        _ => Map::new(),
-    };
+    let mut state_machine = definition.state_machine().unwrap_or_else(|| StateMachineDefinition {
+        initial_state: String::new(),
+        ..Default::default()
+    });
+    let mut existing_states = std::mem::take(&mut state_machine.states);
     let reference_frame_path = grouped_frames
-        .get("default")
+        .get("idle")
         .and_then(|frames| frames.first())
         .or_else(|| grouped_frames.values().find_map(|frames| frames.first()))
         .map(|frame| frame.filesystem_path.clone());
@@ -578,7 +589,7 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
     let mut scale_pixels_to_units: f64 = 1.0 / SCALE_FACTOR;
     let mut _reference_img_w: Option<f64> = None;
     let mut _reference_img_h: Option<f64> = None;
-    let existing_height_value = root.get("height").and_then(|v| v.as_f64());
+    let existing_height_value = definition.height.map(|value| value as f64);
     if let Some(ref_frame) = &reference_frame_path {
         let image = image::open(ref_frame)
             .map_err(|error| format!("{}: {error}", ref_frame.display()))?;
@@ -597,28 +608,19 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
         }
     }
 
-    let mut new_states = Map::new();
-
-    // Determine if this entity type is a floor — if so, we will treat the top 40 pixels as transparent
-    let is_floor = root
-        .get("component")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().any(|it| it.as_str() == Some("floor")))
-        .unwrap_or(false);
+    let mut new_states = BTreeMap::new();
+    let is_floor = false;
 
     for (state_key, frames) in grouped_frames {
-        let mut state_object = match existing_states.remove(&state_key) {
-            Some(Value::Object(object)) => object,
-            _ => Map::new(),
-        };
+        let mut state_definition = existing_states.remove(&state_key).unwrap_or_default();
 
-        let animation_paths: Vec<Value> = frames
+        let animation_paths: Vec<String> = frames
             .iter()
-            .map(|frame| Value::String(frame.asset_path.clone()))
+            .map(|frame| frame.asset_path.clone())
             .collect();
-        state_object.insert("animation".to_string(), Value::Array(animation_paths));
+        state_definition.animation = animation_paths;
 
-        if should_regenerate_hitbox(&state_object) {
+        if should_regenerate_hitbox(&state_definition) {
             let ignore_top: u32 = if is_floor { 40 } else { 0 };
             let (_img_w_px, _img_h_px, hitbox) =
                 build_hitbox_from_png(&frames[0].filesystem_path, ignore_top)?;
@@ -627,7 +629,7 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
             // If a numeric "height" exists in the JSON the scale was set to
             // existing_height / reference_image_pixel_height earlier, otherwise we
             // use 1.0 / SCALE_FACTOR for backward compatibility.
-            let mut hitbox_array: Vec<Value> = Vec::with_capacity(hitbox.len());
+            let mut hitbox_array: Vec<[f32; 2]> = Vec::with_capacity(hitbox.len());
             for [x, y] in hitbox.into_iter() {
                 let xf = (x as f64) * scale_pixels_to_units;
                 let yf = (y as f64) * scale_pixels_to_units;
@@ -637,29 +639,34 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
                 if xf_i < 0.0 || yf_i < 0.0 {
                     return Err(format!("rounded hitbox coordinate negative: {}, {}", xf_i, yf_i));
                 }
-                let nx = Number::from(xf_i as u64);
-                let ny = Number::from(yf_i as u64);
-                hitbox_array.push(Value::Array(vec![Value::Number(nx), Value::Number(ny)]));
+                hitbox_array.push([xf_i as f32, yf_i as f32]);
             }
 
-            state_object.insert("hitbox".to_string(), Value::Array(hitbox_array));
+            state_definition.collider_box = Some(hitbox_array);
         }
 
-        if !state_object.contains_key("animation_frame_ms") {
-            state_object.insert(
-                "animation_frame_ms".to_string(),
-                Value::Number(Number::from(180_u64)),
-            );
+        if state_definition.animation_frame_ms.is_none() {
+            state_definition.animation_frame_ms = Some(180);
         }
 
-        new_states.insert(state_key, Value::Object(state_object));
+        new_states.insert(state_key, state_definition);
     }
 
-    root.insert("states".to_string(), Value::Object(new_states));
-
-    if !root.contains_key("component") {
-        root.insert("component".to_string(), Value::Array(Vec::new()));
+    if state_machine.initial_state.is_empty() {
+        state_machine.initial_state = if new_states.contains_key("idle") {
+            "idle".to_string()
+        } else {
+            new_states
+                .keys()
+                .next()
+                .cloned()
+                .unwrap_or_else(|| "idle".to_string())
+        };
     }
+    state_machine.states = new_states;
+    definition
+        .set_state_machine(state_machine)
+        .map_err(|error| error.to_string())?;
 
     if let Some(reference_frame_path) = reference_frame_path {
         let image = image::open(&reference_frame_path)
@@ -668,7 +675,7 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
         let img_h = image.height() as f64;
 
         // If the JSON already contains a numeric "height", keep it as-is and recompute width
-        if let Some(existing_height_value) = root.get("height").and_then(|v| v.as_f64()) {
+        if let Some(existing_height_value) = definition.height.map(|value| value as f64) {
             // compute width = aspect_ratio * existing_height_value
             if img_h == 0.0 {
                 return Err(format!("image has zero height: {}", reference_frame_path.display()));
@@ -678,8 +685,7 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
             if width_i < 0.0 {
                 return Err(format!("rounded width negative: {}", width_i));
             }
-            let nw = Number::from(width_i as u64);
-            root.insert("width".to_string(), Value::Number(nw));
+            definition.width = Some(width_i as f32);
             // keep existing height value unchanged
         } else {
             // No existing numeric height -> compute both width and height from image
@@ -691,39 +697,20 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
             if width_i < 0.0 || height_i < 0.0 {
                 return Err(format!("rounded width/height negative: {}, {}", width_i, height_i));
             }
-            let nw = Number::from(width_i as u64);
-            let nh = Number::from(height_i as u64);
-            root.insert("width".to_string(), Value::Number(nw));
-            root.insert("height".to_string(), Value::Number(nh));
+            definition.width = Some(width_i as f32);
+            definition.height = Some(height_i as f32);
         }
     }
 
-    // Normalize legacy numeric fields to the newer structured format expected
-    // by the runtime. For example, convert `"health": 100` into
-    // `"health": { "health": 100 }`. Similarly, if `"effect_heal"` is
-    // a number convert it to `{ "heal": N }` so the editor writes the
-    // runtime-compatible nested form.
-    if let Some(Value::Number(num)) = root.get("health") {
-        let mut obj = Map::new();
-        obj.insert("health".to_string(), Value::Number(num.clone()));
-        root.insert("health".to_string(), Value::Object(obj));
-    }
-
-    if let Some(Value::Number(num)) = root.get("effect_heal") {
-        let mut obj = Map::new();
-        obj.insert("heal".to_string(), Value::Number(num.clone()));
-        root.insert("effect_heal".to_string(), Value::Object(obj));
-    }
-
-    Ok(Value::Object(root))
+    serde_json::to_value(definition).map_err(|error| error.to_string())
 }
 
-fn should_regenerate_hitbox(state_object: &Map<String, Value>) -> bool {
-    match state_object.get("hitbox") {
-        Some(Value::Array(hitbox)) => hitbox.is_empty(),
-        Some(_) => true,
-        None => true,
-    }
+fn should_regenerate_hitbox(state: &crate::model::EntityTypeStateDefinition) -> bool {
+    state
+        .collider_box
+        .as_ref()
+        .map(|hitbox| hitbox.is_empty())
+        .unwrap_or(true)
 }
 
 fn render_value_compact_arrays(value: &Value) -> String {
@@ -848,12 +835,12 @@ fn parse_sprite_file_name(entity_name: &str, file_name: &str) -> Option<(String,
 
 fn canonical_state_name(raw_state: &str) -> String {
     match raw_state {
-        "default" | "stand" | "idle" => "default",
-        "walk" | "run" | "move" => "walk",
-        "jump" => "jump",
-        "hit" | "hurt" => "hit",
-        "die" | "dead" | "death" => "die",
-        "fight" | "fire" | "attack" | "shoot" => "fight",
+        "default" | "stand" | "idle" => "idle",
+        "walk" | "run" | "move" => "moving",
+        "jump" => "jumping",
+        "hit" | "hurt" => "damaged",
+        "die" | "dead" | "death" => "dead",
+        "fight" | "fire" | "attack" | "shoot" => "range_attacking",
         other => other,
     }
     .to_string()
@@ -991,7 +978,10 @@ mod tests {
                 x: 0.0,
                 y: 0.0,
                 z_index: None,
-                overrides: Default::default(),
+                name: None,
+                layer: None,
+                components: None,
+                extra: Default::default(),
             },
             EntityDefinition {
                 id: "cockroach9".to_string(),
@@ -999,7 +989,10 @@ mod tests {
                 x: 0.0,
                 y: 0.0,
                 z_index: None,
-                overrides: Default::default(),
+                name: None,
+                layer: None,
+                components: None,
+                extra: Default::default(),
             },
         ];
 
@@ -1075,11 +1068,15 @@ mod tests {
             &root,
             "assets/entity_types/bob.json",
             r#"{
-                "component": ["player"],
-                "states": {
-                    "default": {
+                "components": {
+                    "state_machine": {
+                        "initial_state": "idle",
+                        "states": {
+                            "idle": {
                         "animation": ["assets/bob/bob-default.png"],
                         "animation_frame_ms": 500
+                            }
+                        }
                     }
                 },
                 "width": 16,
@@ -1115,15 +1112,15 @@ mod tests {
     fn parses_sprite_file_names_case_insensitive_and_with_aliases() {
         assert_eq!(
             parse_sprite_file_name("bob", "Bob-Stand.png"),
-            Some(("default".to_string(), 0))
+            Some(("idle".to_string(), 0))
         );
         assert_eq!(
             parse_sprite_file_name("bob", "Bob-Walk-2.png"),
-            Some(("walk".to_string(), 2))
+            Some(("moving".to_string(), 2))
         );
         assert_eq!(
             parse_sprite_file_name("betty", "betty_fire.png"),
-            Some(("fight".to_string(), 0))
+            Some(("range_attacking".to_string(), 0))
         );
         assert_eq!(parse_sprite_file_name("bob", "portrait.png"), None);
     }
@@ -1174,18 +1171,22 @@ mod tests {
             &format!(
                 "{}\n",
                 serde_json::to_string_pretty(&json!({
-                    "component": ["player"],
-                    "health": 100,
                     "width": 99,
                     "height": 77,
-                    "states": {
-                        "default": {
-                            "animation": ["old.png"],
-                            "animation_frame_ms": 250,
-                            "custom": true
-                        },
-                        "obsolete": {
-                            "animation": ["unused.png"]
+                    "components": {
+                        "player": {},
+                        "state_machine": {
+                            "initial_state": "idle",
+                            "states": {
+                                "idle": {
+                                    "animation": ["old.png"],
+                                    "animation_frame_ms": 250,
+                                    "custom": true
+                                },
+                                "obsolete": {
+                                    "animation": ["unused.png"]
+                                }
+                            }
                         }
                     }
                 }))
@@ -1195,7 +1196,7 @@ mod tests {
         write_file(
             &root,
             "assets/entity_types/orphan.json",
-            "{\n  \"component\": []\n}\n",
+            "{\n  \"components\": {}\n}\n",
         );
 
         let report = sync_entity_types_with_paths(
@@ -1220,30 +1221,29 @@ mod tests {
                 .expect("bob json should exist"),
         )
         .expect("bob json should parse");
-        assert_eq!(bob_json["component"], json!(["player"]));
-        assert_eq!(bob_json["health"]["health"], json!(100));
+        assert_eq!(bob_json["components"]["player"], json!({}));
         // Existing entity-type JSON provided a "height": 77 so we must keep it and recompute width
         assert_eq!(bob_json["width"], json!(77));
         assert_eq!(bob_json["height"], json!(77));
-        assert_eq!(bob_json["states"]["default"]["animation_frame_ms"], json!(250));
-        assert_eq!(bob_json["states"]["default"]["custom"], json!(true));
+        assert_eq!(bob_json["components"]["state_machine"]["states"]["idle"]["animation_frame_ms"], json!(250));
+        assert_eq!(bob_json["components"]["state_machine"]["states"]["idle"]["custom"], json!(true));
         assert_eq!(
-            bob_json["states"]["default"]["animation"],
+            bob_json["components"]["state_machine"]["states"]["idle"]["animation"],
             json!(["sprites/bob/Bob-Stand.png"])
         );
         assert_eq!(
-            bob_json["states"]["walk"]["animation"],
+            bob_json["components"]["state_machine"]["states"]["moving"]["animation"],
             json!([
                 "sprites/bob/Bob-Walk-1.png",
                 "sprites/bob/Bob-Walk-2.png"
             ])
         );
         assert_eq!(
-            bob_json["states"]["fight"]["animation"],
+            bob_json["components"]["state_machine"]["states"]["range_attacking"]["animation"],
             json!(["sprites/bob/Bob-Fire.png"])
         );
-        assert!(bob_json["states"]["obsolete"].is_null());
-        let default_hitbox = bob_json["states"]["default"]["hitbox"]
+        assert!(bob_json["components"]["state_machine"]["states"]["obsolete"].is_null());
+        let default_hitbox = bob_json["components"]["state_machine"]["states"]["idle"]["collider_box"]
             .as_array()
             .expect("hitbox should be an array");
         assert!(!default_hitbox.is_empty());
@@ -1254,11 +1254,22 @@ mod tests {
                 .expect("betty json should exist"),
         )
         .expect("betty json should parse");
-        assert_eq!(betty_json["component"], json!([]));
+        assert_eq!(betty_json["components"], json!({
+            "state_machine": {
+                "initial_state": "idle",
+                "states": {
+                    "idle": {
+                        "animation": ["sprites/betty/betty-stand.png"],
+                        "animation_frame_ms": 180,
+                        "collider_box": betty_json["components"]["state_machine"]["states"]["idle"]["collider_box"]
+                    }
+                }
+            }
+        }));
         // Scaled dimensions for betty (rounded to whole numbers)
         assert_eq!(betty_json["width"], json!(1));
         assert_eq!(betty_json["height"], json!(1));
-        assert_eq!(betty_json["states"]["default"]["animation_frame_ms"], json!(180));
+        assert_eq!(betty_json["components"]["state_machine"]["states"]["idle"]["animation_frame_ms"], json!(180));
     }
 
     #[test]
@@ -1296,11 +1307,11 @@ mod tests {
         assert_eq!(slime_json["width"], json!(1));
         assert_eq!(slime_json["height"], json!(1));
         assert_eq!(
-            slime_json["states"]["hit"]["animation"],
+            slime_json["components"]["state_machine"]["states"]["damaged"]["animation"],
             json!(["sprites/slime/slime-hit.png"])
         );
         assert_eq!(
-            slime_json["states"]["walk"]["animation"],
+            slime_json["components"]["state_machine"]["states"]["moving"]["animation"],
             json!(["sprites/slime/slime-walk-1.png"])
         );
     }
@@ -1328,32 +1339,37 @@ mod tests {
             "bob",
             &root.join("assets/sprites/bob"),
             json!({
-                "component": ["player"],
-                "height": 8,
-                "states": {
-                    "default": {
-                        "animation": ["old.png"],
-                        "hitbox": [[10, 11], [12, 11], [12, 13], [10, 13]]
-                    },
-                    "walk": {
-                        "animation": ["old-walk.png"],
-                        "hitbox": []
+                "components": {
+                    "player": {},
+                    "state_machine": {
+                        "initial_state": "idle",
+                        "states": {
+                            "idle": {
+                                "animation": ["old.png"],
+                                "collider_box": [[10, 11], [12, 11], [12, 13], [10, 13]]
+                            },
+                            "moving": {
+                                "animation": ["old-walk.png"],
+                                "collider_box": []
+                            }
+                        }
                     }
-                }
+                },
+                "height": 8,
             }),
         )
         .expect("entity type json should build");
 
         assert_eq!(
-            merged["states"]["default"]["hitbox"],
+            merged["components"]["state_machine"]["states"]["idle"]["collider_box"],
             json!([[10, 11], [12, 11], [12, 13], [10, 13]])
         );
 
-        let walk_hitbox = merged["states"]["walk"]["hitbox"]
+        let walk_hitbox = merged["components"]["state_machine"]["states"]["moving"]["collider_box"]
             .as_array()
             .expect("walk hitbox should be regenerated as an array");
         assert!(!walk_hitbox.is_empty());
-        assert_ne!(merged["states"]["walk"]["hitbox"], json!([]));
+        assert_ne!(merged["components"]["state_machine"]["states"]["moving"]["collider_box"], json!([]));
     }
 }
 

@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 bevy = { version = "0.18.1", features = ["jpeg", "wayland"] }
 bevy_egui = "0.39.1"
+plasmabob = { package = "PlasmaBob", path = ".." }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 image = { version = "0.25", default-features = false, features = ["png"] }

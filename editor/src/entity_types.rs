@@ -306,14 +306,27 @@ pub(crate) fn entity_type_view_ui(
         };
 
         // Basic validation similar to io::validate_entity_type_definition
-        if parsed.states.is_empty() || !parsed.states.contains_key("default") {
+        let Some(state_machine) = parsed.state_machine() else {
             let Ok(ctx) = contexts.ctx_mut() else {
                 return;
             };
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.label(format!(
-                    "Entity type '{}' requires a non-empty 'states' object with 'default'",
+                    "Entity type '{}' requires 'components.state_machine'",
                     selected_name
+                ));
+            });
+            return;
+        };
+        if state_machine.states.is_empty() || !state_machine.states.contains_key(&state_machine.initial_state) {
+            let Ok(ctx) = contexts.ctx_mut() else {
+                return;
+            };
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ui.label(format!(
+                    "Entity type '{}' requires a non-empty 'components.state_machine.states' object containing initial_state '{}'",
+                    selected_name,
+                    state_machine.initial_state
                 ));
             });
             return;
@@ -330,11 +343,23 @@ pub(crate) fn entity_type_view_ui(
         Cow::Owned(parsed_owned)
     };
     let et_ref = et_data.as_ref();
+    let Some(state_machine) = et_ref.state_machine() else {
+        let Ok(ctx) = contexts.ctx_mut() else {
+            return;
+        };
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.label(format!(
+                "Entity type '{}' requires 'components.state_machine'",
+                selected_name
+            ));
+        });
+        return;
+    };
 
     // Preload/ensure TextureIds for all animation frames so we don't need to
     // call `contexts.add_image()` while holding an `egui::Context` borrow.
     let mut all_paths: Vec<String> = Vec::new();
-    for state in et_ref.states.values() {
+    for state in state_machine.states.values() {
         for path in &state.animation {
             all_paths.push(crate::model::normalize_asset_reference(path));
         }
@@ -408,12 +433,12 @@ pub(crate) fn entity_type_view_ui(
         } else {
             // Prepare components to save: prefer staged copy, then document copy
             let components_to_save: Option<Vec<String>> = if let Some(doc_ref) = document.as_ref() {
-                doc_ref.entity_types.get(&selected_name).map(|et| et.components.clone())
+                doc_ref.entity_types.get(&selected_name).map(|et| et.component_names())
             } else {
                 hitbox_editor
                     .edited_entity_types
                     .get(&selected_name)
-                    .map(|et| et.components.clone())
+                    .map(|et| et.component_names())
             };
 
             let comp_result = if let Some(components) = components_to_save {
@@ -480,14 +505,14 @@ pub(crate) fn entity_type_view_ui(
                     doc_ref
                         .entity_types
                         .get(&selected_name)
-                        .map(|et| et.components.clone())
-                        .unwrap_or_else(|| et_ref.components.clone())
+                        .map(|et| et.component_names())
+                        .unwrap_or_else(|| et_ref.component_names())
                 } else {
                     hitbox_editor
                         .edited_entity_types
                         .get(&selected_name)
-                        .map(|et| et.components.clone())
-                        .unwrap_or_else(|| et_ref.components.clone())
+                        .map(|et| et.component_names())
+                        .unwrap_or_else(|| et_ref.component_names())
                 };
 
                 // Show components inline with a small 'X' button to remove
@@ -502,7 +527,7 @@ pub(crate) fn entity_type_view_ui(
                                 if let Some(doc_mut) = document.as_mut() {
                                         if let Some(et) = doc_mut.entity_types.get_mut(&selected_name) {
                                             // Stage component change in-memory. Do not write file yet.
-                                            et.components = new_components.clone();
+                                            et.set_component_names(&new_components);
                                         } else {
                                             // entity type not found in document; no status message
                                         }
@@ -512,7 +537,7 @@ pub(crate) fn entity_type_view_ui(
                                         .edited_entity_types
                                         .entry(selected_name.clone())
                                         .or_insert_with(|| et_ref.clone())
-                                        .components = new_components.clone();
+                                        .set_component_names(&new_components);
                                 }
                                 // mark entity type dirty for saving via Ctrl+S
                                 hitbox_editor.dirty_entity_types.insert(selected_name.clone());
@@ -556,7 +581,7 @@ pub(crate) fn entity_type_view_ui(
                                     if let Some(doc_mut) = document.as_mut() {
                                         if let Some(et) = doc_mut.entity_types.get_mut(&selected_name) {
                                             // Stage in-memory change; do not write to disk yet
-                                            et.components = new_components.clone();
+                                            et.set_component_names(&new_components);
                                             // staged
                                         } else {
                                             // entity type not found in document
@@ -566,7 +591,7 @@ pub(crate) fn entity_type_view_ui(
                                             .edited_entity_types
                                             .entry(selected_name.clone())
                                             .or_insert_with(|| et_ref.clone())
-                                            .components = new_components.clone();
+                                            .set_component_names(&new_components);
                                         // staged
                                     }
                                 }
@@ -588,9 +613,9 @@ pub(crate) fn entity_type_view_ui(
 
             // Size
             ui.horizontal(|ui| {
-                ui.label(format!("Width: {} px", et_ref.width));
+                ui.label(format!("Width: {} px", et_ref.width.unwrap_or_default()));
                 ui.add_space(12.0);
-                ui.label(format!("Height: {} px", et_ref.height));
+                ui.label(format!("Height: {} px", et_ref.height.unwrap_or_default()));
             });
 
             ui.add_space(8.0);
@@ -600,11 +625,11 @@ pub(crate) fn entity_type_view_ui(
             ui.add_space(4.0);
 
             // Sort states for stable order
-            let mut state_keys: Vec<_> = et_ref.states.keys().cloned().collect();
+            let mut state_keys: Vec<_> = state_machine.states.keys().cloned().collect();
             state_keys.sort();
 
             for state_key in state_keys {
-                if let Some(state_def) = et_ref.states.get(&state_key) {
+                if let Some(state_def) = state_machine.states.get(&state_key) {
                     egui::CollapsingHeader::new(state_key.clone()).default_open(true).show(ui, |ui| {
                         if state_def.animation.is_empty() {
                             ui.label("(no animation / no images)");
@@ -675,7 +700,8 @@ pub(crate) fn entity_type_view_ui(
                                             .get(&normalized)
                                             .map(|(w, h)| egui::vec2(*w as f32, *h as f32))
                                             .unwrap_or_else(|| egui::vec2(display_size.x, display_size.y));
-                                        let ratio_units_per_pixel = units_per_pixel(et_ref.height, image_dims.y);
+                                        let ratio_units_per_pixel =
+                                            units_per_pixel(et_ref.height.unwrap_or_default(), image_dims.y);
 
                                         let mut rect = hitbox_editor
                                             .edited_hitboxes
@@ -683,7 +709,7 @@ pub(crate) fn entity_type_view_ui(
                                             .copied()
                                             .unwrap_or_else(|| {
                                                 RectHitbox::from_points(
-                                                    &state_def.hitbox,
+                                                    state_def.hitbox_points(),
                                                     image_dims.x,
                                                     image_dims.y,
                                                     ratio_units_per_pixel,
@@ -788,12 +814,12 @@ pub(crate) fn entity_type_view_ui(
                         // Perform save logic (same as Ctrl+S handler)
                         // Prepare components to save: prefer staged copy, then document copy
                         let components_to_save: Option<Vec<String>> = if let Some(doc_ref) = document.as_ref() {
-                            doc_ref.entity_types.get(&selected_name).map(|et| et.components.clone())
+                            doc_ref.entity_types.get(&selected_name).map(|et| et.component_names())
                         } else {
                             hitbox_editor
                                 .edited_entity_types
                                 .get(&selected_name)
-                                .map(|et| et.components.clone())
+                                .map(|et| et.component_names())
                         };
 
                         let comp_result = if let Some(components) = components_to_save {
