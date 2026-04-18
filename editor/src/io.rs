@@ -106,7 +106,17 @@ pub(crate) fn save_entity_type_components(entity_type_name: &str, components: &[
 
     definition.set_component_names(components);
 
-    let content = serde_json::to_string_pretty(&definition).map_err(|error| error.to_string())?;
+    save_entity_type_definition(entity_type_name, &definition)
+}
+
+pub(crate) fn save_entity_type_definition(
+    entity_type_name: &str,
+    definition: &EntityTypeDefinition,
+) -> Result<(), String> {
+    let json_path = assets_dir()
+        .join("entity_types")
+        .join(format!("{entity_type_name}.json"));
+    let content = serde_json::to_string_pretty(definition).map_err(|error| error.to_string())?;
     std::fs::write(&json_path, format!("{content}\n"))
         .map_err(|error| format!("{}: {error}", json_path.display()))
 }
@@ -451,9 +461,7 @@ pub(crate) fn save_entity_type_hitboxes(
         .set_state_machine(state_machine)
         .map_err(|error| format!("{}: {error}", json_path.display()))?;
 
-    let content = serde_json::to_string_pretty(&definition).map_err(|error| error.to_string())?;
-    std::fs::write(&json_path, format!("{content}\n"))
-        .map_err(|error| format!("{}: {error}", json_path.display()))
+    save_entity_type_definition(entity_type_name, &definition)
 }
 
 pub(crate) fn next_entity_id(entity_type: &str, entities: &[EntityDefinition]) -> String {

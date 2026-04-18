@@ -257,6 +257,52 @@ impl EntityTypeDefinition {
         value.as_object()?.get(attribute).cloned()
     }
 
+    pub fn set_component_attribute_value(&mut self, component: &str, attribute: &str, value: serde_json::Value) {
+        let mut root = self
+            .components
+            .as_ref()
+            .and_then(|c| serde_json::to_value(c).ok())
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+
+        let entry = root
+            .entry(component.to_string())
+            .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+
+        let object = if let Some(obj) = entry.as_object_mut() {
+            obj
+        } else {
+            *entry = serde_json::Value::Object(serde_json::Map::new());
+            entry.as_object_mut().expect("components entry must be object")
+        };
+        object.insert(attribute.to_string(), value);
+
+        self.components = serde_json::from_value(serde_json::Value::Object(root)).ok();
+    }
+
+    pub fn remove_component_attribute(&mut self, component: &str, attribute: &str) {
+        let Some(mut root) = self
+            .components
+            .as_ref()
+            .and_then(|c| serde_json::to_value(c).ok())
+            .and_then(|v| v.as_object().cloned())
+        else {
+            return;
+        };
+
+        if let Some(component_value) = root.get_mut(component) {
+            if let Some(component_object) = component_value.as_object_mut() {
+                component_object.remove(attribute);
+            }
+        }
+
+        self.components = if root.is_empty() {
+            None
+        } else {
+            serde_json::from_value(serde_json::Value::Object(root)).ok()
+        };
+    }
+
     pub fn default_texture_asset_path(&self) -> Option<String> {
         let state_machine = self.state_machine()?;
         if !state_machine.initial_state.is_empty() {
@@ -286,22 +332,39 @@ impl EntityTypeDefinition {
 /// component instances by applying `override_from_json`.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct ComponentsDef {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub health: Option<HealthConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub controlled_movement: Option<ControlledMovementConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_movement: Option<AutoMovementConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub moving_platform: Option<MovingPlatformConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rigid_body: Option<RigidBodyConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gravity: Option<GravityConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub blocking: Option<BlockingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub controlled_range_attack: Option<ControlledRangeAttackConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_range_attack: Option<AutoRangeAttackConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_melee_attack: Option<AutoMeleeAttackConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub controlled_melee_attack: Option<ControlledMeleeAttackConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub damageable: Option<DamageableConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub team: Option<TeamConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub orientation: Option<OrientationConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub state_machine: Option<StateMachineConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub collider: Option<ColliderConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub collectible_effect: Option<CollectibleEffectConfig>,
 }
 
