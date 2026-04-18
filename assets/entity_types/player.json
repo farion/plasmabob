@@ -1,70 +1,59 @@
 {
-  "name": "Player",
-  "category_tag": "player",
-  "height": 128,
-  "width": 175,
   "components": {
-    "collider": { "mode": "from_state" },
-    "team": { "name": "player" },
-    "gravity": {},
-    "rigid_body": {},
-    "health": { "max": 100 },
-    "controlled_range_attack": {
-      "projectile_type": "player_projectile",
-      "speed": 2000.0,
-      "range": 1000.0,
-      "cooldown_ms": 500,
-      "damage": 20
+    "health": {
+      "max": null,
+      "current": null,
+      "despawn_on_death": null,
+      "despawn_delay_ms": null
     },
-    "damageable": {},
     "controlled_movement": {
-      "speed": 300.0,
-      "jump_force": 800.0
+      "speed": null,
+      "jump_force": null,
+      "allow_double_jump": null,
+      "jumps_performed": null,
+      "dash_force": null,
+      "max_speed": null,
+      "facing": null
+    },
+    "rigid_body": {
+      "velocity": null,
+      "mass": null,
+      "linear_damp": null,
+      "restitution": null
+    },
+    "gravity": {
+      "scale": null,
+      "grounded": null,
+      "extra_accel": null
+    },
+    "controlled_range_attack": {
+      "damage": null,
+      "range": null,
+      "speed": null,
+      "cooldown": null,
+      "projectile_type": null,
+      "shoot_effect": null,
+      "impact_effect": null
+    },
+    "auto_melee_attack": {
+      "damage": null,
+      "range": null,
+      "cooldown": null,
+      "enabled": null
+    },
+    "damageable": {
+      "damaged_duration_secs": null
+    },
+    "team": {
+      "name": null
     },
     "state_machine": {
-      "initial_state": "idle",
-      "states": {
-        "idle": {
-          "animation": ["sprites/player/player-default.png"],
-          "animation_frame_ms": 180,
-          "collider_box": [[31, 10], [98, 10], [98, 118], [31, 118]],
-          "lock_ms": 0
-        },
-        "dead": {
-          "animation": ["sprites/player/player-die.png"],
-          "animation_frame_ms": 180,
-          "sound_start": "sounds/player-die.wav",
-          "collider_box": [[5, 19], [98, 19], [98, 76], [5, 76]],
-          "lock_ms": 0
-        },
-        "range_attacking": {
-          "animation": ["sprites/player/player-fight.png"],
-          "animation_frame_ms": 180,
-          "collider_box": [[35, 10], [96, 10], [96, 121], [35, 121]],
-          "lock_ms": 500
-        },
-        "damaged": {
-          "animation": ["sprites/player/player-hit.png"],
-          "animation_frame_ms": 180,
-          "collider_box": [[28, 11], [90, 11], [90, 121], [28, 121]],
-          "lock_ms": 300
-        },
-        "jumping": {
-          "animation": ["sprites/player/player-jump.png"],
-          "animation_frame_ms": 180,
-          "collider_box": [[29, 19], [92, 19], [92, 124], [29, 124]],
-          "lock_ms": 0
-        },
-        "moving": {
-          "animation": ["sprites/player/player-walk-1.png", "sprites/player/player-walk-2.png"],
-          "animation_frame_ms": 180,
-          "sound_start": "sounds/player-startwalk.wav",
-          "sound_loop": "sounds/player-walk.wav",
-          "sound_end": "sounds/player-walk.wav",
-          "collider_box": [[32, 7], [102, 7], [102, 120], [32, 120]],
-          "lock_ms": 0
-        }
-      }
-    }
-  }
+      "initial_state": "",
+      "states": {}
+    },
+    "collider": {}
+  },
+  "category_tag": "player",
+  "width": 175.0,
+  "height": 128.0
 }

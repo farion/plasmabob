@@ -269,7 +269,10 @@ fn sorted_attribute_rows(
             // entries in component_value_mapping.json from exposing
             // attributes that don't belong to the typed configs.
             .filter_map(|(name, def)| {
-                if attribute_type_from_configs(component_name, name).is_some() {
+                // Allow mapping entries for components that intentionally
+                // accept arbitrary keys (e.g. collider uses a flattened map).
+                let allow_extra = matches!(component_name.to_ascii_lowercase().as_str(), "collider");
+                if allow_extra || component_attribute_type(component_name, name).is_some() {
                     Some(AttributeUiRow {
                         name: name.clone(),
                         attr_type: def.attr_type.clone(),
@@ -309,78 +312,34 @@ fn sorted_attribute_rows(
         // truth). If the attribute does not exist on the config struct we
         // skip it entirely. This guarantees the editor only exposes fields
         // actually defined on the typed ComponentConfig structs.
-        if let Some(attr_type) = attribute_type_from_configs(component_name, &key) {
+        if let Some(attr_type) = component_attribute_type(component_name, &key) {
             rows.push(AttributeUiRow {
                 name: key,
-                attr_type,
+                attr_type: attr_type.to_string(),
                 options: Vec::new(),
             });
+        }
+    }
+
+    // Ensure attributes declared in the typed ComponentConfig structs are
+    // always present even when the serialized fallback object is empty
+    // (fields are Option<T> and therefore serialize to an empty object).
+    for &(name, typ) in component_declared_attributes(component_name) {
+        if !seen.contains(&name.to_string()) {
+            seen.insert(name.to_string());
+            rows.push(AttributeUiRow { name: name.to_string(), attr_type: typ.to_string(), options: Vec::new() });
         }
     }
 
     rows
 }
 
-fn attribute_type_from_configs(component_name: &str, attribute_name: &str) -> Option<String> {
-    // Normalize inputs
-    let comp = component_name.to_ascii_lowercase();
-    let attr = attribute_name.to_ascii_lowercase();
+include!(concat!(env!("OUT_DIR"), "/component_attr_map.rs"));
 
-    match comp.as_str() {
-        // Health fields: max/current are integer types (u32/u32), despawn_delay_ms is u64
-        "health" => match attr.as_str() {
-            "max" | "current" | "despawn_delay_ms" => Some("int".to_string()),
-            "despawn_on_death" => Some("bool".to_string()),
-            _ => None,
-        },
-        "controlled_movement" => match attr.as_str() {
-            "speed" | "jump_force" | "dash_force" | "max_speed" | "facing" => Some("number".to_string()),
-            "allow_double_jump" => Some("bool".to_string()),
-            "jumps_performed" => Some("number".to_string()),
-            _ => None,
-        },
-        "rigid_body" => match attr.as_str() {
-            "mass" | "linear_damp" | "restitution" => Some("number".to_string()),
-            "velocity" => Some("array<number>".to_string()),
-            _ => None,
-        },
-        "moving_platform" => match attr.as_str() {
-            "speed" => Some("number".to_string()),
-            "waypoints" => Some("waypoints".to_string()),
-            "repeat" | "enabled" => Some("bool".to_string()),
-            _ => None,
-        },
-        "gravity" => match attr.as_str() {
-            "scale" => Some("number".to_string()),
-            "grounded" => Some("bool".to_string()),
-            "extra_accel" => Some("array<number>".to_string()),
-            _ => None,
-        },
-        "controlled_range_attack" | "auto_range_attack" => match attr.as_str() {
-            "damage" | "range" | "speed" | "aggro_range" => Some("number".to_string()),
-            "cooldown" => Some("int".to_string()),
-            "enabled" => Some("bool".to_string()),
-            _ => None,
-        },
-        "auto_melee_attack" | "controlled_melee_attack" => match attr.as_str() {
-            "damage" | "range" => Some("number".to_string()),
-            "cooldown" => Some("int".to_string()),
-            "enabled" => Some("bool".to_string()),
-            _ => None,
-        },
-        "team" => match attr.as_str() {
-            "name" => Some("string".to_string()),
-            _ => None,
-        },
-        "orientation" => Some("string".to_string()),
-        "collider" => None,
-        "collectible_effect" => match attr.as_str() {
-            "heal" => Some("number".to_string()),
-            _ => None,
-        },
-        _ => None,
-    }
-}
+// Return attributes declared by the component config structs so the editor
+// can include fields that serialize as absent when they are `Option<T>`
+// and therefore don't appear in a serialized fallback object.
+// component_declared_attributes is provided by build.rs generated file
 
 fn render_components_sidebar(
     ctx: &egui::Context,
