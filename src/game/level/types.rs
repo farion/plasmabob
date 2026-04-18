@@ -254,7 +254,19 @@ impl EntityTypeDefinition {
             "collectible_effect" => serde_json::to_value(comps.collectible_effect.as_ref()?).ok()?,
             _ => return None,
         };
-        value.as_object()?.get(attribute).cloned()
+        // Treat explicit JSON null the same as "absent": return None so
+        // the editor does not consider a null-valued attribute an explicit
+        // override. This prevents the UI from showing a Clear button for
+        // fields that were not actually set in the source JSON (they would
+        // otherwise be serialized as `null` when converting typed configs
+        // to a serde_json::Value).
+        let obj = value.as_object()?;
+        let v = obj.get(attribute).cloned()?;
+        if v.is_null() {
+            None
+        } else {
+            Some(v)
+        }
     }
 
     pub fn set_component_attribute_value(&mut self, component: &str, attribute: &str, value: serde_json::Value) {
@@ -275,9 +287,47 @@ impl EntityTypeDefinition {
             *entry = serde_json::Value::Object(serde_json::Map::new());
             entry.as_object_mut().expect("components entry must be object")
         };
-        object.insert(attribute.to_string(), value);
+        // Coerce float JSON numbers without fractional part into integers
+        // to avoid deserialization failures for typed integer fields
+        // (e.g. HealthConfig.current: Option<u32>) when the UI provides
+        // 10.0 instead of 10.
+        let final_value = match value {
+            serde_json::Value::Number(n) => {
+                if n.as_i64().is_none() {
+                    if let Some(f) = n.as_f64() {
+                        if (f.fract()).abs() < std::f64::EPSILON {
+                            // Safe to coerce to i64 if within i64 range
+                            let int_val = f as i64;
+                            serde_json::Value::Number(serde_json::Number::from(int_val))
+                        } else {
+                            serde_json::Value::Number(n)
+                        }
+                    } else {
+                        serde_json::Value::Number(n)
+                    }
+                } else {
+                    serde_json::Value::Number(n)
+                }
+            }
+            other => other,
+        };
 
-        self.components = serde_json::from_value(serde_json::Value::Object(root)).ok();
+        object.insert(attribute.to_string(), final_value);
+
+        // Attempt to convert the updated raw JSON `root` back into a
+        // typed `ComponentsDef`. If deserialization fails (for example
+        // because a floating JSON number cannot be coerced into an
+        // integer field like `u32`), do not overwrite `self.components`.
+        // Overwriting with `None` would remove the component entirely
+        // and make the UI drop the component table unexpectedly.
+        match serde_json::from_value::<ComponentsDef>(serde_json::Value::Object(root)) {
+            Ok(parts) => {
+                self.components = Some(parts);
+            }
+            Err(err) => {
+                tracing::warn!(component = component, attribute = attribute, error = %err, "Failed to apply component attribute update: preserving previous components to avoid data loss");
+            }
+        }
     }
 
     pub fn remove_component_attribute(&mut self, component: &str, attribute: &str) {
@@ -550,9 +600,44 @@ impl LevelEntity {
             *entry = serde_json::Value::Object(serde_json::Map::new());
             entry.as_object_mut().expect("components entry must be object")
         };
-        object.insert(attribute.to_string(), value);
+        // Coerce float JSON numbers without fractional part into integers
+        // to avoid deserialization failures for typed integer fields
+        // (e.g. HealthConfig.current: Option<u32>) when the UI provides
+        // 10.0 instead of 10.
+        let final_value = match value {
+            serde_json::Value::Number(n) => {
+                if n.as_i64().is_none() {
+                    if let Some(f) = n.as_f64() {
+                        if (f.fract()).abs() < std::f64::EPSILON {
+                            let int_val = f as i64;
+                            serde_json::Value::Number(serde_json::Number::from(int_val))
+                        } else {
+                            serde_json::Value::Number(n)
+                        }
+                    } else {
+                        serde_json::Value::Number(n)
+                    }
+                } else {
+                    serde_json::Value::Number(n)
+                }
+            }
+            other => other,
+        };
 
-        self.components = serde_json::from_value(serde_json::Value::Object(root)).ok();
+        object.insert(attribute.to_string(), final_value);
+
+        // See comment in EntityTypeDefinition::set_component_attribute_value
+        // — avoid clobbering `self.components` with `None` when
+        // deserialization fails (e.g. type mismatch). Log a warning so
+        // we can investigate problematic edits.
+        match serde_json::from_value::<ComponentsDef>(serde_json::Value::Object(root)) {
+            Ok(parts) => {
+                self.components = Some(parts);
+            }
+            Err(err) => {
+                tracing::warn!(component = component, attribute = attribute, error = %err, "Failed to apply component attribute update to level entity: preserving previous components");
+            }
+        }
     }
 
     pub fn remove_component_attribute(&mut self, component: &str, attribute: &str) {

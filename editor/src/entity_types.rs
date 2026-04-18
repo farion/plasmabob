@@ -255,6 +255,7 @@ struct AttributeUiRow {
 fn sorted_attribute_rows(
     mapping: &crate::editor::ComponentValueMapping,
     entity_type: &crate::model::EntityTypeDefinition,
+    fallback_entity: &crate::model::EntityTypeDefinition,
     component_name: &str,
 ) -> Vec<AttributeUiRow> {
     let mut rows: Vec<AttributeUiRow> = Vec::new();
@@ -263,10 +264,20 @@ fn sorted_attribute_rows(
     if let Some(component_mapping) = mapping.components.get(component_name) {
         let mut mapped_rows: Vec<AttributeUiRow> = component_mapping
             .iter()
-            .map(|(name, def)| AttributeUiRow {
-                name: name.clone(),
-                attr_type: def.attr_type.clone(),
-                options: def.options.clone(),
+            // Only include mapping entries that actually exist on the
+            // component config structs. This prevents stale or incorrect
+            // entries in component_value_mapping.json from exposing
+            // attributes that don't belong to the typed configs.
+            .filter_map(|(name, def)| {
+                if attribute_type_from_configs(component_name, name).is_some() {
+                    Some(AttributeUiRow {
+                        name: name.clone(),
+                        attr_type: def.attr_type.clone(),
+                        options: def.options.clone(),
+                    })
+                } else {
+                    None
+                }
             })
             .collect();
         mapped_rows.sort_by(|left, right| left.name.cmp(&right.name));
@@ -277,69 +288,98 @@ fn sorted_attribute_rows(
         }
     }
 
-    if let Some(component_object) = component_object_snapshot(entity_type, component_name) {
-        let mut fallback_keys: Vec<String> = component_object
-            .keys()
-            .filter(|key| !seen.contains(*key))
-            .cloned()
-            .collect();
-        fallback_keys.sort();
+    // Collect keys from the original/fallback entity only (not staged edits).
+    // This prevents the attribute's UI type from changing when a staged
+    // explicit value is cleared in the editor.
+    let mut combined_keys = std::collections::HashSet::<String>::new();
+    if let Some(fallback_obj) = component_object_snapshot(fallback_entity, component_name) {
+        for k in fallback_obj.keys() {
+            combined_keys.insert(k.clone());
+        }
+    }
 
-        for key in fallback_keys {
-            let inferred_type = component_object
-                .get(&key)
-                .map(|value| {
-                    if key.eq_ignore_ascii_case("waypoints") {
-                        return "waypoints".to_string();
-                    }
+    let mut fallback_keys: Vec<String> = combined_keys
+        .into_iter()
+        .filter(|key| !seen.contains(key))
+        .collect();
+    fallback_keys.sort();
 
-                    if let Some(items) = value.as_array() {
-                        let is_waypoints = items.iter().all(|item| {
-                            item
-                                .as_array()
-                                .map(|pair| {
-                                    pair.len() == 2
-                                        && pair.first().and_then(|v| v.as_f64()).is_some()
-                                        && pair.get(1).and_then(|v| v.as_f64()).is_some()
-                                })
-                                .unwrap_or(false)
-                        });
-                        if is_waypoints {
-                            return "waypoints".to_string();
-                        }
-
-                        let is_number_array = items.iter().all(|item| item.as_f64().is_some());
-                        if is_number_array {
-                            return "array<number>".to_string();
-                        }
-
-                        let is_string_array = items.iter().all(|item| item.as_str().is_some());
-                        if is_string_array {
-                            return "array<string>".to_string();
-                        }
-
-                        return "array".to_string();
-                    }
-
-                    if value.as_f64().is_some() {
-                        "number".to_string()
-                    } else if value.as_str().is_some() {
-                        "string".to_string()
-                    } else {
-                        "json".to_string()
-                    }
-                })
-                .unwrap_or_else(|| "json".to_string());
-
+    for key in fallback_keys {
+        // Determine attribute type from component config structs (source of
+        // truth). If the attribute does not exist on the config struct we
+        // skip it entirely. This guarantees the editor only exposes fields
+        // actually defined on the typed ComponentConfig structs.
+        if let Some(attr_type) = attribute_type_from_configs(component_name, &key) {
             rows.push(AttributeUiRow {
                 name: key,
-                attr_type: inferred_type,
+                attr_type,
                 options: Vec::new(),
             });
         }
     }
 
     rows
+}
+
+fn attribute_type_from_configs(component_name: &str, attribute_name: &str) -> Option<String> {
+    // Normalize inputs
+    let comp = component_name.to_ascii_lowercase();
+    let attr = attribute_name.to_ascii_lowercase();
+
+    match comp.as_str() {
+        // Health fields: max/current are integer types (u32/u32), despawn_delay_ms is u64
+        "health" => match attr.as_str() {
+            "max" | "current" | "despawn_delay_ms" => Some("int".to_string()),
+            "despawn_on_death" => Some("bool".to_string()),
+            _ => None,
+        },
+        "controlled_movement" => match attr.as_str() {
+            "speed" | "jump_force" | "dash_force" | "max_speed" | "facing" => Some("number".to_string()),
+            "allow_double_jump" => Some("bool".to_string()),
+            "jumps_performed" => Some("number".to_string()),
+            _ => None,
+        },
+        "rigid_body" => match attr.as_str() {
+            "mass" | "linear_damp" | "restitution" => Some("number".to_string()),
+            "velocity" => Some("array<number>".to_string()),
+            _ => None,
+        },
+        "moving_platform" => match attr.as_str() {
+            "speed" => Some("number".to_string()),
+            "waypoints" => Some("waypoints".to_string()),
+            "repeat" | "enabled" => Some("bool".to_string()),
+            _ => None,
+        },
+        "gravity" => match attr.as_str() {
+            "scale" => Some("number".to_string()),
+            "grounded" => Some("bool".to_string()),
+            "extra_accel" => Some("array<number>".to_string()),
+            _ => None,
+        },
+        "controlled_range_attack" | "auto_range_attack" => match attr.as_str() {
+            "damage" | "range" | "speed" | "aggro_range" => Some("number".to_string()),
+            "cooldown" => Some("int".to_string()),
+            "enabled" => Some("bool".to_string()),
+            _ => None,
+        },
+        "auto_melee_attack" | "controlled_melee_attack" => match attr.as_str() {
+            "damage" | "range" => Some("number".to_string()),
+            "cooldown" => Some("int".to_string()),
+            "enabled" => Some("bool".to_string()),
+            _ => None,
+        },
+        "team" => match attr.as_str() {
+            "name" => Some("string".to_string()),
+            _ => None,
+        },
+        "orientation" => Some("string".to_string()),
+        "collider" => None,
+        "collectible_effect" => match attr.as_str() {
+            "heal" => Some("number".to_string()),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 fn render_components_sidebar(
@@ -426,7 +466,7 @@ fn render_components_sidebar(
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for component_name in &components_snapshot {
-                    let attr_rows = sorted_attribute_rows(mapping, &staged_snapshot, component_name);
+                    let attr_rows = sorted_attribute_rows(mapping, &staged_snapshot, fallback_entity_type, component_name);
 
                     egui::CollapsingHeader::new(component_name)
                         .default_open(true)
@@ -439,7 +479,7 @@ fn render_components_sidebar(
                             });
 
                             for row in &attr_rows {
-                                let explicit_value = staged_snapshot
+                                let mut explicit_value = staged_snapshot
                                     .component_attribute_value(component_name, &row.name);
                                 let component_default = component_default_value(component_name, &row.name);
                                 let enum_default = if row.attr_type == "enum" {
@@ -452,15 +492,74 @@ fn render_components_sidebar(
                                 ui.horizontal(|ui| {
                                     ui.add_sized([150.0, 20.0], egui::Label::new(&row.name));
 
+                                    let is_explicit = explicit_value.is_some();
+
+                                    // When showing a default (not explicit), render widgets
+                                    // with a muted text color while keeping them editable.
+                                    let saved_override = ui.visuals().override_text_color;
+                                    if !is_explicit {
+                                        ui.visuals_mut().override_text_color = Some(egui::Color32::from_gray(140));
+                                    }
+
                                     match row.attr_type.as_str() {
-                                        "number" => {
-                                            let mut value = explicit_value
-                                                .as_ref()
-                                                .and_then(|v| v.as_f64())
-                                                .or_else(|| display_default.as_ref().and_then(|v| v.as_f64()))
-                                                .unwrap_or(0.0);
-                                            if ui.add(egui::DragValue::new(&mut value).speed(0.1)).changed() {
-                                                if let Some(num) = serde_json::Number::from_f64(value) {
+                                            "number" | "int" => {
+                                                // For floating attributes use f64, for ints prefer integer
+                                                let mut is_int = row.attr_type == "int";
+
+                                                let mut value_f = explicit_value
+                                                    .as_ref()
+                                                    .and_then(|v| v.as_f64())
+                                                    .or_else(|| display_default.as_ref().and_then(|v| v.as_f64()))
+                                                    .unwrap_or(0.0);
+
+                                                // If the type is int, present/edit it as a number but store as integer
+                                                if ui.add(egui::DragValue::new(&mut value_f).speed(1.0)).changed() {
+                                                    if is_int {
+                                                        // round to nearest integer
+                                                        let int_val = value_f.round() as i64;
+                                                        let num = serde_json::Number::from(int_val);
+                                                        if apply_to_staged_entity_type(
+                                                            document.as_deref_mut(),
+                                                            hitbox_editor,
+                                                            selected_name,
+                                                            fallback_entity_type,
+                                                            |et| {
+                                                                et.set_component_attribute_value(
+                                                                    component_name,
+                                                                    &row.name,
+                                                                    Value::Number(num),
+                                                                )
+                                                            },
+                                                        ) {
+                                                            hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                                        }
+                                                    } else if let Some(numf) = serde_json::Number::from_f64(value_f) {
+                                                        if apply_to_staged_entity_type(
+                                                            document.as_deref_mut(),
+                                                            hitbox_editor,
+                                                            selected_name,
+                                                            fallback_entity_type,
+                                                            |et| {
+                                                                et.set_component_attribute_value(
+                                                                    component_name,
+                                                                    &row.name,
+                                                                    Value::Number(numf),
+                                                                )
+                                                            },
+                                                        ) {
+                                                            hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            "string" => {
+                                                let mut text = explicit_value
+                                                    .as_ref()
+                                                    .and_then(|v| v.as_str())
+                                                    .or_else(|| display_default.as_ref().and_then(|v| v.as_str()))
+                                                    .unwrap_or("")
+                                                    .to_string();
+                                                if ui.text_edit_singleline(&mut text).changed() {
                                                     if apply_to_staged_entity_type(
                                                         document.as_deref_mut(),
                                                         hitbox_editor,
@@ -470,7 +569,7 @@ fn render_components_sidebar(
                                                             et.set_component_attribute_value(
                                                                 component_name,
                                                                 &row.name,
-                                                                Value::Number(num),
+                                                                Value::String(text),
                                                             )
                                                         },
                                                     ) {
@@ -478,151 +577,64 @@ fn render_components_sidebar(
                                                     }
                                                 }
                                             }
-                                        }
-                                        "string" => {
-                                            let mut text = explicit_value
-                                                .as_ref()
-                                                .and_then(|v| v.as_str())
-                                                .or_else(|| display_default.as_ref().and_then(|v| v.as_str()))
-                                                .unwrap_or("")
-                                                .to_string();
-                                            if ui.text_edit_singleline(&mut text).changed() {
-                                                if apply_to_staged_entity_type(
-                                                    document.as_deref_mut(),
-                                                    hitbox_editor,
-                                                    selected_name,
-                                                    fallback_entity_type,
-                                                    |et| {
-                                                        et.set_component_attribute_value(
-                                                            component_name,
-                                                            &row.name,
-                                                            Value::String(text),
-                                                        )
-                                                    },
-                                                ) {
-                                                    hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                            "bool" => {
+                                                let mut checked = explicit_value
+                                                    .as_ref()
+                                                    .and_then(|v| v.as_bool())
+                                                    .or_else(|| display_default.as_ref().and_then(|v| v.as_bool()))
+                                                    .unwrap_or(false);
+
+                                                let before = checked;
+                                                if ui.checkbox(&mut checked, "").changed() && checked != before {
+                                                    if apply_to_staged_entity_type(
+                                                        document.as_deref_mut(),
+                                                        hitbox_editor,
+                                                        selected_name,
+                                                        fallback_entity_type,
+                                                        |et| {
+                                                            et.set_component_attribute_value(
+                                                                component_name,
+                                                                &row.name,
+                                                                Value::Bool(checked),
+                                                            )
+                                                        },
+                                                    ) {
+                                                        hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                                    }
                                                 }
                                             }
-                                        }
-                                        "enum" => {
-                                            let mut current = explicit_value
-                                                .as_ref()
-                                                .and_then(|v| v.as_str())
-                                                .map(|v| v.to_string())
-                                                .or_else(|| {
-                                                    display_default
-                                                        .as_ref()
-                                                        .and_then(|v| v.as_str())
-                                                        .map(|v| v.to_string())
+                                            "enum" => {
+                                                let mut current = explicit_value
+                                                    .as_ref()
+                                                    .and_then(|v| v.as_str())
+                                                    .map(|v| v.to_string())
+                                                    .or_else(|| {
+                                                        display_default
+                                                            .as_ref()
+                                                            .and_then(|v| v.as_str())
+                                                            .map(|v| v.to_string())
+                                                    })
+                                                    .or_else(|| row.options.first().cloned())
+                                                    .unwrap_or_default();
+                                                let before_current = current.clone();
+
+                                                egui::ComboBox::from_id_salt(format!(
+                                                    "entity_type_enum_{}_{}_{}",
+                                                    selected_name, component_name, row.name
+                                                ))
+                                                .selected_text(if current.is_empty() {
+                                                    "select..."
+                                                } else {
+                                                    &current
                                                 })
-                                                .or_else(|| row.options.first().cloned())
-                                                .unwrap_or_default();
-                                            let before_current = current.clone();
-
-                                            egui::ComboBox::from_id_salt(format!(
-                                                "entity_type_enum_{}_{}_{}",
-                                                selected_name, component_name, row.name
-                                            ))
-                                            .selected_text(if current.is_empty() {
-                                                "select..."
-                                            } else {
-                                                &current
-                                            })
-                                            .show_ui(ui, |ui| {
-                                                for option in &row.options {
-                                                    ui.selectable_value(&mut current, option.clone(), option);
-                                                }
-                                            });
-
-                                            if !current.is_empty() && current != before_current
-                                            {
-                                                if apply_to_staged_entity_type(
-                                                    document.as_deref_mut(),
-                                                    hitbox_editor,
-                                                    selected_name,
-                                                    fallback_entity_type,
-                                                    |et| {
-                                                        et.set_component_attribute_value(
-                                                            component_name,
-                                                            &row.name,
-                                                            Value::String(current),
-                                                        )
-                                                    },
-                                                ) {
-                                                    hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
-                                                }
-                                            }
-                                        }
-                                        "waypoints" => {
-                                            let mut points = explicit_value
-                                                .as_ref()
-                                                .and_then(|v| v.as_array().cloned())
-                                                .or_else(|| display_default.as_ref().and_then(|v| v.as_array().cloned()))
-                                                .unwrap_or_default();
-
-                                            ui.vertical(|ui| {
-                                                let mut changed = false;
-                                                let mut remove_index: Option<usize> = None;
-                                                let mut move_up: Option<usize> = None;
-                                                let mut move_down: Option<usize> = None;
-                                                let len = points.len();
-
-                                                for (index, point_value) in points.iter_mut().enumerate() {
-                                                    let mut x = point_value
-                                                        .as_array()
-                                                        .and_then(|pair| pair.first())
-                                                        .and_then(|v| v.as_f64())
-                                                        .unwrap_or(0.0);
-                                                    let mut y = point_value
-                                                        .as_array()
-                                                        .and_then(|pair| pair.get(1))
-                                                        .and_then(|v| v.as_f64())
-                                                        .unwrap_or(0.0);
-
-                                                    ui.horizontal(|ui| {
-                                                        changed |= ui.add(egui::DragValue::new(&mut x).speed(0.1)).changed();
-                                                        changed |= ui.add(egui::DragValue::new(&mut y).speed(0.1)).changed();
-                                                        if ui.small_button("↑").clicked() && index > 0 {
-                                                            move_up = Some(index);
-                                                        }
-                                                        if ui.small_button("↓").clicked() && index + 1 < len {
-                                                            move_down = Some(index);
-                                                        }
-                                                        if ui.small_button("-").clicked() {
-                                                            remove_index = Some(index);
-                                                        }
-                                                    });
-
-                                                    if let (Some(nx), Some(ny)) = (
-                                                        serde_json::Number::from_f64(x),
-                                                        serde_json::Number::from_f64(y),
-                                                    ) {
-                                                        *point_value = Value::Array(vec![Value::Number(nx), Value::Number(ny)]);
+                                                .show_ui(ui, |ui| {
+                                                    for option in &row.options {
+                                                        ui.selectable_value(&mut current, option.clone(), option);
                                                     }
-                                                }
+                                                });
 
-                                                if let Some(index) = remove_index {
-                                                    points.remove(index);
-                                                    changed = true;
-                                                }
-                                                if let Some(index) = move_up {
-                                                    points.swap(index, index - 1);
-                                                    changed = true;
-                                                }
-                                                if let Some(index) = move_down {
-                                                    points.swap(index, index + 1);
-                                                    changed = true;
-                                                }
-
-                                                if ui.small_button("Add waypoint").clicked() {
-                                                    points.push(Value::Array(vec![
-                                                        Value::Number(serde_json::Number::from(0)),
-                                                        Value::Number(serde_json::Number::from(0)),
-                                                    ]));
-                                                    changed = true;
-                                                }
-
-                                                if changed {
+                                                if !current.is_empty() && current != before_current
+                                                {
                                                     if apply_to_staged_entity_type(
                                                         document.as_deref_mut(),
                                                         hitbox_editor,
@@ -632,146 +644,238 @@ fn render_components_sidebar(
                                                             et.set_component_attribute_value(
                                                                 component_name,
                                                                 &row.name,
-                                                                Value::Array(points),
+                                                                Value::String(current),
                                                             )
                                                         },
                                                     ) {
                                                         hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
                                                     }
                                                 }
-                                            });
-                                        }
-                                        attr if attr.starts_with("array") => {
-                                            let mut values = explicit_value
-                                                .as_ref()
-                                                .and_then(|v| v.as_array().cloned())
-                                                .or_else(|| display_default.as_ref().and_then(|v| v.as_array().cloned()))
-                                                .unwrap_or_default();
+                                            }
+                                            "waypoints" => {
+                                                let mut points = explicit_value
+                                                    .as_ref()
+                                                    .and_then(|v| v.as_array().cloned())
+                                                    .or_else(|| display_default.as_ref().and_then(|v| v.as_array().cloned()))
+                                                    .unwrap_or_default();
 
-                                            ui.vertical(|ui| {
-                                                let is_number_array = attr.contains("number");
-                                                let mut changed = false;
-                                                let mut remove_index: Option<usize> = None;
-                                                let mut move_up: Option<usize> = None;
-                                                let mut move_down: Option<usize> = None;
-                                                let len = values.len();
+                                                ui.vertical(|ui| {
+                                                    let mut changed = false;
+                                                    let mut remove_index: Option<usize> = None;
+                                                    let mut move_up: Option<usize> = None;
+                                                    let mut move_down: Option<usize> = None;
+                                                    let len = points.len();
 
-                                                for (index, value) in values.iter_mut().enumerate() {
-                                                    ui.horizontal(|ui| {
-                                                        if is_number_array {
-                                                            let mut num = value.as_f64().unwrap_or(0.0);
-                                                            if ui.add(egui::DragValue::new(&mut num).speed(0.1)).changed() {
-                                                                if let Some(number) = serde_json::Number::from_f64(num) {
-                                                                    *value = Value::Number(number);
+                                                    for (index, point_value) in points.iter_mut().enumerate() {
+                                                        let mut x = point_value
+                                                            .as_array()
+                                                            .and_then(|pair| pair.first())
+                                                            .and_then(|v| v.as_f64())
+                                                            .unwrap_or(0.0);
+                                                        let mut y = point_value
+                                                            .as_array()
+                                                            .and_then(|pair| pair.get(1))
+                                                            .and_then(|v| v.as_f64())
+                                                            .unwrap_or(0.0);
+
+                                                        ui.horizontal(|ui| {
+                                                            changed |= ui.add(egui::DragValue::new(&mut x).speed(0.1)).changed();
+                                                            changed |= ui.add(egui::DragValue::new(&mut y).speed(0.1)).changed();
+                                                            if ui.small_button("↑").clicked() && index > 0 {
+                                                                move_up = Some(index);
+                                                            }
+                                                            if ui.small_button("↓").clicked() && index + 1 < len {
+                                                                move_down = Some(index);
+                                                            }
+                                                            if ui.small_button("-").clicked() {
+                                                                remove_index = Some(index);
+                                                            }
+                                                        });
+
+                                                        if let (Some(nx), Some(ny)) = (
+                                                            serde_json::Number::from_f64(x),
+                                                            serde_json::Number::from_f64(y),
+                                                        ) {
+                                                            *point_value = Value::Array(vec![Value::Number(nx), Value::Number(ny)]);
+                                                        }
+                                                    }
+
+                                                    if let Some(index) = remove_index {
+                                                        points.remove(index);
+                                                        changed = true;
+                                                    }
+                                                    if let Some(index) = move_up {
+                                                        points.swap(index, index - 1);
+                                                        changed = true;
+                                                    }
+                                                    if let Some(index) = move_down {
+                                                        points.swap(index, index + 1);
+                                                        changed = true;
+                                                    }
+
+                                                    if ui.small_button("Add waypoint").clicked() {
+                                                        points.push(Value::Array(vec![
+                                                            Value::Number(serde_json::Number::from(0)),
+                                                            Value::Number(serde_json::Number::from(0)),
+                                                        ]));
+                                                        changed = true;
+                                                    }
+
+                                                    if changed {
+                                                        if apply_to_staged_entity_type(
+                                                            document.as_deref_mut(),
+                                                            hitbox_editor,
+                                                            selected_name,
+                                                            fallback_entity_type,
+                                                            |et| {
+                                                                et.set_component_attribute_value(
+                                                                    component_name,
+                                                                    &row.name,
+                                                                    Value::Array(points),
+                                                                )
+                                                            },
+                                                        ) {
+                                                            hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                            attr if attr.starts_with("array") => {
+                                                let mut values = explicit_value
+                                                    .as_ref()
+                                                    .and_then(|v| v.as_array().cloned())
+                                                    .or_else(|| display_default.as_ref().and_then(|v| v.as_array().cloned()))
+                                                    .unwrap_or_default();
+
+                                                ui.vertical(|ui| {
+                                                    let is_number_array = attr.contains("number");
+                                                    let mut changed = false;
+                                                    let mut remove_index: Option<usize> = None;
+                                                    let mut move_up: Option<usize> = None;
+                                                    let mut move_down: Option<usize> = None;
+                                                    let len = values.len();
+
+                                                    for (index, value) in values.iter_mut().enumerate() {
+                                                        ui.horizontal(|ui| {
+                                                            if is_number_array {
+                                                                let mut num = value.as_f64().unwrap_or(0.0);
+                                                                if ui.add(egui::DragValue::new(&mut num).speed(0.1)).changed() {
+                                                                    if let Some(number) = serde_json::Number::from_f64(num) {
+                                                                        *value = Value::Number(number);
+                                                                        changed = true;
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                let mut text = value.as_str().unwrap_or("").to_string();
+                                                                if ui.text_edit_singleline(&mut text).changed() {
+                                                                    *value = Value::String(text);
                                                                     changed = true;
                                                                 }
                                                             }
-                                                        } else {
-                                                            let mut text = value.as_str().unwrap_or("").to_string();
-                                                            if ui.text_edit_singleline(&mut text).changed() {
-                                                                *value = Value::String(text);
-                                                                changed = true;
+
+                                                            if ui.small_button("↑").clicked() && index > 0 {
+                                                                move_up = Some(index);
                                                             }
-                                                        }
-
-                                                        if ui.small_button("↑").clicked() && index > 0 {
-                                                            move_up = Some(index);
-                                                        }
-                                                        if ui.small_button("↓").clicked() && index + 1 < len {
-                                                            move_down = Some(index);
-                                                        }
-                                                        if ui.small_button("-").clicked() {
-                                                            remove_index = Some(index);
-                                                        }
-                                                    });
-                                                }
-
-                                                if let Some(index) = remove_index {
-                                                    values.remove(index);
-                                                    changed = true;
-                                                }
-                                                if let Some(index) = move_up {
-                                                    values.swap(index, index - 1);
-                                                    changed = true;
-                                                }
-                                                if let Some(index) = move_down {
-                                                    values.swap(index, index + 1);
-                                                    changed = true;
-                                                }
-
-                                                if ui.small_button("Add").clicked() {
-                                                    if is_number_array {
-                                                        values.push(Value::Number(serde_json::Number::from(0)));
-                                                    } else {
-                                                        values.push(Value::String(String::new()));
+                                                            if ui.small_button("↓").clicked() && index + 1 < len {
+                                                                move_down = Some(index);
+                                                            }
+                                                            if ui.small_button("-").clicked() {
+                                                                remove_index = Some(index);
+                                                            }
+                                                        });
                                                     }
-                                                    changed = true;
-                                                }
 
-                                                if changed {
-                                                    if apply_to_staged_entity_type(
-                                                        document.as_deref_mut(),
-                                                        hitbox_editor,
-                                                        selected_name,
-                                                        fallback_entity_type,
-                                                        |et| {
-                                                            et.set_component_attribute_value(
-                                                                component_name,
-                                                                &row.name,
-                                                                Value::Array(values),
-                                                            )
-                                                        },
-                                                    ) {
-                                                        hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                                    if let Some(index) = remove_index {
+                                                        values.remove(index);
+                                                        changed = true;
                                                     }
-                                                }
-                                            });
-                                        }
-                                        _ => {
-                                            let editor_key = format!(
-                                                "json::{}::{}::{}",
-                                                selected_name, component_name, row.name
-                                            );
-                                            let initial_text = explicit_value
-                                                .as_ref()
-                                                .or(display_default.as_ref())
-                                                .map(|v| serde_json::to_string_pretty(v).unwrap_or_else(|_| "null".to_string()))
-                                                .unwrap_or_else(|| "null".to_string());
-                                            let mut text_value = hitbox_editor
-                                                .json_editor_state
-                                                .get(&editor_key)
-                                                .cloned()
-                                                .unwrap_or(initial_text);
+                                                    if let Some(index) = move_up {
+                                                        values.swap(index, index - 1);
+                                                        changed = true;
+                                                    }
+                                                    if let Some(index) = move_down {
+                                                        values.swap(index, index + 1);
+                                                        changed = true;
+                                                    }
 
-                                            let response = ui.add(
-                                                egui::TextEdit::multiline(&mut text_value)
-                                                    .desired_width(220.0)
-                                                    .desired_rows(3),
-                                            );
-                                            if response.changed() {
-                                                hitbox_editor
+                                                    if ui.small_button("Add").clicked() {
+                                                        if is_number_array {
+                                                            values.push(Value::Number(serde_json::Number::from(0)));
+                                                        } else {
+                                                            values.push(Value::String(String::new()));
+                                                        }
+                                                        changed = true;
+                                                    }
+
+                                                    if changed {
+                                                        if apply_to_staged_entity_type(
+                                                            document.as_deref_mut(),
+                                                            hitbox_editor,
+                                                            selected_name,
+                                                            fallback_entity_type,
+                                                            |et| {
+                                                                et.set_component_attribute_value(
+                                                                    component_name,
+                                                                    &row.name,
+                                                                    Value::Array(values),
+                                                                )
+                                                            },
+                                                        ) {
+                                                            hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                            _ => {
+                                                let editor_key = format!(
+                                                    "json::{}::{}::{}",
+                                                    selected_name, component_name, row.name
+                                                );
+                                                let initial_text = explicit_value
+                                                    .as_ref()
+                                                    .or(display_default.as_ref())
+                                                    .map(|v| serde_json::to_string_pretty(v).unwrap_or_else(|_| "null".to_string()))
+                                                    .unwrap_or_else(|| "null".to_string());
+                                                let mut text_value = hitbox_editor
                                                     .json_editor_state
-                                                    .insert(editor_key, text_value.clone());
+                                                    .get(&editor_key)
+                                                    .cloned()
+                                                    .unwrap_or(initial_text);
 
-                                                if let Ok(parsed) = serde_json::from_str::<Value>(&text_value) {
-                                                    if apply_to_staged_entity_type(
-                                                        document.as_deref_mut(),
-                                                        hitbox_editor,
-                                                        selected_name,
-                                                        fallback_entity_type,
-                                                        |et| {
-                                                            et.set_component_attribute_value(
-                                                                component_name,
-                                                                &row.name,
-                                                                parsed,
-                                                            )
-                                                        },
-                                                    ) {
-                                                        hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                                let response = ui.add(
+                                                    egui::TextEdit::multiline(&mut text_value)
+                                                        .desired_width(220.0)
+                                                        .desired_rows(3),
+                                                );
+                                                if response.changed() {
+                                                    hitbox_editor
+                                                        .json_editor_state
+                                                        .insert(editor_key, text_value.clone());
+
+                                                    if let Ok(parsed) = serde_json::from_str::<Value>(&text_value) {
+                                                        if apply_to_staged_entity_type(
+                                                            document.as_deref_mut(),
+                                                            hitbox_editor,
+                                                            selected_name,
+                                                            fallback_entity_type,
+                                                            |et| {
+                                                                et.set_component_attribute_value(
+                                                                    component_name,
+                                                                    &row.name,
+                                                                    parsed,
+                                                                )
+                                                            },
+                                                        ) {
+                                                            hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
+
+                                    // restore visuals
+                                    if !is_explicit {
+                                        ui.visuals_mut().override_text_color = saved_override;
                                     }
 
                                     if explicit_value.is_some() {
@@ -786,12 +890,25 @@ fn render_components_sidebar(
                                                 |et| et.remove_component_attribute(component_name, &row.name),
                                             ) {
                                                 hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                                // reflect change immediately in this UI frame so the clear
+                                                // button disappears and the widget shows the default (muted).
+                                                explicit_value = None;
+                                                // Also drop any cached json editor text for this key so we
+                                                // render the default pretty-printed value next frame.
+                                                let editor_key = format!(
+                                                    "json::{}::{}::{}",
+                                                    selected_name, component_name, row.name
+                                                );
+                                                hitbox_editor.json_editor_state.remove(&editor_key);
                                             }
                                         }
                                     }
                                 });
 
                                 if explicit_value.is_none() {
+                                    // Only show a muted "default" hint when a component
+                                    // default or enum default is available. If there is
+                                    // no default, show nothing beneath the field.
                                     let hint = if component_default.is_some() {
                                         Some("component default")
                                     } else if enum_default.is_some() {
@@ -800,23 +917,17 @@ fn render_components_sidebar(
                                         None
                                     };
 
-                                    ui.horizontal(|ui| {
-                                        ui.add_space(152.0);
-                                        if let Some(source) = hint {
+                                    if let Some(source) = hint {
+                                        ui.horizontal(|ui| {
+                                            ui.add_space(152.0);
                                             ui.label(
                                                 egui::RichText::new("default")
                                                     .weak()
                                                     .italics(),
                                             )
                                             .on_hover_text(source);
-                                        } else {
-                                            ui.label(
-                                                egui::RichText::new("(not set)")
-                                                    .weak()
-                                                    .italics(),
-                                            );
-                                        }
-                                    });
+                                        });
+                                    }
                                 }
                             }
                         });
