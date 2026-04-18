@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiTextureHandle};
+use egui_extras::{TableBuilder, Column};
 use egui::TextureId;
 use serde_json::Value;
 use std::borrow::Cow;
@@ -10,11 +11,11 @@ const HITBOX_MIN_SIZE_PX: f32 = 1.0;
 const PREVIEW_CANVAS_WIDTH_PX: f32 = 512.0;
 const PREVIEW_CANVAS_HEIGHT_PX: f32 = 256.0;
 
-// Stable layout widths for the attribute table columns. These must remain
-// constant across all component categories so columns don't shift when
-// switching between components.
-const ATTR_NAME_COLUMN_WIDTH: f32 = 150.0;
-const CLEAR_BUTTON_COLUMN_WIDTH: f32 = 64.0;
+    // Stable layout widths for the attribute table columns. These must remain
+    // constant across all component categories so columns don't shift when
+    // switching between components. Values are provided by the shared
+    // table_ui module so other UIs can stay consistent.
+    use crate::editor::table_ui::{ATTR_NAME_COLUMN_WIDTH, CLEAR_BUTTON_COLUMN_WIDTH, compute_middle_col_width};
 
 #[derive(Clone, Copy, Debug)]
 enum DragEdge {
@@ -367,6 +368,7 @@ fn render_components_sidebar(
     mapping: &crate::editor::ComponentValueMapping,
     toast: &mut crate::editor::ToastState,
     time: &Time,
+    mut widths: ResMut<crate::editor::table_ui::ColumnWidths>,
 ) {
     egui::SidePanel::right("entity_type_components_sidebar")
         .resizable(true)
@@ -446,7 +448,7 @@ fn render_components_sidebar(
                 // available width here and derive the middle column width.
                 let total_avail = ui.available_width();
                 let spacing_reserved = 12.0f32;
-                let middle_col_w_global = (total_avail - ATTR_NAME_COLUMN_WIDTH - CLEAR_BUTTON_COLUMN_WIDTH - spacing_reserved).max(80.0);
+                let middle_col_w_global = compute_middle_col_width(total_avail, spacing_reserved);
 
                 for component_name in &components_snapshot {
                     let attr_rows = sorted_attribute_rows(mapping, &staged_snapshot, fallback_entity_type, component_name);
@@ -465,44 +467,45 @@ fn render_components_sidebar(
                             let name_col_w = ATTR_NAME_COLUMN_WIDTH;
                             let clear_col_w = CLEAR_BUTTON_COLUMN_WIDTH;
 
-                            // Replace the Grid with a stable three-column layout using
-                            // explicit allocations. Use the precomputed global middle
-                            // column width so every component shows identical
-                            // column widths across categories.
+                            // Use the shared computation for middle column width and
+                            // update the shared ColumnWidths resource so other UIs
+                            // can read the same sizing if needed.
                             let middle_col_w = middle_col_w_global;
+                            widths.widths = vec![name_col_w, middle_col_w, clear_col_w];
 
-                            for row in &attr_rows {
-                                let mut explicit_value = staged_snapshot
-                                    .component_attribute_value(component_name, &row.name);
-                                let component_default = component_default_value(component_name, &row.name);
-                                let enum_default = if row.attr_type == "enum" {
-                                    row.options.first().cloned().map(Value::String)
-                                } else {
-                                    None
-                                };
-                                let display_default = component_default.clone().or(enum_default.clone());
+                            // Build table with exact column widths and enable striped rows
+                            let table = TableBuilder::new(ui).striped(true)
+                                .column(Column::exact(name_col_w))
+                                .column(Column::exact(middle_col_w))
+                                .column(Column::exact(clear_col_w));
 
-                                // Row: three fixed cells (name | field | clear)
-                                ui.horizontal(|ui| {
-                                    // Column 1: name
-                                    ui.allocate_ui_with_layout(
-                                        egui::vec2(name_col_w, 20.0),
-                                        egui::Layout::left_to_right(egui::Align::Min),
-                                        |ui| { ui.label(&row.name); },
-                                    );
+                            table.body(|mut body| {
+                                for row in &attr_rows {
+                                    let mut explicit_value = staged_snapshot
+                                        .component_attribute_value(component_name, &row.name);
+                                    let component_default = component_default_value(component_name, &row.name);
+                                    let enum_default = if row.attr_type == "enum" {
+                                        row.options.first().cloned().map(Value::String)
+                                    } else {
+                                        None
+                                    };
+                                    let display_default = component_default.clone().or(enum_default.clone());
 
-                                    // Column 2: widget (muted when not explicit)
-                                    let is_explicit = explicit_value.is_some();
-                                    let saved_override = ui.visuals().override_text_color;
-                                    ui.allocate_ui_with_layout(
-                                        egui::vec2(middle_col_w, 20.0),
-                                        egui::Layout::left_to_right(egui::Align::Min),
-                                        |ui| {
+                                    body.row(20.0, |mut r| {
+                                        // Column 1: name
+                                        r.col(|ui| {
+                                            ui.label(&row.name);
+                                        });
+
+                                        // Column 2: widget (muted when not explicit)
+                                        r.col(|ui| {
+                                            let is_explicit = explicit_value.is_some();
+                                            let saved_override = ui.visuals().override_text_color;
                                             if !is_explicit { ui.visuals_mut().override_text_color = Some(egui::Color32::from_gray(140)); }
 
                                             match row.attr_type.as_str() {
                                                 "number" | "int" => {
-                                                    let mut is_int = row.attr_type == "int";
+                                                    let is_int = row.attr_type == "int";
                                                     let mut value_f = explicit_value
                                                         .as_ref()
                                                         .and_then(|v| v.as_f64())
@@ -687,14 +690,10 @@ fn render_components_sidebar(
 
                                             // restore visuals for column 2
                                             if !is_explicit { ui.visuals_mut().override_text_color = saved_override; }
-                                        },
-                                    );
+                                        });
 
-                                    // Column 3: clear button
-                                    ui.allocate_ui_with_layout(
-                                        egui::vec2(clear_col_w, 20.0),
-                                        egui::Layout::left_to_right(egui::Align::Center),
-                                        |ui| {
+                                        // Column 3: clear button
+                                        r.col(|ui| {
                                             if explicit_value.is_some() {
                                                 if ui
                                                     .small_button("Clear")
@@ -717,34 +716,22 @@ fn render_components_sidebar(
                                             } else {
                                                 ui.label("");
                                             }
-                                        },
-                                    );
-                                });
-
-                                // Optional muted "default" hint row when no explicit value
-                                if explicit_value.is_none() {
-                                    let hint = if component_default.is_some() { Some("component default") } else if enum_default.is_some() { Some("first enum option") } else { None };
-                                    if let Some(source) = hint {
-                                        ui.horizontal(|ui| {
-                                            ui.allocate_ui_with_layout(
-                                                egui::vec2(name_col_w, 20.0),
-                                                egui::Layout::left_to_right(egui::Align::Min),
-                                                |ui| { ui.label(""); },
-                                            );
-                                            ui.allocate_ui_with_layout(
-                                                egui::vec2(middle_col_w, 20.0),
-                                                egui::Layout::left_to_right(egui::Align::Min),
-                                                |ui| { ui.label(egui::RichText::new("default").weak().italics()).on_hover_text(source); },
-                                            );
-                                            ui.allocate_ui_with_layout(
-                                                egui::vec2(clear_col_w, 20.0),
-                                                egui::Layout::left_to_right(egui::Align::Center),
-                                                |ui| { ui.label(""); },
-                                            );
                                         });
+                                    });
+
+                                    // Optional muted "default" hint row when no explicit value
+                                    if explicit_value.is_none() {
+                                        let hint = if component_default.is_some() { Some("component default") } else if enum_default.is_some() { Some("first enum option") } else { None };
+                                        if let Some(source) = hint {
+                                            body.row(20.0, |mut rr| {
+                                                rr.col(|ui| { ui.label(""); });
+                                                rr.col(|ui| { ui.label(egui::RichText::new("default").weak().italics()).on_hover_text(source); });
+                                                rr.col(|ui| { ui.label(""); });
+                                            });
+                                        }
                                     }
                                 }
-                            }
+                            });
                         });
 
                     ui.separator();
@@ -844,6 +831,7 @@ pub(crate) fn entity_type_view_ui(
     mapping: Res<crate::editor::ComponentValueMapping>,
     time: Res<Time>,
     mut toast: ResMut<crate::editor::ToastState>,
+    mut widths: ResMut<crate::editor::table_ui::ColumnWidths>,
 ) {
     // If nothing is selected, simply show a small message and return.
     if view_state.selected.is_none() {
@@ -1078,6 +1066,8 @@ pub(crate) fn entity_type_view_ui(
         &mapping,
         &mut toast,
         &time,
+        // pass ColumnWidths resource so the sidebar can update shared widths
+        widths,
     );
 
     egui::CentralPanel::default().show(ctx, |ui| {
@@ -1368,6 +1358,4 @@ pub(crate) fn entity_type_view_ui(
             });
     }
 }
-
-
 

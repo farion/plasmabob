@@ -13,6 +13,7 @@ use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
+pub(crate) mod table_ui;
 use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, scan_worlds, LevelEntry, WorldEntry};
 use crate::dashboard;
 use crate::entity_types;
@@ -182,6 +183,8 @@ pub(crate) fn run() {
                 }),
         )
         .add_plugins(EguiPlugin::default())
+        // Table UI resources
+        .init_resource::<table_ui::ColumnWidths>()
         .insert_resource(ActiveCharacter::load_from_disk())
         .init_state::<EditorMode>()
         .add_systems(Startup, setup_camera)
