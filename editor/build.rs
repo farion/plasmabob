@@ -4,6 +4,27 @@ use std::path::Path;
 
 fn map_inner_type_to_editor(inner: &str, field_name: &str) -> &'static str {
     let s = inner.trim();
+    // Prefer array/vec patterns before scalar float detection because e.g.
+    // "[f32; 2]" contains "f32" and would otherwise be classified as
+    // a scalar number.
+    if s.contains("[f32") || s.contains("[f64") {
+        if field_name == "waypoints" {
+            return "waypoints";
+        }
+        return "array<number>";
+    }
+    if s.contains("Vec<") {
+        if s.contains("String") {
+            return "array<string>";
+        }
+        if s.contains("[f32") || s.contains("[f64") {
+            if field_name == "waypoints" {
+                return "waypoints";
+            }
+            return "array<number>";
+        }
+        return "array<number>";
+    }
     if s.contains("String") {
         return "string";
     }
@@ -13,27 +34,10 @@ fn map_inner_type_to_editor(inner: &str, field_name: &str) -> &'static str {
     if s.contains("f32") || s.contains("f64") {
         return "number";
     }
-    if s.contains("i32") || s.contains("i64") || s.contains("u32") || s.contains("u64") {
+    if s.contains("i8") || s.contains("i16") || s.contains("i32") || s.contains("i64")
+        || s.contains("u8") || s.contains("u16") || s.contains("u32") || s.contains("u64")
+    {
         return "int";
-    }
-    if s.contains("[f32") {
-        // If field is named waypoints assume waypoint editor
-        if field_name == "waypoints" {
-            return "waypoints";
-        }
-        return "array<number>";
-    }
-    if s.starts_with("Vec<") {
-        if s.contains("String") {
-            return "array<string>";
-        }
-        if s.contains("[f32") {
-            if field_name == "waypoints" {
-                return "waypoints";
-            }
-            return "array<number>";
-        }
-        return "array<number>";
     }
 
     "json"
@@ -68,9 +72,10 @@ fn main() {
         };
 
         let content = fs::read_to_string(&path).expect("read file");
-        // Remove attribute annotations like `#[serde(default)]` inline so
-        // declarations like `#[serde(default)] pub field: Option<T>,` are
-        // preserved for parsing.
+
+        // We'll use both the original content (to find serde renames located
+        // in attributes) and a simplified content with attribute lines
+        // removed so field: type parsing is easier.
         let mut content_no_attrs = content.clone();
         while let Some(start) = content_no_attrs.find("#[") {
             if let Some(end_rel) = content_no_attrs[start..].find(']') {
@@ -81,32 +86,80 @@ fn main() {
             }
         }
 
+        let orig_lines: Vec<&str> = content.lines().collect();
+        let no_attr_lines: Vec<&str> = content_no_attrs.lines().collect();
+
         let mut attrs: Vec<(String, String)> = Vec::new();
 
-        for line in content_no_attrs.lines() {
-            let line = line.trim();
+        for (i, raw_line) in no_attr_lines.iter().enumerate() {
+            let line = raw_line.trim();
             if !line.starts_with("pub") {
                 continue;
             }
-            if !line.contains("Option<") {
+            // Must contain a colon to be a field declaration
+            let colon_pos = if let Some(p) = line.find(':') { p } else { continue };
+
+            // Determine the declared field name: the last token before ':' is
+            // typically the field name (handles "pub", "pub(crate)", etc).
+            let before = &line[..colon_pos];
+            let tokens: Vec<&str> = before.split_whitespace().collect();
+            if tokens.is_empty() {
                 continue;
             }
+            let field_name = tokens.last().unwrap().trim().trim_end_matches(',').to_string();
 
-            // Extract field name and inner type crudely
-            if let Some(colon_pos) = line.find(':') {
-                let before = &line[..colon_pos];
-                let parts: Vec<&str> = before.split_whitespace().collect();
-                if parts.len() >= 2 {
-                    let field_name = parts[1].trim().trim_end_matches(',').to_string();
-                    if let Some(opt_start) = line.find("Option<") {
-                        if let Some(gt_pos) = line[opt_start..].find('>') {
-                            let inner = &line[opt_start + "Option<".len()..opt_start + gt_pos];
-                            let editor_type = map_inner_type_to_editor(inner, &field_name).to_string();
-                            attrs.push((field_name, editor_type));
+            // Extract the type text to the end of the field (stop at ',' or end)
+            let mut type_part = line[colon_pos + 1..].trim().to_string();
+            // remove trailing commas
+            if type_part.ends_with(',') {
+                type_part.pop();
+            }
+
+            // If the type is wrapped with Option<...>, extract inner, otherwise use type_part
+            let inner = if type_part.starts_with("Option<") {
+                // find matching '>' for the first '<'
+                let mut depth = 0usize;
+                let mut end_idx = None;
+                for (idx, ch) in type_part.chars().enumerate() {
+                    if ch == '<' { depth += 1 } else if ch == '>' {
+                        depth -= 1;
+                        if depth == 0 {
+                            end_idx = Some(idx);
+                            break;
+                        }
+                    }
+                }
+                if let Some(e) = end_idx {
+                    type_part["Option<".len()..e].trim().to_string()
+                } else {
+                    // fallback
+                    type_part.clone()
+                }
+            } else {
+                type_part.clone()
+            };
+
+            // Look for a serde(rename = "...") attribute in the original
+            // source within a few lines above this field.
+            let mut json_name = field_name.clone();
+            let start_scan = if i >= 4 { i - 4 } else { 0 };
+            for j in (start_scan..=i).rev() {
+                if let Some(orig) = orig_lines.get(j) {
+                    let s = orig.trim();
+                    if s.contains("serde") && s.contains("rename") {
+                        if let Some(q1) = s.find('"') {
+                            if let Some(q2) = s[q1 + 1..].find('"') {
+                                let extracted = &s[q1 + 1..q1 + 1 + q2];
+                                json_name = extracted.to_string();
+                                break;
+                            }
                         }
                     }
                 }
             }
+
+            let editor_type = map_inner_type_to_editor(&inner, &field_name).to_string();
+            attrs.push((json_name, editor_type));
         }
 
         components.push((comp_name, attrs));
