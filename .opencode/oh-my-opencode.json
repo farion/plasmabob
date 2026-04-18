@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json",
+  "agents": {
+    "sisyphus": { "model": "github-copilot/gpt-5-mini" },
+    "prometheus": { "model": "github-copilot/gpt-5-mini" },
+    "oracle": { "model": "github-copilot/gpt-5-mini" },
+    "librarian": { "model": "github-copilot/gpt-5-mini" },
+    "explore": { "model": "github-copilot/gpt-5-mini" },
+    "metis": { "model": "github-copilot/gpt-5-mini" },
+    "momus": { "model": "github-copilot/gpt-5-mini" },
+    "multimodal-looker": { "model": "github-copilot/gpt-5-mini" },
+    "hephaestus": { "model": "github-copilot/gpt-5-mini" },
+    "atlas": { "model": "github-copilot/gpt-5-mini" }
+  }
+}
