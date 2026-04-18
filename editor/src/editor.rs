@@ -16,7 +16,7 @@ use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, scan_worlds, LevelEntry, WorldEntry};
 use crate::dashboard;
 use crate::entity_types;
-use crate::model::{normalize_asset_reference, EntityDefinition, EntityTypeDefinition, LevelBoundsDefinition, LevelFile};
+use crate::model::{normalize_asset_reference, ComponentsDefinition, EntityDefinition, EntityTypeDefinition, LevelBoundsDefinition, LevelFile};
 use serde::{Deserialize, Serialize};
 use std::io;
 
@@ -88,10 +88,17 @@ impl ActiveCharacter {
 }
 
 fn flatten_entity_components(
-    components: Option<&serde_json::Map<String, serde_json::Value>>,
+    components: Option<&ComponentsDefinition>,
 ) -> HashMap<String, serde_json::Value> {
     let mut flat = HashMap::new();
     let Some(components) = components else {
+        return flat;
+    };
+
+    let Some(components) = serde_json::to_value(components)
+        .ok()
+        .and_then(|v| v.as_object().cloned())
+    else {
         return flat;
     };
 
@@ -761,7 +768,6 @@ fn editing_ui(
                                     // from the `ComponentValueMapping` when the nested value is absent.
                                     let entity_type_default: serde_json::Value = et
                                         .component_attribute_value(comp_name.as_str(), attr_name.as_str())
-                                        .cloned()
                                         .unwrap_or_else(|| {
                                             match attr_def.attr_type.as_str() {
                                                 "number" => serde_json::Value::Number(serde_json::Number::from(0)),
@@ -1936,7 +1942,7 @@ fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, level: 
         .or_else(|| {
             level.terrain
                 .as_ref()
-                .map(|terrain| terrain.background.as_str())
+                .and_then(|terrain| terrain.background.as_deref())
                 .filter(|path| !path.is_empty())
         });
 

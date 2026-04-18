@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ControlledRangeAttackConfig {
     #[serde(default)] pub damage: Option<i32>,
     #[serde(default)] pub range: Option<f32>,

@@ -344,8 +344,8 @@ fn build_entity_type_assets(
     for (et_name, et_def) in &cached.entity_types {
         let Some(sm_cfg) = et_def.state_machine_config() else { continue };
 
-        let sprite_w = et_def.width.unwrap_or(128) as f32;
-        let sprite_h = et_def.height.unwrap_or(128) as f32;
+        let sprite_w = et_def.width.unwrap_or(128.0);
+        let sprite_h = et_def.height.unwrap_or(128.0);
         let fallback = sm_cfg.initial_state.to_ascii_lowercase();
 
         let mut states: HashMap<String, StateAssets> = HashMap::new();

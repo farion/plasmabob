@@ -1,6 +1,9 @@
 pub mod game {
     pub mod level {
-        pub mod editor_types;
+        #[path = "configs/mod.rs"]
+        pub mod configs;
+        #[path = "types.rs"]
+        pub mod types;
     }
 }
 

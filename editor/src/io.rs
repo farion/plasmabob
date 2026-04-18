@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use serde_json::{Map, Number, Value};
+use serde_json::{Map, Value};
 
 use crate::model::{
     normalize_asset_reference, EntityDefinition, EntityTypeDefinition, LevelFile,
@@ -365,8 +365,9 @@ fn load_entity_types_from_dir(dir_path: &Path) -> Result<HashMap<String, EntityT
         }
 
         let content = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
-        let definition = serde_json::from_str::<EntityTypeDefinition>(&content)
+        let mut definition = serde_json::from_str::<EntityTypeDefinition>(&content)
             .map_err(|error| format!("{}: {error}", path.display()))?;
+        definition.key = key.clone();
         validate_entity_type_definition(&definition, &key, &path)?;
         entity_types.insert(key, definition);
     }
@@ -569,6 +570,7 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
     let mut definition: EntityTypeDefinition = serde_json::from_value(existing_root).map_err(|error| {
         format!("Entity type file for '{entity_name}' must contain a JSON object: {error}")
     })?;
+    definition.key = entity_name.to_string();
 
     let grouped_frames = collect_sprite_frames(entity_name, sprite_dir)?;
     let mut state_machine = definition.state_machine().unwrap_or_else(|| StateMachineDefinition {
@@ -608,7 +610,7 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
         }
     }
 
-    let mut new_states = BTreeMap::new();
+    let mut new_states = HashMap::new();
     let is_floor = false;
 
     for (state_key, frames) in grouped_frames {
@@ -645,8 +647,8 @@ pub(crate) fn build_entity_type_json(entity_name: &str, sprite_dir: &Path, exist
             state_definition.collider_box = Some(hitbox_array);
         }
 
-        if state_definition.animation_frame_ms.is_none() {
-            state_definition.animation_frame_ms = Some(180);
+        if state_definition.animation_frame_ms == 0 {
+            state_definition.animation_frame_ms = 180;
         }
 
         new_states.insert(state_key, state_definition);

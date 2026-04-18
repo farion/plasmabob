@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ControlledMovementConfig {
     #[serde(default)] pub speed: Option<f32>,
     #[serde(default)] pub jump_force: Option<f32>,

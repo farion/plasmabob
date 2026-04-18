@@ -99,11 +99,6 @@ pub fn load_level_from_asset(
         }
     }
 
-    // Register entity types globally so LevelEntity deserialization can
-    // resolve string keys into typed `EntityTypeDefinition` instances.
-    // We clone the map because `register_entity_types` takes ownership.
-    crate::game::level::types::register_entity_types(entity_types_map.clone())
-        .map_err(|e| LoadLevelError::EntityTypes(e))?;
 
     // Now deserialize the LevelDefinition with typed LevelEntity instances.
     let level: LevelDefinition = serde_json::from_value(raw)?;

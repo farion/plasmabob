@@ -78,14 +78,13 @@ fn level_tag_counts(
     let Some(level) = &cached_level.level else {
         return (0, 0);
     };
-    let Some(entities) = level.entities.as_ref() else {
-        return (0, 0);
-    };
-
     let mut enemy_tags = 0_u32;
     let mut environment_tags = 0_u32;
-    for entity in entities {
-        let Some(category) = entity.entity_type.category_tag.as_ref() else {
+    for entity in &level.entities {
+        let Some(entity_type) = cached_level.entity_types.get(&entity.entity_type) else {
+            continue;
+        };
+        let Some(category) = entity_type.category_tag.as_ref() else {
             continue;
         };
         match category.to_ascii_lowercase().as_str() {

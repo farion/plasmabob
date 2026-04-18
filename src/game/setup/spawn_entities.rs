@@ -42,24 +42,25 @@ pub fn spawn_entities(
         return;
     };
 
-    let entities = match level.entities.as_deref() {
-        Some(e) if !e.is_empty() => e,
-        _ => {
-            tracing::debug!("spawn_entities: level has no entities");
-            return;
-        }
-    };
+    let entities = level.entities.as_slice();
+    if entities.is_empty() {
+        tracing::debug!("spawn_entities: level has no entities");
+        return;
+    }
 
     let _bounds = level.bounds.clone().unwrap_or_default();
 
     for entity in entities {
-        // `LevelEntity.entity_type` is now the fully-typed `EntityTypeDefinition`.
-        let entity_type = &entity.entity_type;
+        let entity_type_key = &entity.entity_type;
+        let Some(entity_type) = cached.entity_types.get(entity_type_key) else {
+            tracing::warn!(id = %entity.id, entity_type = %entity_type_key, "spawn_entities: unknown entity type, skipping");
+            continue;
+        };
 
         let Some(sm_cfg) = entity_type.state_machine_config() else {
             tracing::warn!(
                 id = %entity.id,
-                entity_type = %entity.entity_type.key,
+                entity_type = %entity_type_key,
                 "spawn_entities: no state_machine config found, skipping"
             );
             continue;
@@ -77,8 +78,8 @@ pub fn spawn_entities(
             continue;
         };
 
-        let sprite_w = entity_type.width.unwrap_or(128) as f32;
-        let sprite_h = entity_type.height.unwrap_or(128) as f32;
+        let sprite_w = entity_type.width.unwrap_or(128.0);
+        let sprite_h = entity_type.height.unwrap_or(128.0);
 
         // Typed component defs from entity-type and optional per-entity
         // ComponentsDef parsed from level JSON (if present).
@@ -97,18 +98,18 @@ pub fn spawn_entities(
         // Place transform at sprite centre (level coords use bottom-left).
         let x = entity.x + sprite_w / 2.0;
         let y = entity.y + sprite_h / 2.0;
-        let z = entity.z_index;
+        let z = entity.z_index.unwrap_or(0.0);
 
         // ── Resolve animation frames ──────────────────────────────────────────
         let (frames, sprite_image, sprite_color) = if let Some(ref eta) = entity_type_assets {
-            if let Some(state_assets) = eta.get_state(&entity.entity_type.key, &initial_state_name) {
+            if let Some(state_assets) = eta.get_state(entity_type_key, &initial_state_name) {
                 let first = state_assets.frames.first().cloned();
                 if let Some(h) = first {
                     (state_assets.frames.clone(), h, Color::WHITE)
                 } else {
                     // Missing sprite → red fallback
                     tracing::warn!(
-                        entity_type = %entity.entity_type.key,
+                        entity_type = %entity_type_key,
                         state = %initial_state_name,
                         "spawn_entities: no frames in EntityTypeAssets, using red fallback"
                     );
@@ -323,12 +324,12 @@ pub fn spawn_entities(
         // overlays and other systems can reference them.
         ent_cmd.insert(SpawnedLevelEntity {
             id: entity.id.clone(),
-            entity_type: entity.entity_type.key.clone(),
-            layer: entity.layer.clone(),
+            entity_type: entity_type_key.clone(),
+            layer: entity.layer.clone().unwrap_or_else(|| "gameplay".to_string()),
         });
 
-        tracing::info!(id = %entity.id, entity_type = %entity.entity_type.key, x, y, assigned_components = ?assigned_components,
-            "Spawned {}", entity.name.clone());
+        tracing::info!(id = %entity.id, entity_type = %entity_type_key, x, y, assigned_components = ?assigned_components,
+            "Spawned {}", entity.name.clone().unwrap_or_else(|| entity.id.clone()));
     }
 }
 
