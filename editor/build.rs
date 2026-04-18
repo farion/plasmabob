@@ -68,9 +68,22 @@ fn main() {
         };
 
         let content = fs::read_to_string(&path).expect("read file");
+        // Remove attribute annotations like `#[serde(default)]` inline so
+        // declarations like `#[serde(default)] pub field: Option<T>,` are
+        // preserved for parsing.
+        let mut content_no_attrs = content.clone();
+        while let Some(start) = content_no_attrs.find("#[") {
+            if let Some(end_rel) = content_no_attrs[start..].find(']') {
+                let end = start + end_rel + 1;
+                content_no_attrs.replace_range(start..end, "");
+            } else {
+                break;
+            }
+        }
+
         let mut attrs: Vec<(String, String)> = Vec::new();
 
-        for line in content.lines() {
+        for line in content_no_attrs.lines() {
             let line = line.trim();
             if !line.starts_with("pub") {
                 continue;
