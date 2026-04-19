@@ -7,6 +7,7 @@ edition = "2024"
 bevy = { version = "0.18.1", features = ["jpeg"] }
 bevy_egui = "0.39.1"
 egui_extras = "0.33"
+egui_phosphor_icons = "0.2"
 plasmabob = { package = "PlasmaBob", path = ".." }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

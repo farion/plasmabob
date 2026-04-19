@@ -122,6 +122,7 @@ pub(crate) struct HitboxEditorState {
     last_entity_type: Option<String>,
     add_selected: Option<String>,
     remove_component_confirm: Option<String>,
+    collapsed_components: HashSet<String>,
     json_editor_state: HashMap<String, String>,
     dirty_entity_types: HashSet<String>,
     edited_entity_types: HashMap<String, crate::model::EntityTypeDefinition>,
@@ -138,6 +139,7 @@ impl Default for HitboxEditorState {
             last_entity_type: None,
             add_selected: None,
             remove_component_confirm: None,
+            collapsed_components: HashSet::new(),
             json_editor_state: HashMap::new(),
             dirty_entity_types: HashSet::new(),
             edited_entity_types: HashMap::new(),
@@ -420,7 +422,7 @@ fn render_components_sidebar(
                     .map(|selection| add_options.iter().any(|option| option == selection))
                     .unwrap_or(false);
 
-                if ui.add_enabled(add_enabled, egui::Button::new("Add")).clicked() {
+                if ui.add_enabled(add_enabled, egui::Button::new(egui_phosphor_icons::icons::PLUS)).clicked() {
                     if let Some(chosen) = hitbox_editor.add_selected.clone() {
                         let mut new_components = components_snapshot.clone();
                         if !new_components.iter().any(|component| component == &chosen) {
@@ -440,9 +442,9 @@ fn render_components_sidebar(
                 }
             });
 
-            ui.separator();
-
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            egui::ScrollArea::vertical()
+                .id_salt(format!("entity_type_components_scroll_{}", selected_name))
+                .show(ui, |ui| {
                 // Compute column widths once for the entire sidebar so every
                 // component uses identical column sizing. We capture the
                 // available width here and derive the middle column width.
@@ -450,37 +452,79 @@ fn render_components_sidebar(
                 let spacing_reserved = 12.0f32;
                 let middle_col_w_global = compute_middle_col_width(total_avail, spacing_reserved);
 
+                // Build a single unified table for all components. Each
+                // component will emit a header row (name + remove button) and
+                // then its attribute rows below. Compute shared column widths
+                // once and update the ColumnWidths resource so other UIs stay
+                // consistent.
+                let name_col_w = ATTR_NAME_COLUMN_WIDTH;
+                let clear_col_w = CLEAR_BUTTON_COLUMN_WIDTH;
+                let middle_col_w = middle_col_w_global;
+                widths.widths = vec![name_col_w, middle_col_w, clear_col_w];
+
+                // Revert to per-component header rendered manually so we can
+                // place the remove (trash) button inline to the right of the
+                // component name (CollapsingHeader places content under the
+                // header which pushed the button below the label).
                 for component_name in &components_snapshot {
                     let attr_rows = sorted_attribute_rows(mapping, &staged_snapshot, fallback_entity_type, component_name);
 
-                    egui::CollapsingHeader::new(component_name)
-                        .default_open(true)
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.add_space(2.0);
-                                if ui.small_button("Remove").clicked() {
-                                    hitbox_editor.remove_component_confirm = Some(component_name.clone());
-                                }
-                            });
+                    let component_scope_id = format!("entity_type_component_section_{}_{}", selected_name, component_name);
+                    ui.push_id(component_scope_id, |ui| {
 
-                            // Stable column widths for the attribute table: name, field, clear
-                            let name_col_w = ATTR_NAME_COLUMN_WIDTH;
-                            let clear_col_w = CLEAR_BUTTON_COLUMN_WIDTH;
+                    // Header: allocate a full-width rect and split it into a
+                    // left area (arrow + name) and a right area (trash button).
+                    let header_h = 24.0f32;
+                    let header_size = egui::vec2(ui.available_width(), header_h);
+                    let (header_rect, header_resp) = ui.allocate_exact_size(header_size, egui::Sense::click());
 
-                            // Use the shared computation for middle column width and
-                            // update the shared ColumnWidths resource so other UIs
-                            // can read the same sizing if needed.
-                            let middle_col_w = middle_col_w_global;
-                            widths.widths = vec![name_col_w, middle_col_w, clear_col_w];
+                    let is_collapsed = hitbox_editor.collapsed_components.contains(component_name);
 
-                            // Build table with exact column widths and enable striped rows
-                            let table = TableBuilder::new(ui).striped(true)
-                                .column(Column::exact(name_col_w))
-                                .column(Column::exact(middle_col_w))
-                                .column(Column::exact(clear_col_w));
+                    // Left area: arrow + name
+                    let left_rect = egui::Rect::from_min_max(header_rect.min, egui::pos2(header_rect.max.x - 48.0, header_rect.max.y));
+                    ui.allocate_ui_at_rect(left_rect, |ui| {
+                        ui.horizontal(|ui| {
+                            let arrow = if is_collapsed { "▸" } else { "▾" };
+                            if ui.button(arrow).clicked() {
+                                if is_collapsed { hitbox_editor.collapsed_components.remove(component_name); } else { hitbox_editor.collapsed_components.insert(component_name.clone()); }
+                            }
 
-                            table.body(|mut body| {
-                                for row in &attr_rows {
+                            if ui.add(egui::Button::new(egui::RichText::new(component_name).strong())).clicked() {
+                                if is_collapsed { hitbox_editor.collapsed_components.remove(component_name); } else { hitbox_editor.collapsed_components.insert(component_name.clone()); }
+                            }
+                        });
+                    });
+
+                    // Right area: trash button
+                    let right_rect = egui::Rect::from_min_max(egui::pos2(header_rect.max.x - 48.0, header_rect.min.y), header_rect.max);
+                    ui.allocate_ui_at_rect(right_rect, |ui| {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.add(egui::Button::new(egui_phosphor_icons::icons::TRASH)).clicked() {
+                                hitbox_editor.remove_component_confirm = Some(component_name.clone());
+                            }
+                        });
+                    });
+
+                    // Only render attributes when expanded.
+                    if !hitbox_editor.collapsed_components.contains(component_name) {
+                        // Stable column widths for the attribute table: name, field, clear
+                        let name_col_w = ATTR_NAME_COLUMN_WIDTH;
+                        let clear_col_w = CLEAR_BUTTON_COLUMN_WIDTH;
+
+                        // Use the shared computation for middle column width and
+                        // update the shared ColumnWidths resource so other UIs
+                        // can read the same sizing if needed.
+                        let middle_col_w = middle_col_w_global;
+                        widths.widths = vec![name_col_w, middle_col_w, clear_col_w];
+
+                        // Build table with exact column widths and enable striped rows
+                        let table = TableBuilder::new(ui).striped(true)
+                            .column(Column::exact(name_col_w))
+                            .column(Column::exact(middle_col_w))
+                            .column(Column::exact(clear_col_w));
+
+                        table.body(|mut body| {
+                        for row in &attr_rows {
                                     let mut explicit_value = staged_snapshot
                                         .component_attribute_value(component_name, &row.name);
                                     let component_default = component_default_value(component_name, &row.name);
@@ -656,7 +700,7 @@ fn render_components_sidebar(
                                                         if let Some(index) = remove_index { values.remove(index); changed = true; }
                                                         if let Some(index) = move_up { values.swap(index, index - 1); changed = true; }
                                                         if let Some(index) = move_down { values.swap(index, index + 1); changed = true; }
-                                                        if ui.small_button("Add").clicked() { if is_number_array { values.push(Value::Number(serde_json::Number::from(0))); } else { values.push(Value::String(String::new())); } changed = true; }
+                                                        if ui.button(egui_phosphor_icons::icons::PLUS).clicked() { if is_number_array { values.push(Value::Number(serde_json::Number::from(0))); } else { values.push(Value::String(String::new())); } changed = true; }
                                                         if changed {
                                                             if apply_to_staged_entity_type(
                                                                 document.as_deref_mut(),
@@ -672,7 +716,12 @@ fn render_components_sidebar(
                                                     let editor_key = format!("json::{}::{}::{}", selected_name, component_name, row.name);
                                                     let initial_text = explicit_value.as_ref().or(display_default.as_ref()).map(|v| serde_json::to_string_pretty(v).unwrap_or_else(|_| "null".to_string())).unwrap_or_else(|| "null".to_string());
                                                     let mut text_value = hitbox_editor.json_editor_state.get(&editor_key).cloned().unwrap_or(initial_text);
-                                                    let response = ui.add(egui::TextEdit::multiline(&mut text_value).desired_width(middle_col_w - 8.0).desired_rows(3));
+                                                    let response = ui.add(
+                                                        egui::TextEdit::multiline(&mut text_value)
+                                                            .id_salt(editor_key.clone())
+                                                            .desired_width(middle_col_w - 8.0)
+                                                            .desired_rows(3),
+                                                    );
                                                     if response.changed() {
                                                         hitbox_editor.json_editor_state.insert(editor_key.clone(), text_value.clone());
                                                         if let Ok(parsed) = serde_json::from_str::<Value>(&text_value) {
@@ -696,7 +745,7 @@ fn render_components_sidebar(
                                         r.col(|ui| {
                                             if explicit_value.is_some() {
                                                 if ui
-                                                    .small_button("Clear")
+                                                    .button(egui_phosphor_icons::icons::ARROW_COUNTER_CLOCKWISE)
                                                     .on_hover_text("Reset to default (removes explicit override from JSON)")
                                                     .clicked()
                                                 {
@@ -732,9 +781,10 @@ fn render_components_sidebar(
                                     }
                                 }
                             });
-                        });
+                    }
 
                     ui.separator();
+                    });
                 }
             });
         });
@@ -818,7 +868,7 @@ fn cursor_for_drag_edge(edge: DragEdge) -> egui::CursorIcon {
 
 /// Entity-Type detail view UI.
 /// Shows: components, width/height and per-state animation images.
-pub(crate) fn entity_type_view_ui(
+ pub(crate) fn entity_type_view_ui(
     mut contexts: EguiContexts,
     view_state: Res<crate::editor::EntityTypeViewState>,
     mut document: Option<ResMut<crate::editor::EditorDocument>>,
@@ -828,6 +878,7 @@ pub(crate) fn entity_type_view_ui(
     mut hitbox_editor: Local<HitboxEditorState>,
     mut show_close_confirm: Local<bool>,
     asset_server: Res<AssetServer>,
+    active_character: Res<crate::editor::ActiveCharacter>,
     mapping: Res<crate::editor::ComponentValueMapping>,
     time: Res<Time>,
     mut toast: ResMut<crate::editor::ToastState>,
@@ -978,9 +1029,43 @@ pub(crate) fn entity_type_view_ui(
 
     for normalized in all_paths.iter() {
         if !loaded_textures.contains_key(normalized) {
-            let handle: Handle<Image> = asset_server.load(normalized);
+            // Resolve using active character: if original file missing, try suffixed variant.
+            let resolved = {
+                let fs_exact = crate::io::assets_dir().join(normalized);
+                if fs_exact.exists() {
+                    normalized.clone()
+                } else if let Some(pos) = normalized.rfind('.') {
+                    let (before_ext, ext) = normalized.split_at(pos);
+                    if before_ext.ends_with(".bob") || before_ext.ends_with(".betty") {
+                        normalized.clone()
+                    } else {
+                        let suf = match *active_character {
+                            crate::editor::ActiveCharacter::Betty => "betty",
+                            _ => "bob",
+                        };
+                        let suffixed = format!("{}.{suf}{}", before_ext, ext);
+                        let fs_suff = crate::io::assets_dir().join(&suffixed);
+                        if fs_suff.exists() { suffixed } else { normalized.clone() }
+                    }
+                } else {
+                    normalized.clone()
+                }
+            };
+
+            let handle: Handle<Image> = asset_server.load(resolved.clone());
             let tex_id = contexts.add_image(EguiTextureHandle::Strong(handle));
             loaded_textures.insert(normalized.clone(), tex_id);
+
+            // Attempt to read image dimensions from the resolved filesystem path
+            // (prefer suffixed file when that was selected). Store dimensions
+            // keyed by the normalized asset key so the rest of the UI uses the
+            // same lookup key.
+            if !loaded_image_sizes.contains_key(normalized) {
+                let fs_resolved = crate::io::asset_path_to_filesystem_path(&resolved);
+                if let Ok((w, h)) = image::image_dimensions(&fs_resolved) {
+                    loaded_image_sizes.insert(normalized.clone(), (w, h));
+                }
+            }
         }
 
         if !loaded_image_sizes.contains_key(normalized) {
@@ -1015,7 +1100,7 @@ pub(crate) fn entity_type_view_ui(
         ui.horizontal(|ui| {
             ui.heading(format!("{}{}", full_asset_path, dirty_mark));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Close").clicked() {
+                if ui.button(egui_phosphor_icons::icons::X).clicked() {
                     // If dirty, show confirm dialog; otherwise close immediately.
                     if hitbox_editor.dirty_entity_types.contains(&selected_name) {
                         *show_close_confirm = true;
@@ -1071,8 +1156,11 @@ pub(crate) fn entity_type_view_ui(
     );
 
     egui::CentralPanel::default().show(ctx, |ui| {
-        // Make the entire central content scrollable
-        egui::ScrollArea::vertical().show(ui, |ui| {
+        // Make the entire central content scrollable in both directions so the
+        // whole sprite area can be scrolled horizontally when necessary.
+        egui::ScrollArea::both()
+            .id_salt(format!("entity_type_main_scroll_{}", selected_name))
+            .show(ui, |ui| {
             ui.add_space(6.0);
 
             ui.label("L: toggle hitboxes | Drag edge: adjust hitbox | Ctrl+S: save");
@@ -1100,14 +1188,20 @@ pub(crate) fn entity_type_view_ui(
 
             for state_key in state_keys {
                 if let Some(state_def) = state_machine.states.get(&state_key) {
-                    egui::CollapsingHeader::new(state_key.clone()).default_open(true).show(ui, |ui| {
+                    egui::CollapsingHeader::new(state_key.clone())
+                        .id_salt(format!("entity_type_state_header_{}_{}", selected_name, state_key))
+                        .default_open(true)
+                        .show(ui, |ui| {
                         if state_def.animation.is_empty() {
                             ui.label("(no animation / no images)");
                             return;
                         }
 
-                        // Show frames in a grid-like horizontal flow
-                        ui.horizontal_wrapped(|ui| {
+                        // Show frames in a single horizontal row. The outer
+                        // ScrollArea::both() provides horizontal scrolling for
+                        // the entire area, so we only need a simple horizontal
+                        // layout here.
+                        ui.horizontal(|ui| {
                             for frame_path in &state_def.animation {
                                 let normalized = crate::model::normalize_asset_reference(frame_path);
 
@@ -1142,13 +1236,21 @@ pub(crate) fn entity_type_view_ui(
 
                                 // Display small preview + path label
                                 ui.vertical(|ui| {
-                                    let canvas_size = egui::vec2(PREVIEW_CANVAS_WIDTH_PX, PREVIEW_CANVAS_HEIGHT_PX);
+                                    // Use the image's display size as the frame size so the
+                                    // drawn border exactly matches the sprite preview size.
+                                    // Fall back to the preview canvas when dimensions are
+                                    // unavailable (best-effort).
+                                    let frame_size = display_size;
                                     let (canvas_rect, mut response) = ui.allocate_exact_size(
-                                        canvas_size,
+                                        frame_size,
                                         egui::Sense::click_and_drag(),
                                     );
-                                    let image_rect = egui::Rect::from_center_size(canvas_rect.center(), display_size);
+                                    // When the frame equals the image display size the image
+                                    // rect is the same as the canvas rect which avoids any
+                                    // apparent padding between border and sprite.
+                                    let image_rect = canvas_rect;
 
+                                    // Draw a 1px subtle border exactly around the image/frame.
                                     ui.painter().rect_stroke(
                                         canvas_rect,
                                         0.0,
@@ -1261,9 +1363,9 @@ pub(crate) fn entity_type_view_ui(
 
                                     ui.label(normalized.clone());
                                 });
-                            }
+                                }
+                            });
                         });
-                    });
                 }
             }
         });
@@ -1358,4 +1460,3 @@ pub(crate) fn entity_type_view_ui(
             });
     }
 }
-

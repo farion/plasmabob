@@ -112,3 +112,4 @@ keys translated in those files must be used to bring texts in the game.
 
 - `Timer::finished()` does not exist anymore, use `Timer::just_finished()` or `Timer::is_finished()` instead.
 - `Entity::despawn_recursive()` is now `Entity::despawn()`
+- `ui::id_source()` is deprecated, use `ui::id_salt()` instead.

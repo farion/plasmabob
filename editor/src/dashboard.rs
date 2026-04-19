@@ -33,7 +33,10 @@ pub(crate) fn render_level_picker_columns(
 
             let list_height = ui.available_height();
             ui.push_id("worlds_scroll_area", |ui| {
-                egui::ScrollArea::vertical().max_height(list_height).show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("dashboard_worlds_scroll_area")
+                    .max_height(list_height)
+                    .show(ui, |ui| {
                     if catalog.worlds.is_empty() {
                         ui.label("No worlds present yet.");
                     } else {
@@ -102,7 +105,10 @@ pub(crate) fn render_level_picker_columns(
 
             let list_height = ui.available_height();
             ui.push_id("levels_scroll_area", |ui| {
-                egui::ScrollArea::vertical().max_height(list_height).show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("dashboard_levels_scroll_area")
+                    .max_height(list_height)
+                    .show(ui, |ui| {
                     if let Some(error) = &catalog.error {
                         ui.colored_label(egui::Color32::RED, error);
                         return;
@@ -173,7 +179,10 @@ pub(crate) fn render_level_picker_columns(
 
             let list_height = ui.available_height();
             ui.push_id("entity_types_scroll_area", |ui| {
-                egui::ScrollArea::vertical().max_height(list_height).show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("dashboard_entity_types_scroll_area")
+                    .max_height(list_height)
+                    .show(ui, |ui| {
                     if let Some(error) = &entity_type_error {
                         ui.colored_label(egui::Color32::RED, error);
                     } else if entity_type_files.is_empty() {

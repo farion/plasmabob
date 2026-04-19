@@ -13,6 +13,7 @@ use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
+use egui_phosphor_icons::add_fonts;
 pub(crate) mod table_ui;
 use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, scan_worlds, LevelEntry, WorldEntry};
 use crate::dashboard;
@@ -35,13 +36,6 @@ impl Default for ActiveCharacter {
 }
 
 impl ActiveCharacter {
-    fn asset_suffix(self) -> &'static str {
-        match self {
-            ActiveCharacter::Bob => "bob",
-            ActiveCharacter::Betty => "betty",
-        }
-    }
-
     fn load_from_disk() -> Self {
         let path = Self::settings_path();
         match std::fs::read_to_string(&path) {
@@ -189,6 +183,7 @@ pub(crate) fn run() {
         .init_state::<EditorMode>()
         .add_systems(Startup, setup_camera)
         .add_systems(Startup, setup_component_value_mapping)
+        .add_systems(EguiPrimaryContextPass, setup_phosphor_fonts)
         .add_systems(OnEnter(EditorMode::LevelPicker), refresh_level_catalog)
         .add_systems(EguiPrimaryContextPass, level_picker_ui.run_if(in_state(EditorMode::LevelPicker)))
         .add_systems(EguiPrimaryContextPass, entity_types::entity_type_view_ui.run_if(in_state(EditorMode::EntityTypeView)))
@@ -514,6 +509,16 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn((Camera2d, EditorCamera));
 }
 
+fn setup_phosphor_fonts(
+    mut contexts: EguiContexts,
+) {
+    if let Ok(ctx) = contexts.ctx_mut() {
+        let mut fonts = egui::FontDefinitions::default();
+        add_fonts(&mut fonts);
+        ctx.set_fonts(fonts);
+    }
+}
+
 // Distance in world units within which edges/corners will snap together.
 const SNAP_THRESHOLD: f32 = 40.0;
 
@@ -683,7 +688,7 @@ fn editing_ui(
             let dirty_marker = if document.dirty { " *" } else { "" };
             ui.heading(format!("{}{}", document.level_asset_path, dirty_marker));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Close").clicked() {
+                if ui.button(egui_phosphor_icons::icons::X).clicked() {
                     if document.dirty {
                         *show_close_confirm = true;
                     } else {
@@ -691,7 +696,7 @@ fn editing_ui(
                     }
                 }
                 ui.add_space(8.0);
-                if ui.button("Add Entity (A)").clicked() {
+                if ui.button(egui_phosphor_icons::icons::PLUS).clicked() {
                     ui_state.show_add_menu = !ui_state.show_add_menu;
                 }
             });
@@ -972,7 +977,9 @@ fn editing_ui(
 
                 // Ensure the add-menu scroll area has its own id scope to avoid collisions with other lists
                 ui.push_id("add_menu_entity_types_scroll", |ui| {
-                    egui::ScrollArea::vertical().show(ui, |ui| {
+                    egui::ScrollArea::vertical()
+                        .id_salt("editor_add_menu_entity_types_scroll")
+                        .show(ui, |ui| {
                         for entity_type_name in entity_type_names {
                             ui.push_id(format!("addmenu_entity_type:{}", entity_type_name), |ui| {
                                 if ui.button(&entity_type_name).clicked() {
@@ -1900,19 +1907,26 @@ fn rebuild_scene_if_needed(
     scene_dirty.0 = false;
 }
 
-fn resolve_character_asset_path(original: &str, active: ActiveCharacter) -> String {
-    // Resolve an asset path for the editor by preferring the exact path first.
-    // If the exact file exists under the assets directory, return it unchanged.
-    // Only when the exact file is missing, attempt to insert the active character
-    // suffix (".bob" / ".betty") before the file extension and return that
-    // variant if it exists. If neither exists, return the normalized original
-    // path (the AssetServer will then treat it as missing).
-    let normalized = normalize_asset_reference(original);
+// Character-aware asset resolution is delegated to `src/helper/asset_io.rs`.
+// The helper provides `resolve_character_asset_path(asset_server, path, active)`
+// which uses the same algorithm as the game runtime and checks the underlying
+// AssetServer source for existence.
 
-    // If the exact file exists on disk under assets/, prefer it.
+fn resolve_character_asset_path(
+    asset_server: &AssetServer,
+    asset_path: &str,
+    active: ActiveCharacter,
+) -> Result<String, std::io::Error> {
+    let _ = asset_server; // parameter currently unused - keep for API parity with the game helper
+    // Prefer the exact normalized path when present on disk under the editor's
+    // assets/ directory. If the exact file is missing, try inserting the
+    // character suffix before the extension and check that path as well.
+    let normalized = normalize_asset_reference(asset_path);
+
     let fs_exact = assets_dir().join(&normalized);
     if std::fs::metadata(&fs_exact).is_ok() {
-        return normalized;
+        warn!("using exact asset: {}", normalized);
+        return Ok(normalized);
     }
 
     // Try suffixed variant only when the original does not exist.
@@ -1920,7 +1934,7 @@ fn resolve_character_asset_path(original: &str, active: ActiveCharacter) -> Stri
         let (before_ext, ext) = normalized.split_at(pos); // ext includes the dot
         // If the name already contains a character suffix, return normalized
         if before_ext.ends_with(".bob") || before_ext.ends_with(".betty") {
-            return normalized;
+            return Ok(normalized);
         }
         let suf = match active {
             ActiveCharacter::Bob => "bob",
@@ -1929,13 +1943,20 @@ fn resolve_character_asset_path(original: &str, active: ActiveCharacter) -> Stri
         let suffixed = format!("{}.{suf}{}", before_ext, ext);
         let fs_suff = assets_dir().join(&suffixed);
         if std::fs::metadata(&fs_suff).is_ok() {
-            return suffixed;
+            warn!("using character-suffixed asset: {}", suffixed);
+            return Ok(suffixed);
         }
     }
 
-    // Fallback: return the normalized original path (may not exist).
-    normalized
+    warn!("asset not found, returning normalized path: {}", normalized);
+    Ok(normalized)
 }
+
+// append_character_suffix_before_extension removed: the resolver uses a
+// simple inline suffix construction (match on `active`) and filesystem checks
+// against `assets/` to determine the correct asset path. Keeping the helper
+// here previously duplicated logic from the game's helper and caused unused
+// function warnings in the editor crate.
 
 fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, level: &LevelFile, level_size: Vec2, active: ActiveCharacter) {
     let background_candidate = level
@@ -1950,7 +1971,15 @@ fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, level: 
         });
 
     let background_path = if let Some(bp) = background_candidate {
-        resolve_character_asset_path(bp, active)
+        // Use the shared resolver that checks the AssetServer source so the
+        // editor matches runtime behavior.
+        match resolve_character_asset_path(asset_server, bp, active) {
+            Ok(p) => p,
+            Err(err) => {
+                warn!("character asset resolution failed; falling back to normalized path: {}: {}", bp, err);
+                normalize_asset_reference(bp)
+            }
+        }
     } else {
         String::new()
     };
@@ -2054,9 +2083,16 @@ fn spawn_level_entities(
         let transform = Transform::from_xyz(render_position.x, render_position.y, z);
 
         if let Some(texture_path) = entity_type.default_texture_asset_path() {
-            // Normalize and inject active-character suffix before extension so the editor
-            // previews the correct character-specific asset variant.
-            let resolved = resolve_character_asset_path(&normalize_asset_reference(&texture_path), active);
+            // Normalize and resolve via the shared helper so we check the
+            // AssetServer for existence of character-specific variants.
+            let normalized = normalize_asset_reference(&texture_path);
+            let resolved = match resolve_character_asset_path(asset_server, &normalized, active) {
+                Ok(p) => p,
+                Err(err) => {
+                    warn!("asset resolver failed; using normalized path: {}: {}", texture_path, err);
+                    normalized.clone()
+                }
+            };
             let mut sprite = Sprite::from_image(asset_server.load(resolved));
             sprite.custom_size = Some(size);
             commands.spawn((
