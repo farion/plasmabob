@@ -25,11 +25,11 @@ Grundregeln
 Empfohlene Endstruktur
 - editor/src/
   - main.rs
-  - model.rs
   - core/           # nur cross-cutting (crate::core)
     - mod.rs
     - state.rs
     - io.rs
+    - model.rs 
     - sprites.rs
     - sync.rs
     - table_ui.rs
@@ -48,6 +48,7 @@ Empfohlene Endstruktur
     - preview.rs
   - dashboard/      # Dashboard (crate::dashboard)
     - mod.rs
+    - ui.rs
 
 Vorgehensweise beim Refactor (sichere, iterative Schritte)
 1. Planerstellung: Änderungen hier dokumentieren und Bestätigung vom Benutzer einholen.
