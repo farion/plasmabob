@@ -17,7 +17,7 @@ use egui_phosphor_icons::add_fonts;
 pub(crate) mod table_ui;
 use crate::io::{assets_dir, load_level, next_entity_id, save_level, scan_levels, scan_worlds, LevelEntry, WorldEntry};
 use crate::dashboard;
-use crate::entity_types;
+use crate::entity_type;
 use crate::model::{normalize_asset_reference, ComponentsDefinition, EntityDefinition, EntityTypeDefinition, LevelBoundsDefinition, LevelFile};
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -186,7 +186,7 @@ pub(crate) fn run() {
         .add_systems(EguiPrimaryContextPass, setup_phosphor_fonts)
         .add_systems(OnEnter(EditorMode::LevelPicker), refresh_level_catalog)
         .add_systems(EguiPrimaryContextPass, level_picker_ui.run_if(in_state(EditorMode::LevelPicker)))
-        .add_systems(EguiPrimaryContextPass, entity_types::entity_type_view_ui.run_if(in_state(EditorMode::EntityTypeView)))
+        .add_systems(EguiPrimaryContextPass, entity_type::entity_type_view_ui.run_if(in_state(EditorMode::EntityTypeView)))
         .add_systems(Update, check_sync_result.run_if(in_state(EditorMode::LevelPicker)))
         .add_systems(EguiPrimaryContextPass, editing_ui.run_if(in_state(EditorMode::Editing)))
         .add_systems(Update, toggle_hitbox_overlay.run_if(in_state(EditorMode::Editing)))

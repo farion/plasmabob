@@ -2,7 +2,10 @@ mod editor;
 mod io;
 mod model;
 mod dashboard;
-mod entity_types;
+mod entity_type;
+pub mod level;
+pub mod core;
+
 use serde_json::Value;
 
 fn main() {

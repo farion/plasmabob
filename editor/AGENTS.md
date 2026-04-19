@@ -1,79 +1,85 @@
-# AGENTS.md — PlasmaBob Editor Guide
+# AGENTS.md — Editor Module Refactor Rules
 
-## Editor Overview
+Dieses Dokument beschreibt verbindliche Regeln und einen Arbeitsplan für zukünftige Agents,
+die Refactorings oder Umstrukturierungen des `editor`-Crates durchführen sollen.
 
-The editor helps developers creating worlds and levels and entity types. It is a separate executable
-that can be found in the `editor/` directory. It is built using Bevy but it is not a plugin and
-does not run the game logic. It basically just works with the json files in the `assets/` directory
-and provides a visual interface to edit them.
+Ziel
+- Aufteilung des Editor-Codes in sinnvolle Module/Ordner, so dass:
+  - Keine Quelldatei mehr als 300 Zeilen enthält.
+  - Dashboard-relevanter Code unter `editor/src/dashboard` liegt (crate::dashboard).
+  - Level-Editor relevanter Code unter `editor/src/level` liegt (crate::level).
+  - Entity-Type-Editor relevanter Code unter `editor/src/entity_types` liegt (crate::entity_types).
+  - Cross-cutting concerns (geteilte Ressourcen, Utilities, IO, Sync, Table-UI) unter `editor/src/core` liegen (crate::core).
+  - Model / DTO Code bleibt unter `editor/src/model.rs` (crate::model).
 
-## Build & Run
+Grundregeln
+- Bevor Änderungen vorgenommen werden: Einen klaren Plan hier in dieser Datei hinterlegen und vom Benutzer bestätigen lassen.
+- Änderungen erst nach ausdrücklicher „Mach los“-Bestätigung durchführen.
+- Keine Commits oder Pushes ohne explizite Erlaubnis des Benutzers. Änderungen können lokal angewendet werden, aber committet wird nur auf Anforderung.
+- Dateien niemals größer als 300 Zeilen halten; bei Bedarf weiter aufteilen.
+- Minimale Änderungen bevorzugen: nur modulare Aufteilung und Pfad-Anpassungen, keine logischen API-Änderungen außer wenn unumgänglich.
+- Include-/Build-generierte Dateien (z. B. `include!(concat!(env!("OUT_DIR"), "/component_attr_map.rs"))`) unverändert belassen — nicht verschieben.
+- Shared Ressourcen (z. B. `EditorDocument`, `ActiveCharacter`, `ComponentValueMapping`, `ToastState`, `ColumnWidths`) kommen in `crate::core`.
+- Level-Editor ist ein eigenständiges Modul `crate::level` (unter `editor/src/level`).
 
-Build
-```bash
-cargo build
-```
+Empfohlene Endstruktur
+- editor/src/
+  - main.rs
+  - model.rs
+  - core/           # nur cross-cutting (crate::core)
+    - mod.rs
+    - state.rs
+    - io.rs
+    - sprites.rs
+    - sync.rs
+    - table_ui.rs
+    - utils.rs
+  - level/          # Level-Editor (crate::level)
+    - mod.rs
+    - ui.rs
+    - scene.rs
+    - input.rs
+    - state.rs
+  - entity_types/   # Entity-Type-Editor (crate::entity_types)
+    - mod.rs         # enthält auch include! für component_attr_map.rs
+    - hitbox.rs
+    - array_editor.rs
+    - components_sidebar.rs
+    - preview.rs
+  - dashboard/      # Dashboard (crate::dashboard)
+    - mod.rs
 
-Run
-```bash
-cargo run
-```
+Vorgehensweise beim Refactor (sichere, iterative Schritte)
+1. Planerstellung: Änderungen hier dokumentieren und Bestätigung vom Benutzer einholen.
+2. Stubs/Module anlegen: Verzeichnisse und minimale `mod.rs`/Stub-Funktionen erstellen, damit die Modul-Hierarchie existiert.
+3. Shared-Types nach `core/state.rs` extrahieren (EditorDocument, ToastState, ActiveCharacter, ComponentValueMapping, ColumnWidths, EditorMode etc.).
+4. IO- und Sync-Funktionen in `core/io.rs`, `core/sprites.rs`, `core/sync.rs` aufteilen.
+5. Entity-Type-Editor in `editor/src/entity_types` aufteilen; `include!(concat!(env!("OUT_DIR"), "/component_attr_map.rs"));` in `entity_types/mod.rs` belassen.
+6. Level-Editor spezifische Dateien in `editor/src/level` verschieben.
+7. Dashboard komplett in `editor/src/dashboard/mod.rs` implementieren (alte top-level dashboard.rs ersetzen).
+8. Iterativ `cargo check` im `editor`-Ordner ausführen und alle Compiler-Fehler beheben (modular, nach jedem größeren Schritt prüfen).
+9. Nach erfolgreichem `cargo check` endgültig alte Dateien entfernen und abschließende Aufräumarbeiten durchführen.
 
-## Editor Features
+Praktische Prüfungen
+- Verwende `cargo check` im `editor`-Ordner zur Validierung nach jeder größeren Änderung.
+- Suche/Ersetze `crate::editor::` Referenzen durch die neuen Modulpfade (z. B. `crate::core::`, `crate::level::`, `crate::entity_types::`, `crate::dashboard::`).
 
-### Dashboard
+Typische Fehler & Gegenmaßnahmen
+- "unresolved import" → fehlende `mod`-Deklaration: `mod.rs` oder `pub(crate) use` ergänzen.
+- Sichtbarkeitsfehler (`private type`) → Sichtbarkeit vorsichtig auf `pub(crate)` erweitern.
+- Zirkuläre Abhängigkeiten → extrahiere Traits/Abstraktionen nach `core` oder verschiebe Implementierungen zur Vermeidung von cycles.
+- include!-Fehler bei build-gen → `include!` niemals verschieben; stelle sicher, dass build.rs das generierte Artefakt produziert.
 
-The dashboard shows three columns for the three main data types: `Worlds`, `Levels`, and `Entity Types`.
-`Worlds` shows the worlds that are defined in `assets/worlds/`, `Levels` shows the levels that are defined in 
-`assets/levels/`, and `Entity Types` shows the entity types that are defined in `assets/entity_types/`.
-`Worlds` is basically only a filter for the levels. When you click on a world, only the levels that belong to that
-world are shown in the `Levels` column. When you click on a level, the level editor is opened. When you click on an
-entity type, the entity type editor is opened.
+Commit-Policy
+- Standard: keine automatischen Commits. Commits und Branches nur auf ausdrückliche Anweisung des Benutzers.
 
-### Level Editor
+Tests
+- Unit-Tests bleiben in den jeweiligen Modulen (`#[cfg(test)]`). Große io/sync-Tests sollten nach `core/sync.rs` verschoben werden, wenn sie zu diesem Modul gehören.
 
-The level editor shows a visual representation of the level. You can see the entities that are placed in the level
-and you can move them around. You can also add new entities by clicking on the `Add Entity` button. When you click 
-on an entity, you can edit its properties in the right sidebar.
+Beispiel-Checkliste (vor Beginn der Codemodifikation)
+1. Benutzer hat die Änderungen hier bestätigt.
+2. Backup/Branching-Entscheidung geklärt (soll committet werden oder nicht?).
+3. Stub-Module erstellt und `cargo check` läuft.
+4. Iterative Migration mit `cargo check` nach jedem Schritt.
 
-### Entity Type Editor
-
-The entity type editor shows a visual representation of the entity type. You can see the animation sprites and the
-hitbox for each state.
-
-## Technical Details
-
-- Rust
-- Bevy
-- In contrast to the game the editor is using bevy_egui for the UI
-
-## Egui layout gotchas (editor-specific)
-
-- ScrollArea content width is remembered across frames: egui will use the previous
-  content width as a minimum for the next frame. This can create a feedback loop
-  where widgets inside the scroll area request a width that prevents the surrounding
-  panel from being resized smaller.
-
-- Recommended pattern to avoid layout feedback loops used in the Entity Type editor:
-  1. Read the panel's available width once at the start of the sidebar (before
-	 creating the `ScrollArea`). Use that value to compute all column widths for
-	 the tables inside the panel.
-  2. Use explicit, pre-computed column widths with `Column::exact(width)` instead
-	 of `Column::remainder()` or other dynamic sizing variants.
-  3. Give `TextEdit` widgets the exact column width via `.desired_width(text_col_w)`
-	 so they don't request additional space asynchronously.
-  4. Avoid `desired_width(0.0)` (too small) or `desired_width(f32::INFINITY)` (can
-	 feed back into the ScrollArea). Using the computed `text_col_w` is stable.
-
-- Optionally, call `ui.set_max_width(ui.available_width())` inside the ScrollArea
-  to enforce an upper bound on its content width for the current frame. However,
-  the primary fix is to compute and pass down explicit widths before the
-  ScrollArea is created.
-
-These rules prevent the sidebar from jumping back to a previous size and ensure
-that text fields expand and contract exactly with the panel while the user is
-dragging it.
-
-## Internationalization (i18n)
-
-There is no i18n support in the editor. All text is in english and this must stay that way.
+Diese Regeln sind verbindlich für Agents, die an der Editor-Umstrukturierung arbeiten. Änderungen an dieser Datei sollten nur nach Absprache mit dem Repository-Besitzer erfolgen.
