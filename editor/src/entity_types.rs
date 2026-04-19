@@ -14,8 +14,7 @@ const PREVIEW_CANVAS_HEIGHT_PX: f32 = 256.0;
     // Stable layout widths for the attribute table columns. These must remain
     // constant across all component categories so columns don't shift when
     // switching between components. Values are provided by the shared
-    // table_ui module so other UIs can stay consistent.
-    use crate::editor::table_ui::{ATTR_NAME_COLUMN_WIDTH};
+    // ColumnWidths resource so other UIs can stay consistent.
 
 #[derive(Clone, Copy, Debug)]
 enum DragEdge {
@@ -374,8 +373,9 @@ fn render_components_sidebar(
 ) {
     egui::SidePanel::right("entity_type_components_sidebar")
         .resizable(true)
+        // Allow the sidebar to be between 300 and 600 px wide. Default to 300.
         .default_width(300.0)
-        .min_width(200.0)
+        .min_width(300.0)
         .max_width(600.0)
         .show(ctx, |ui| {
             ui.heading("Components");
@@ -442,29 +442,23 @@ fn render_components_sidebar(
                 }
             });
 
+            // Capture the panel's available width *before* the ScrollArea so that
+            // all column widths are computed from the current panel size. Using
+            // explicit widths (Column::exact) instead of Column::remainder breaks
+            // the feedback loop that otherwise prevents the sidebar from shrinking.
+            let button_padding = 8.0f32;
+            let button_w = 24.0f32;
+            let clear_col_w = button_padding * 2.0 + button_w;
+            let name_col_w_global = widths.widths.get(0).cloned().unwrap_or(80.0);
+            // Two inter-column gaps at egui's default item_spacing.x (8 px each) plus
+            // a small margin so the table does not touch the panel edge.
+            let col_spacing = ui.spacing().item_spacing.x * 2.0 + 4.0;
+            let text_col_w_global = (ui.available_width() - name_col_w_global - clear_col_w - col_spacing).max(40.0);
+            widths.widths = vec![name_col_w_global, text_col_w_global, clear_col_w];
+
             egui::ScrollArea::vertical()
                 .id_salt(format!("entity_type_components_scroll_{}", selected_name))
                 .show(ui, |ui| {
-                // Compute column widths once for the entire sidebar so every
-                // component uses identical column sizing. We capture the
-                // available width here and derive the middle column width.
-                let total_avail = ui.available_width();
-                let spacing_reserved = 12.0f32;
-                // Button sizing: padding left/right + button width. Used for
-                // the header trash icon and the per-attribute reset button.
-                let button_padding = 8.0f32;
-                let button_w = 24.0f32; // visual button content width
-                let clear_col_w = button_padding * 2.0 + button_w;
-                let middle_col_w_global = (total_avail - ATTR_NAME_COLUMN_WIDTH - clear_col_w - spacing_reserved).max(80.0);
-
-                // Build a single unified table for all components. Each
-                // component will emit a header row (name + remove button) and
-                // then its attribute rows below. Compute shared column widths
-                // once and update the ColumnWidths resource so other UIs stay
-                // consistent.
-                let name_col_w = ATTR_NAME_COLUMN_WIDTH;
-                let middle_col_w = middle_col_w_global;
-                widths.widths = vec![name_col_w, middle_col_w, clear_col_w];
 
                 // Revert to per-component header rendered manually so we can
                 // place the remove (trash) button inline to the right of the
@@ -508,15 +502,16 @@ fn render_components_sidebar(
                         });
                     });
 
-                    // Right area: trash button placed with right padding
+                    // Right area: trash button placed centered in the clear column
                     let right_rect = egui::Rect::from_min_max(
                         egui::pos2(header_rect.max.x - clear_col_w, header_rect.min.y),
                         header_rect.max,
                     );
-                    // compute button rect inside right_rect so it has `button_padding` to the right
+                    // center the button horizontally within the clear column for visual alignment
+                    let btn_center_x = (right_rect.min.x + right_rect.max.x) * 0.5;
                     let button_rect = egui::Rect::from_min_max(
-                        egui::pos2(right_rect.max.x - button_padding - button_w, right_rect.min.y),
-                        egui::pos2(right_rect.max.x - button_padding, right_rect.max.y),
+                        egui::pos2(btn_center_x - button_w * 0.5, right_rect.min.y),
+                        egui::pos2(btn_center_x + button_w * 0.5, right_rect.max.y),
                     );
                     let trash_resp = ui.put(button_rect, egui::Button::new(egui_phosphor_icons::icons::TRASH).min_size(egui::vec2(button_w, header_h)));
                     if trash_resp.clicked() {
@@ -525,17 +520,12 @@ fn render_components_sidebar(
 
                     // Only render attributes when expanded.
                     if !hitbox_editor.collapsed_components.contains(component_name) {
-                        // Stable column widths for the attribute table: name, field, clear
-                        let name_col_w = ATTR_NAME_COLUMN_WIDTH;
-                        // clear_col_w already computed above (padding + button)
-
-                        // Use the shared computation for middle column width and
-                        // update the shared ColumnWidths resource so other UIs
-                        // can read the same sizing if needed.
-                        let middle_col_w = middle_col_w_global;
+                        let name_col_w = name_col_w_global;
+                        let middle_col_w = text_col_w_global;
                         widths.widths = vec![name_col_w, middle_col_w, clear_col_w];
 
-                        // Build table with exact column widths and enable striped rows
+                        // Use exact column widths so no column can grow beyond the
+                        // pre-computed values and force the sidebar wider.
                         let table = TableBuilder::new(ui).striped(true)
                             .column(Column::exact(name_col_w))
                             .column(Column::exact(middle_col_w))
@@ -602,7 +592,9 @@ fn render_components_sidebar(
                                                         .or_else(|| display_default.as_ref().and_then(|v| v.as_str()))
                                                         .unwrap_or("")
                                                         .to_string();
-                                                    if ui.add(egui::TextEdit::singleline(&mut text).desired_width(middle_col_w - 8.0)).changed() {
+                                                     // Use the pre-computed column width so the field fills the column
+                                                     // without requesting more space than the panel currently provides.
+                                                     if ui.add(egui::TextEdit::singleline(&mut text).desired_width(middle_col_w)).changed() {
                                                         if apply_to_staged_entity_type(
                                                             document.as_deref_mut(),
                                                             hitbox_editor,
@@ -708,7 +700,7 @@ fn render_components_sidebar(
                                                                     }
                                                                 } else {
                                                                     let mut text = value.as_str().unwrap_or("").to_string();
-                                                                    if ui.add(egui::TextEdit::singleline(&mut text).desired_width(middle_col_w - 8.0)).changed() { *value = Value::String(text); changed = true; }
+                                                                    if ui.add(egui::TextEdit::singleline(&mut text).desired_width(middle_col_w)).changed() { *value = Value::String(text); changed = true; }
                                                                 }
                                                                 if ui.small_button("↑").clicked() && index > 0 { move_up = Some(index); }
                                                                 if ui.small_button("↓").clicked() && index + 1 < len { move_down = Some(index); }
@@ -737,7 +729,8 @@ fn render_components_sidebar(
                                                     let response = ui.add(
                                                         egui::TextEdit::multiline(&mut text_value)
                                                             .id_salt(editor_key.clone())
-                                                            .desired_width(middle_col_w - 8.0)
+                                                            // Fill the column without pushing it wider.
+                                                            .desired_width(middle_col_w)
                                                             .desired_rows(3),
                                                     );
                                                     if response.changed() {
@@ -765,11 +758,18 @@ fn render_components_sidebar(
                                                 // Reserve the full column cell so layout stays consistent
                                                 let cell_size = egui::vec2(clear_col_w, 20.0);
                                                 let (cell_rect, _cell_resp) = ui.allocate_exact_size(cell_size, egui::Sense::hover());
-                                                let btn_rect = egui::Rect::from_min_max(
-                                                    egui::pos2(cell_rect.max.x - button_padding - button_w, cell_rect.min.y),
-                                                    egui::pos2(cell_rect.max.x - button_padding, cell_rect.max.y),
-                                                );
-                                                let reset_resp = ui.put(btn_rect, egui::Button::new(egui_phosphor_icons::icons::ARROW_COUNTER_CLOCKWISE).min_size(egui::vec2(button_w, 20.0)));
+                                                 // center the reset button inside the clear column cell so it
+                                                 // aligns visually with the header trash button above.
+                                                 // Apply a small rightward nudge to account for slight
+                                                 // visual differences in the icon glyphs so the perceived
+                                                 // alignment matches the header button.
+                                                 let btn_center_x = (cell_rect.min.x + cell_rect.max.x) * 0.5;
+                                                 let align_nudge = 3.0; // tweak this if you prefer different visual alignment
+                                                 let btn_rect = egui::Rect::from_min_max(
+                                                     egui::pos2(btn_center_x - button_w * 0.5 + align_nudge, cell_rect.min.y),
+                                                     egui::pos2(btn_center_x + button_w * 0.5 + align_nudge, cell_rect.max.y),
+                                                 );
+                                                 let reset_resp = ui.put(btn_rect, egui::Button::new(egui_phosphor_icons::icons::ARROW_COUNTER_CLOCKWISE).min_size(egui::vec2(button_w, 20.0)));
                                                 reset_resp.clone().on_hover_text("Reset to default (removes explicit override from JSON)");
                                                 if reset_resp.clicked() {
                                                     if apply_to_staged_entity_type(
