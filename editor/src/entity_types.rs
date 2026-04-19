@@ -15,7 +15,7 @@ const PREVIEW_CANVAS_HEIGHT_PX: f32 = 256.0;
     // constant across all component categories so columns don't shift when
     // switching between components. Values are provided by the shared
     // table_ui module so other UIs can stay consistent.
-    use crate::editor::table_ui::{ATTR_NAME_COLUMN_WIDTH, CLEAR_BUTTON_COLUMN_WIDTH, compute_middle_col_width};
+    use crate::editor::table_ui::{ATTR_NAME_COLUMN_WIDTH};
 
 #[derive(Clone, Copy, Debug)]
 enum DragEdge {
@@ -450,7 +450,12 @@ fn render_components_sidebar(
                 // available width here and derive the middle column width.
                 let total_avail = ui.available_width();
                 let spacing_reserved = 12.0f32;
-                let middle_col_w_global = compute_middle_col_width(total_avail, spacing_reserved);
+                // Button sizing: padding left/right + button width. Used for
+                // the header trash icon and the per-attribute reset button.
+                let button_padding = 8.0f32;
+                let button_w = 24.0f32; // visual button content width
+                let clear_col_w = button_padding * 2.0 + button_w;
+                let middle_col_w_global = (total_avail - ATTR_NAME_COLUMN_WIDTH - clear_col_w - spacing_reserved).max(80.0);
 
                 // Build a single unified table for all components. Each
                 // component will emit a header row (name + remove button) and
@@ -458,7 +463,6 @@ fn render_components_sidebar(
                 // once and update the ColumnWidths resource so other UIs stay
                 // consistent.
                 let name_col_w = ATTR_NAME_COLUMN_WIDTH;
-                let clear_col_w = CLEAR_BUTTON_COLUMN_WIDTH;
                 let middle_col_w = middle_col_w_global;
                 widths.widths = vec![name_col_w, middle_col_w, clear_col_w];
 
@@ -476,40 +480,54 @@ fn render_components_sidebar(
                     // left area (arrow + name) and a right area (trash button).
                     let header_h = 24.0f32;
                     let header_size = egui::vec2(ui.available_width(), header_h);
-                    let (header_rect, header_resp) = ui.allocate_exact_size(header_size, egui::Sense::click());
+                    let (header_rect, _header_resp) = ui.allocate_exact_size(header_size, egui::Sense::click());
 
                     let is_collapsed = hitbox_editor.collapsed_components.contains(component_name);
 
-                    // Left area: arrow + name
-                    let left_rect = egui::Rect::from_min_max(header_rect.min, egui::pos2(header_rect.max.x - 48.0, header_rect.max.y));
-                    ui.allocate_ui_at_rect(left_rect, |ui| {
-                        ui.horizontal(|ui| {
-                            let arrow = if is_collapsed { "▸" } else { "▾" };
-                            if ui.button(arrow).clicked() {
-                                if is_collapsed { hitbox_editor.collapsed_components.remove(component_name); } else { hitbox_editor.collapsed_components.insert(component_name.clone()); }
-                            }
+                    // Left area: leave room for the clear column on the right
+                    let left_rect = egui::Rect::from_min_max(header_rect.min, egui::pos2(header_rect.max.x - clear_col_w, header_rect.max.y));
+                    // Arrow on the left, label to the right. Use `ui.put` to place
+                    // buttons exactly so icons are visually centered.
+                    let arrow_icon = if is_collapsed { egui_phosphor_icons::icons::CARET_RIGHT } else { egui_phosphor_icons::icons::CARET_DOWN };
+                    let arrow_rect = egui::Rect::from_min_max(
+                        egui::pos2(left_rect.min.x + 4.0, left_rect.min.y),
+                        egui::pos2(left_rect.min.x + 4.0 + button_w, left_rect.max.y),
+                    );
+                    let arrow_resp = ui.put(arrow_rect, egui::Button::new(arrow_icon).min_size(egui::vec2(button_w, header_h)));
+                    if arrow_resp.clicked() {
+                        if is_collapsed { hitbox_editor.collapsed_components.remove(component_name); } else { hitbox_editor.collapsed_components.insert(component_name.clone()); }
+                    }
 
-                            if ui.add(egui::Button::new(egui::RichText::new(component_name).strong())).clicked() {
-                                if is_collapsed { hitbox_editor.collapsed_components.remove(component_name); } else { hitbox_editor.collapsed_components.insert(component_name.clone()); }
-                            }
+                    let label_rect = egui::Rect::from_min_max(
+                        egui::pos2(arrow_rect.max.x + 6.0, left_rect.min.y),
+                        egui::pos2(left_rect.max.x, left_rect.max.y),
+                    );
+                    ui.allocate_ui_at_rect(label_rect, |ui| {
+                        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                            ui.label(egui::RichText::new(component_name).strong());
                         });
                     });
 
-                    // Right area: trash button
-                    let right_rect = egui::Rect::from_min_max(egui::pos2(header_rect.max.x - 48.0, header_rect.min.y), header_rect.max);
-                    ui.allocate_ui_at_rect(right_rect, |ui| {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.add(egui::Button::new(egui_phosphor_icons::icons::TRASH)).clicked() {
-                                hitbox_editor.remove_component_confirm = Some(component_name.clone());
-                            }
-                        });
-                    });
+                    // Right area: trash button placed with right padding
+                    let right_rect = egui::Rect::from_min_max(
+                        egui::pos2(header_rect.max.x - clear_col_w, header_rect.min.y),
+                        header_rect.max,
+                    );
+                    // compute button rect inside right_rect so it has `button_padding` to the right
+                    let button_rect = egui::Rect::from_min_max(
+                        egui::pos2(right_rect.max.x - button_padding - button_w, right_rect.min.y),
+                        egui::pos2(right_rect.max.x - button_padding, right_rect.max.y),
+                    );
+                    let trash_resp = ui.put(button_rect, egui::Button::new(egui_phosphor_icons::icons::TRASH).min_size(egui::vec2(button_w, header_h)));
+                    if trash_resp.clicked() {
+                        hitbox_editor.remove_component_confirm = Some(component_name.clone());
+                    }
 
                     // Only render attributes when expanded.
                     if !hitbox_editor.collapsed_components.contains(component_name) {
                         // Stable column widths for the attribute table: name, field, clear
                         let name_col_w = ATTR_NAME_COLUMN_WIDTH;
-                        let clear_col_w = CLEAR_BUTTON_COLUMN_WIDTH;
+                        // clear_col_w already computed above (padding + button)
 
                         // Use the shared computation for middle column width and
                         // update the shared ColumnWidths resource so other UIs
@@ -741,14 +759,19 @@ fn render_components_sidebar(
                                             if !is_explicit { ui.visuals_mut().override_text_color = saved_override; }
                                         });
 
-                                        // Column 3: clear button
+                                        // Column 3: clear/reset button (right-aligned with padding)
                                         r.col(|ui| {
                                             if explicit_value.is_some() {
-                                                if ui
-                                                    .button(egui_phosphor_icons::icons::ARROW_COUNTER_CLOCKWISE)
-                                                    .on_hover_text("Reset to default (removes explicit override from JSON)")
-                                                    .clicked()
-                                                {
+                                                // Reserve the full column cell so layout stays consistent
+                                                let cell_size = egui::vec2(clear_col_w, 20.0);
+                                                let (cell_rect, _cell_resp) = ui.allocate_exact_size(cell_size, egui::Sense::hover());
+                                                let btn_rect = egui::Rect::from_min_max(
+                                                    egui::pos2(cell_rect.max.x - button_padding - button_w, cell_rect.min.y),
+                                                    egui::pos2(cell_rect.max.x - button_padding, cell_rect.max.y),
+                                                );
+                                                let reset_resp = ui.put(btn_rect, egui::Button::new(egui_phosphor_icons::icons::ARROW_COUNTER_CLOCKWISE).min_size(egui::vec2(button_w, 20.0)));
+                                                reset_resp.clone().on_hover_text("Reset to default (removes explicit override from JSON)");
+                                                if reset_resp.clicked() {
                                                     if apply_to_staged_entity_type(
                                                         document.as_deref_mut(),
                                                         hitbox_editor,

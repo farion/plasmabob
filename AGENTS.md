@@ -106,7 +106,9 @@ keys translated in those files must be used to bring texts in the game.
 - All commenting must happen in english.
 - Do not add comments for removed features or code that is not used anymore. If you remove a feature, remove all comments related to it as well.
 
-## Best Practices
+## Hints for agents
+
+`cargo check` is enough to check for compilation errors and warnings. No need to run `cargo build` or `cargo run` unless you want to test the game or check for runtime errors.
 
 ## Implementation hints for Bevy 0.18.1
 
