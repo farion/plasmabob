@@ -449,10 +449,31 @@ fn render_components_sidebar(
             let button_padding = 8.0f32;
             let button_w = 24.0f32;
             let clear_col_w = button_padding * 2.0 + button_w;
-            let name_col_w_global = widths.widths.get(0).cloned().unwrap_or(80.0);
+            let mut name_col_w_global = widths.widths.get(0).cloned().unwrap_or(80.0);
+            // Indent to apply to attribute names inside the name column (horizontal padding)
+            let name_indent = 6.0f32;
             // Two inter-column gaps at egui's default item_spacing.x (8 px each) plus
             // a small margin so the table does not touch the panel edge.
             let col_spacing = ui.spacing().item_spacing.x * 2.0 + 4.0;
+
+            // Compute the longest attribute name across all components and use a
+            // simple char-width estimate to expand the name column so the text fits.
+            let mut max_name_chars: usize = 0;
+            for comp in &components_snapshot {
+                let rows = sorted_attribute_rows(mapping, &staged_snapshot, fallback_entity_type, comp);
+                for r in rows {
+                    max_name_chars = max_name_chars.max(r.name.len());
+                }
+            }
+            // Average character width estimate (in pixels) scaled by device pixels
+            // per point. This is an approximation but works well for the editor font.
+            let ppp = ui.ctx().pixels_per_point();
+            let avg_char_w = 7.0 * ppp; // tweak if needed for different fonts
+            let desired_name_w = (max_name_chars as f32) * avg_char_w + 12.0;
+            // Ensure name column does not exceed reasonable fraction of panel width
+            let max_allowed = (ui.available_width() - clear_col_w - col_spacing - 40.0).max(40.0);
+            name_col_w_global = name_col_w_global.max(desired_name_w).min(max_allowed);
+
             let text_col_w_global = (ui.available_width() - name_col_w_global - clear_col_w - col_spacing).max(40.0);
             widths.widths = vec![name_col_w_global, text_col_w_global, clear_col_w];
 
@@ -472,6 +493,9 @@ fn render_components_sidebar(
 
                     // Header: allocate a full-width rect and split it into a
                     // left area (arrow + name) and a right area (trash button).
+                    // Add a small top padding so category headers don't touch the
+                    // previous content (visual top padding).
+                    ui.add_space(4.0);
                     let header_h = 24.0f32;
                     let header_size = egui::vec2(ui.available_width(), header_h);
                     let (header_rect, _header_resp) = ui.allocate_exact_size(header_size, egui::Sense::click());
@@ -514,6 +538,10 @@ fn render_components_sidebar(
                         egui::pos2(btn_center_x + button_w * 0.5, right_rect.max.y),
                     );
                     let trash_resp = ui.put(button_rect, egui::Button::new(egui_phosphor_icons::icons::TRASH).min_size(egui::vec2(button_w, header_h)));
+
+                    // add a little space below the header so the component rows don't
+                    // feel cramped against the header (visual bottom padding)
+                    ui.add_space(6.0);
                     if trash_resp.clicked() {
                         hitbox_editor.remove_component_confirm = Some(component_name.clone());
                     }
@@ -546,7 +574,20 @@ fn render_components_sidebar(
                                     body.row(20.0, |mut r| {
                                         // Column 1: name
                                         r.col(|ui| {
-                                            ui.label(&row.name);
+                                            // allocate the full column cell and then place the label
+                                            // with a small left indent so attribute names are padded
+                                            // away from the column separator.
+                                            let cell_size = egui::vec2(name_col_w, 20.0);
+                                            let (cell_rect, _cell_resp) = ui.allocate_exact_size(cell_size, egui::Sense::hover());
+                                            let label_rect = egui::Rect::from_min_max(
+                                                egui::pos2(cell_rect.min.x + name_indent, cell_rect.min.y),
+                                                cell_rect.max,
+                                            );
+                                            ui.allocate_ui_at_rect(label_rect, |ui| {
+                                                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                                                    ui.label(&row.name);
+                                                });
+                                            });
                                         });
 
                                         // Column 2: widget (muted when not explicit)
