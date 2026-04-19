@@ -125,6 +125,8 @@ pub(crate) struct HitboxEditorState {
     json_editor_state: HashMap<String, String>,
     dirty_entity_types: HashSet<String>,
     edited_entity_types: HashMap<String, crate::model::EntityTypeDefinition>,
+    // Optional state when editing an array property in a modal.
+    array_editor: Option<ArrayEditorState>,
 }
 
 impl Default for HitboxEditorState {
@@ -142,8 +144,184 @@ impl Default for HitboxEditorState {
             json_editor_state: HashMap::new(),
             dirty_entity_types: HashSet::new(),
             edited_entity_types: HashMap::new(),
+            array_editor: None,
         }
     }
+}
+
+// State for the array editor modal. Stores a working copy (values) and the
+// original snapshot so we can revert changes. Supports scalar arrays and
+// one-level nested arrays (e.g. Vec<[f32;2]>). Inner arrays are edited as
+// comma-separated strings in the UI and validated on commit.
+#[derive(Clone)]
+    struct ArrayEditorState {
+        component_name: String,
+        attr_name: String,
+        display_type: String,
+        values: Vec<Value>,
+        original: Vec<Value>,
+        // Element-level flags
+        element_is_array: bool,
+        element_is_number: bool,
+        inner_fixed_len: Option<usize>,
+        outer_fixed_len: Option<usize>,
+        // Parallel editable strings for inner-array textfields (one per outer element)
+        inner_edit_strings: Vec<String>,
+        // Optional modal position (for user to drag the modal). Stored as offset from centered position.
+        modal_pos: egui::Pos2,
+        // Track the modal size so we can start with a default height (300)
+        // and persist manual resizes by the user. This prevents the modal
+        // from automatically growing/shrinking when list contents change.
+        modal_size: egui::Vec2,
+        // Whether we've initialized the window's default size. We only call
+        // Window::default_size on the first frame the modal is shown so that
+        // egui will remember subsequent manual resizes instead of us forcing
+        // a size each frame.
+        modal_initialized: bool,
+    }
+
+// Helper parsed type info
+struct ParsedArrayType {
+    element_is_array: bool,
+    element_is_number: bool,
+    inner_fixed_len: Option<usize>,
+    outer_fixed_len: Option<usize>,
+}
+
+fn parse_array_type_signature(type_str: &str) -> ParsedArrayType {
+    // Try to detect patterns like "[f32;2]", "Vec<String>", "Vec<[f32;2]>",
+    // or "array<number;2>". This is tolerant but extracts fixed lengths when
+    // present.
+    let s = type_str.replace(' ', "").replace('\t', "").to_string();
+    // outer fixed: [T;N]
+    if let Some(start) = s.find('[') {
+        if let Some(semi) = s.find(';') {
+            if let Some(end) = s.find(']') {
+                // pattern [T;N]
+                let after_semi = &s[semi + 1..end];
+                if let Ok(n) = after_semi.parse::<usize>() {
+                    // element type is between [ and ;
+                    let elem = &s[start + 1..semi];
+                    let element_is_array = elem.starts_with('[') || elem.starts_with("Vec<");
+                    let element_is_number = elem.contains("f32") || elem.contains("f64") || elem.contains("number") || elem.contains("i32") || elem.contains("i64");
+                    // if elem itself is [T;M], detect inner fixed len
+                    let mut inner_fixed = None;
+                    if elem.starts_with('[') {
+                        if let Some(semi2) = elem.find(';') {
+                            if let Some(end2) = elem.rfind(']') {
+                                if let Ok(inner_n) = elem[semi2 + 1..end2].parse::<usize>() {
+                                    inner_fixed = Some(inner_n);
+                                }
+                            }
+                        }
+                    }
+                    return ParsedArrayType {
+                        element_is_array,
+                        element_is_number,
+                        inner_fixed_len: inner_fixed,
+                        outer_fixed_len: Some(n),
+                    };
+                }
+            }
+        }
+    }
+
+    // Vec<...> pattern
+    if s.starts_with("Vec<") || s.starts_with("vec<") {
+        if let Some(open) = s.find('<') {
+            if let Some(close) = s.rfind('>') {
+                let inner = &s[open + 1..close];
+                // inner could be [T;N] or a primitive
+                if inner.starts_with('[') {
+                    // [T;N]
+                    if let Some(semi) = inner.find(';') {
+                        if let Some(end) = inner.find(']') {
+                            if let Ok(n) = inner[semi + 1..end].parse::<usize>() {
+                                let element_is_number = inner.contains("f32") || inner.contains("f64") || inner.contains("number") || inner.contains("i32") || inner.contains("i64");
+                                return ParsedArrayType { element_is_array: true, element_is_number, inner_fixed_len: Some(n), outer_fixed_len: None };
+                            }
+                        }
+                    }
+                } else {
+                    let element_is_number = inner.contains("f32") || inner.contains("f64") || inner.contains("number") || inner.contains("i32") || inner.contains("i64");
+                    return ParsedArrayType { element_is_array: false, element_is_number, inner_fixed_len: None, outer_fixed_len: None };
+                }
+            }
+        }
+    }
+
+    // array<number;N> style
+    if s.starts_with("array<") {
+        if let Some(open) = s.find('<') {
+            if let Some(close) = s.rfind('>') {
+                let inner = &s[open + 1..close];
+                if let Some(semi) = inner.find(';') {
+                    if let Ok(n) = inner[semi + 1..].parse::<usize>() {
+                        let element_is_number = inner.contains("number") || inner.contains("f32");
+                        return ParsedArrayType { element_is_array: false, element_is_number, inner_fixed_len: None, outer_fixed_len: Some(n) };
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: assume not array-of-array and not fixed length; detect numbers if present
+    let element_is_number = s.contains("f32") || s.contains("f64") || s.contains("number") || s.contains("i32") || s.contains("i64");
+    ParsedArrayType { element_is_array: false, element_is_number, inner_fixed_len: None, outer_fixed_len: None }
+}
+
+fn inner_array_value_to_csv_string(v: &Value) -> String {
+    if let Value::Array(arr) = v {
+        let parts: Vec<String> = arr
+            .iter()
+            .map(|item| match item {
+                Value::Number(n) => n.to_string(),
+                Value::String(s) => s.clone(),
+                other => serde_json::to_string(other).unwrap_or_default(),
+            })
+            .collect();
+        parts.join(",")
+    } else {
+        String::new()
+    }
+}
+
+// Format a Value::Array into a short JSON-like string but print numbers using
+// Rust's default formatting for f64 (which produces short, human-friendly
+// decimals like "64.7" instead of long serialized floats).
+fn format_array_short(arr: &Vec<Value>) -> String {
+    let parts: Vec<String> = arr
+        .iter()
+        .map(|v| match v {
+            Value::Number(n) => {
+                if let Some(f) = n.as_f64() { format!("{}", f) } else { n.to_string() }
+            }
+            Value::String(s) => format!("\"{}\"", s),
+            other => serde_json::to_string(other).unwrap_or_default(),
+        })
+        .collect();
+    format!("[{}]", parts.join(","))
+}
+
+fn csv_string_to_value_array(s: &str, inner_is_number: bool) -> Result<Vec<Value>, String> {
+    if s.trim().is_empty() {
+        return Ok(vec![]);
+    }
+    let mut out = Vec::new();
+    for token in s.split(',') {
+        let t = token.trim();
+        if inner_is_number {
+            match t.parse::<f64>() {
+                Ok(f) => {
+                    if let Some(num) = serde_json::Number::from_f64(f) { out.push(Value::Number(num)); } else { return Err(format!("invalid number: '{}'", t)); }
+                }
+                Err(_) => return Err(format!("invalid number: '{}'", t)),
+            }
+        } else {
+            out.push(Value::String(t.to_string()));
+        }
+    }
+    Ok(out)
 }
 
 fn cloned_staged_entity_type(
@@ -373,13 +551,20 @@ fn render_components_sidebar(
 ) {
     egui::SidePanel::right("entity_type_components_sidebar")
         .resizable(true)
-        // Allow the sidebar to be between 300 and 600 px wide. Default to 300.
-        .default_width(300.0)
+        // Allow the sidebar to be between 300 and 600 px wide. Default to 450.
+        .default_width(450.0)
         .min_width(300.0)
         .max_width(600.0)
         .show(ctx, |ui| {
             ui.heading("Components");
             ui.add_space(6.0);
+
+            // If an array editor modal is active, we draw a backdrop that
+            // blocks interaction with the underlying UI via a layer painter
+            // (the full-screen backdrop is drawn where the modal is shown).
+            // Do NOT allocate a full-size click consumer here — the backdrop
+            // painting is sufficient and allocating a rect inside the sidebar
+            // prevented interacting with the modal itself.
 
             let available_components = match crate::io::scan_game_components() {
                 Ok(v) => v,
@@ -724,43 +909,50 @@ fn render_components_sidebar(
                                                     });
                                                 }
                                                 attr if attr.starts_with("array") => {
+                                                    // Compact display in the sidebar: show a JSON-like short
+                                                    // representation and a pencil icon to open the modal
                                                     let mut values = explicit_value.as_ref().and_then(|v| v.as_array().cloned()).or_else(|| display_default.as_ref().and_then(|v| v.as_array().cloned())).unwrap_or_default();
-                                                    ui.vertical(|ui| {
-                                                        let is_number_array = attr.contains("number");
-                                                        let mut changed = false;
-                                                        let mut remove_index: Option<usize> = None;
-                                                        let mut move_up: Option<usize> = None;
-                                                        let mut move_down: Option<usize> = None;
-                                                        let len = values.len();
-                                                        for (index, value) in values.iter_mut().enumerate() {
-                                                            ui.horizontal(|ui| {
-                                                                if is_number_array {
-                                                                    let mut num = value.as_f64().unwrap_or(0.0);
-                                                                    if ui.add(egui::DragValue::new(&mut num).speed(0.1)).changed() {
-                                                                        if let Some(number) = serde_json::Number::from_f64(num) { *value = Value::Number(number); changed = true; }
+                                                    // compute a short JSON-like repr
+                                                    // Use custom formatting to preserve human-friendly
+                                                    // numeric representations (e.g. 64.7 instead of long
+                                                    // IEEE repr when serialized).
+                                                    let short = format_array_short(&values);
+                                                    ui.horizontal(|ui| {
+                                                        ui.label(egui::RichText::new(short));
+                                                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                            if ui.add(egui::Button::new(egui_phosphor_icons::icons::PENCIL_SIMPLE)).clicked() {
+                                                                // initialize array editor state
+                                                                let type_desc = format!("{}.{} {}", component_name, row.name, row.attr_type);
+                                                                let parsed = parse_array_type_signature(&row.attr_type);
+                                                                let mut inner_edit_strings = Vec::new();
+                                                                for v in &values {
+                                                                    if parsed.element_is_array {
+                                                                        inner_edit_strings.push(inner_array_value_to_csv_string(v));
+                                                                    } else {
+                                                                        inner_edit_strings.push(match v {
+                                                                            Value::String(s) => s.clone(),
+                                                                            Value::Number(n) => n.to_string(),
+                                                                            other => serde_json::to_string(other).unwrap_or_default(),
+                                                                        });
                                                                     }
-                                                                } else {
-                                                                    let mut text = value.as_str().unwrap_or("").to_string();
-                                                                    if ui.add(egui::TextEdit::singleline(&mut text).desired_width(middle_col_w)).changed() { *value = Value::String(text); changed = true; }
                                                                 }
-                                                                if ui.small_button("↑").clicked() && index > 0 { move_up = Some(index); }
-                                                                if ui.small_button("↓").clicked() && index + 1 < len { move_down = Some(index); }
-                                                                if ui.small_button("-").clicked() { remove_index = Some(index); }
-                                                            });
-                                                        }
-                                                        if let Some(index) = remove_index { values.remove(index); changed = true; }
-                                                        if let Some(index) = move_up { values.swap(index, index - 1); changed = true; }
-                                                        if let Some(index) = move_down { values.swap(index, index + 1); changed = true; }
-                                                        if ui.button(egui_phosphor_icons::icons::PLUS).clicked() { if is_number_array { values.push(Value::Number(serde_json::Number::from(0))); } else { values.push(Value::String(String::new())); } changed = true; }
-                                                        if changed {
-                                                            if apply_to_staged_entity_type(
-                                                                document.as_deref_mut(),
-                                                                hitbox_editor,
-                                                                selected_name,
-                                                                fallback_entity_type,
-                                                                |et| { et.set_component_attribute_value(component_name, &row.name, Value::Array(values.clone())) },
-                                                            ) { hitbox_editor.dirty_entity_types.insert(selected_name.to_string()); }
-                                                        }
+                                                                 hitbox_editor.array_editor = Some(ArrayEditorState {
+                                                                    component_name: component_name.to_string(),
+                                                                    attr_name: row.name.clone(),
+                                                                    display_type: type_desc,
+                                                                    values: values.clone(),
+                                                                    original: values.clone(),
+                                                                    element_is_array: parsed.element_is_array,
+                                                                    element_is_number: parsed.element_is_number,
+                                                                    inner_fixed_len: parsed.inner_fixed_len,
+                                                                    outer_fixed_len: parsed.outer_fixed_len,
+                                                                    inner_edit_strings,
+                                                                    modal_pos: egui::pos2(0.0, 0.0),
+                                                                    modal_size: egui::vec2(500.0, 300.0),
+                                                                    modal_initialized: false,
+                                                                });
+                                                            }
+                                                        });
                                                     });
                                                 }
                                                 _ => {
@@ -848,6 +1040,345 @@ fn render_components_sidebar(
                     }
 
                     ui.separator();
+
+                    // Render array editor modal when requested. We must avoid holding
+                    // a mutable borrow of hitbox_editor while also calling
+                    // apply_to_staged_entity_type (which needs to mutably borrow
+                    // hitbox_editor). To work around borrow rules we collect a
+                    // commit payload while the editor is borrowed and apply it
+                    // afterwards.
+                    if hitbox_editor.array_editor.is_some() {
+                        let mut commit_values: Option<Vec<Value>> = None;
+                        let mut commit_target: Option<(String, String)> = None;
+                        let mut commit_close = false;
+
+                        if let Some(editor) = hitbox_editor.array_editor.as_mut() {
+                            // Only render the modal in the iteration that matches the
+                            // edited component so we don't render duplicate windows
+                            // (the loop iterates over all components).
+                                if editor.component_name == *component_name {
+                                // Use center-anchored window as a modal-like overlay. Make it non-resizable,
+                                // fixed height (300) and allow dragging by storing a delta position so
+                                // the user can move it but it does not auto-resize. Also make the
+                                // background blocked by using a full-screen transparent layer to
+                                // consume clicks (modal behaviour).
+                                let title = format!("Edit {}", editor.display_type);
+
+                                // Modal background to block interaction with underlying UI
+                                // Draw a semi-transparent backdrop behind the modal window
+                                // to block interaction with the underlying UI but keep the
+                                // window itself interactive by painting the backdrop in the
+                                // Background layer (window is rendered in Foreground).
+                                let layer_id = egui::LayerId::new(egui::Order::Background, egui::Id::new("array_editor_modal_layer"));
+                                ctx.layer_painter(layer_id).rect_filled(ctx.available_rect(), 0.0, egui::Color32::from_black_alpha(160));
+
+                                // Window position: center plus stored offset. Use the
+                                // stored modal_size to compute a true centered position
+                                // so we don't rely on a fixed "-150" magic offset.
+                                let center = ctx.available_rect().center();
+                                let pos = egui::pos2(
+                                    center.x + editor.modal_pos.x - editor.modal_size.x * 0.5,
+                                    center.y + editor.modal_pos.y - editor.modal_size.y * 0.5,
+                                );
+
+                                // Prepare a Window builder. We will set default_size only
+                                // on the first frame the modal is shown so egui will
+                                // remember user resizes afterwards.
+                                 // Use a fixed initial size on first show so the window
+                                 // starts at the user-intended dimensions (height 300)
+                                 // regardless of content. After the first frame we
+                                 // allow resizing and persist user-driven sizes.
+                                 let mut wnd = egui::Window::new(title).collapsible(false).default_pos([pos.x, pos.y]);
+                                 if !editor.modal_initialized {
+                                     // Start with a fixed size so content doesn't shrink the
+                                     // window on first render. We'll switch to resizable on
+                                     // the next frame after persisting the size.
+                                     wnd = wnd.fixed_size([editor.modal_size.x, editor.modal_size.y]);
+                                 } else {
+                                     wnd = wnd.resizable(true);
+                                 }
+                                // Use a stable, attribute-specific id so egui does not
+                                // reuse a previously remembered full-width size for the
+                                // generic title. This also scopes remembered sizes per
+                                // edited attribute.
+                                let wnd = wnd.id(egui::Id::new(format!("array_editor_modal::{}::{}", editor.component_name, editor.attr_name)));
+
+                                 let inner = wnd.show(ctx, |ui| {
+                                    ui.vertical(|ui| {
+                                        // Top row: PLUS (left) and control buttons (right)
+                                        ui.horizontal(|ui| {
+                                            let can_add = match editor.outer_fixed_len {
+                                                Some(max) => editor.values.len() < max,
+                                                None => true,
+                                            };
+
+                                            if ui.add_enabled(can_add, egui::Button::new(egui_phosphor_icons::icons::PLUS)).clicked() {
+                                                // add a default element
+                                                if !can_add {
+                                                    // Defensive: ui.add_enabled should prevent clicks, but
+                                                    // show a toast if user somehow triggered it.
+                                                    toast.message = Some("Cannot add element: array is at fixed maximum length".to_string());
+                                                    toast.expires_at_seconds = time.elapsed_secs_f64() + 3.0;
+                                                } else if editor.element_is_array {
+                                                    if let Some(n) = editor.inner_fixed_len {
+                                                        let mut v = Vec::new();
+                                                        for _ in 0..n {
+                                                            if editor.element_is_number {
+                                                                v.push(Value::Number(serde_json::Number::from_f64(0.0).unwrap()));
+                                                            } else {
+                                                                v.push(Value::String(String::new()));
+                                                            }
+                                                        }
+                                                        editor.values.push(Value::Array(v));
+                                                        editor.inner_edit_strings.push(String::new());
+                                                    } else {
+                                                        editor.values.push(Value::Array(vec![]));
+                                                        editor.inner_edit_strings.push(String::new());
+                                                    }
+                                                } else {
+                                                    if editor.element_is_number {
+                                                        editor.values.push(Value::Number(serde_json::Number::from_f64(0.0).unwrap()));
+                                                        editor.inner_edit_strings.push("0".to_string());
+                                                    } else {
+                                                        editor.values.push(Value::String(String::new()));
+                                                        editor.inner_edit_strings.push(String::new());
+                                                    }
+                                                }
+                                            }
+
+                                            ui.add_space(8.0);
+
+                                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                // Place buttons so that visually (left-to-right) they
+                                                // appear as: Reset, Commit, Cancel (aligned to the right).
+                                                // Using right_to_left means we must add them in reverse
+                                                // so the rightmost button is added first.
+                                                if ui.button(egui_phosphor_icons::icons::X).clicked() {
+                                                    // Cancel: revert to original and close
+                                                    editor.values = editor.original.clone();
+                                                    commit_values = None;
+                                                    commit_target = None;
+                                                    commit_close = true;
+                                                }
+
+                                                if ui.button(egui_phosphor_icons::icons::CHECK).clicked() {
+                                                    // Try to validate & prepare commit
+                                                    let mut final_values: Vec<Value> = Vec::new();
+                                                    let mut error: Option<String> = None;
+                                                    for (i, edit_str) in editor.inner_edit_strings.iter().enumerate() {
+                                                        if editor.element_is_array {
+                                                            match csv_string_to_value_array(edit_str, editor.element_is_number) {
+                                                                Ok(inner_vec) => {
+                                                                    if let Some(fixed) = editor.inner_fixed_len {
+                                                                        if inner_vec.len() != fixed {
+                                                                            error = Some(format!("Index {}: expected {} elements, got {}", i, fixed, inner_vec.len()));
+                                                                            break;
+                                                                        }
+                                                                    }
+                                                                    final_values.push(Value::Array(inner_vec));
+                                                                }
+                                                                Err(e) => { error = Some(format!("Index {}: {}", i, e)); break; }
+                                                            }
+                                                        } else {
+                                                            if editor.element_is_number {
+                                                                match edit_str.parse::<f64>() {
+                                                                    Ok(f) => {
+                                                                        if let Some(n) = serde_json::Number::from_f64(f) { final_values.push(Value::Number(n)); } else { error = Some(format!("Index {}: invalid number", i)); break; }
+                                                                    }
+                                                                    Err(_) => { error = Some(format!("Index {}: invalid number", i)); break; }
+                                                                }
+                                                            } else {
+                                                                final_values.push(Value::String(edit_str.clone()));
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if error.is_none() {
+                                                        if let Some(expected) = editor.outer_fixed_len {
+                                                            if final_values.len() != expected {
+                                                                error = Some(format!("Array length mismatch: expected {}, got {}", expected, final_values.len()));
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if let Some(err) = error {
+                                                        toast.message = Some(err);
+                                                        toast.expires_at_seconds = time.elapsed_secs_f64() + 4.0;
+                                                    } else {
+                                                        commit_values = Some(final_values.clone());
+                                                        commit_target = Some((editor.component_name.clone(), editor.attr_name.clone()));
+                                                        commit_close = true;
+                                                    }
+                                                }
+
+                                                if ui.button(egui_phosphor_icons::icons::ARROW_COUNTER_CLOCKWISE).clicked() {
+                                                    // Reset to original values
+                                                    editor.values = editor.original.clone();
+                                                    editor.inner_edit_strings.clear();
+                                                    for v in &editor.values {
+                                                        if editor.element_is_array {
+                                                            editor.inner_edit_strings.push(inner_array_value_to_csv_string(v));
+                                                        } else {
+                                                            editor.inner_edit_strings.push(match v {
+                                                                Value::String(s) => s.clone(),
+                                                                Value::Number(n) => n.to_string(),
+                                                                other => serde_json::to_string(other).unwrap_or_default(),
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                            });
+                                        });
+
+                                        // Avoid automatic window height growth by constraining
+                                        // the ScrollArea to the modal's user-controlled height.
+                                        // Subtract an estimate for header/control row and paddings.
+                                        let reserved_h = 80.0; // header + controls + margins
+                                        let max_scroll_h = (editor.modal_size.y - reserved_h).max(60.0);
+                                        egui::ScrollArea::vertical().max_height(max_scroll_h).show(ui, |ui| {
+                                            for i in 0..editor.values.len() {
+                                                ui.horizontal(|ui| {
+                                                    if editor.element_is_array {
+                                                        let mut s = editor.inner_edit_strings.get(i).cloned().unwrap_or_default();
+                                                        let resp = ui.add(egui::TextEdit::singleline(&mut s).desired_width(300.0));
+                                                        if resp.changed() { editor.inner_edit_strings[i] = s; }
+                                                    } else if editor.element_is_number {
+                                                        // Use DragValue for numeric elements to provide
+                                                        // natural numeric editing. Keep a parallel string for
+                                                        // display formatting consistency.
+                                                        let mut val = editor.values.get(i).and_then(|v| v.as_f64()).unwrap_or(0.0);
+                                                        let changed = ui.add(egui::DragValue::new(&mut val).speed(1.0)).changed();
+                                                        if changed {
+                                                            if let Some(n) = serde_json::Number::from_f64(val) { editor.values[i] = Value::Number(n); }
+                                                            editor.inner_edit_strings[i] = val.to_string();
+                                                        }
+                                                    } else {
+                                                        let mut s = editor.inner_edit_strings.get(i).cloned().unwrap_or_default();
+                                                        let resp = ui.add(egui::TextEdit::singleline(&mut s).desired_width(300.0));
+                                                        if resp.changed() { editor.inner_edit_strings[i] = s; }
+                                                    }
+
+                                                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                        if ui.add_enabled(i + 1 < editor.values.len(), egui::Button::new(egui_phosphor_icons::icons::CARET_DOWN)).clicked() {
+                                                            editor.values.swap(i, i + 1);
+                                                            editor.inner_edit_strings.swap(i, i + 1);
+                                                        }
+                                                        if ui.add_enabled(i > 0, egui::Button::new(egui_phosphor_icons::icons::CARET_UP)).clicked() {
+                                                            editor.values.swap(i, i - 1);
+                                                            editor.inner_edit_strings.swap(i, i - 1);
+                                                        }
+                                                        if ui.button(egui_phosphor_icons::icons::TRASH).clicked() {
+                                                            editor.values.remove(i);
+                                                            editor.inner_edit_strings.remove(i);
+                                                        }
+                                                    });
+                                                });
+                                                ui.add_space(6.0);
+                                            }
+                                        });
+                                    });
+
+                                    // keyboard shortcuts
+                                    if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                        // emulate pressing CHECK
+                                        let mut final_values: Vec<Value> = Vec::new();
+                                        let mut error: Option<String> = None;
+                                        for (i, edit_str) in editor.inner_edit_strings.iter().enumerate() {
+                                            if editor.element_is_array {
+                                                match csv_string_to_value_array(edit_str, editor.element_is_number) {
+                                                    Ok(inner_vec) => {
+                                                        if let Some(fixed) = editor.inner_fixed_len {
+                                                            if inner_vec.len() != fixed { error = Some(format!("Index {}: expected {} elements, got {}", i, fixed, inner_vec.len())); break; }
+                                                        }
+                                                        final_values.push(Value::Array(inner_vec));
+                                                    }
+                                                    Err(e) => { error = Some(format!("Index {}: {}", i, e)); break; }
+                                                }
+                                            } else {
+                                                if editor.element_is_number {
+                                                    match edit_str.parse::<f64>() {
+                                                        Ok(f) => { if let Some(n) = serde_json::Number::from_f64(f) { final_values.push(Value::Number(n)); } else { error = Some(format!("Index {}: invalid number", i)); break; } }
+                                                        Err(_) => { error = Some(format!("Index {}: invalid number", i)); break; }
+                                                    }
+                                                } else {
+                                                    final_values.push(Value::String(edit_str.clone()));
+                                                }
+                                            }
+                                        }
+
+                                        if error.is_none() {
+                                            if let Some(expected) = editor.outer_fixed_len {
+                                                if final_values.len() != expected { error = Some(format!("Array length mismatch: expected {}, got {}", expected, final_values.len())); }
+                                            }
+                                        }
+
+                                        if let Some(err) = error {
+                                            toast.message = Some(err);
+                                            toast.expires_at_seconds = time.elapsed_secs_f64() + 4.0;
+                                        } else {
+                                            commit_values = Some(final_values.clone());
+                                            commit_target = Some((editor.component_name.clone(), editor.attr_name.clone()));
+                                            commit_close = true;
+                                        }
+                                    }
+
+                                     if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                                        editor.values = editor.original.clone();
+                                        commit_close = true;
+                                    }
+                                });
+
+                                // Capture the actual window rect/size returned by egui
+                                // and persist user-driven resizes / moves. `wnd.show`
+                                // returns an Option<InnerResponse<...>> so only update
+                                // state when we actually received a response.
+                                if let Some(inner_resp) = inner {
+                                    let resp_rect = inner_resp.response.rect;
+                                    let rect_size = resp_rect.size();
+                                    let rect_center = resp_rect.center();
+                                    let avail_center = ctx.available_rect().center();
+                                    let size_changed = rect_size != editor.modal_size;
+                                    if !editor.modal_initialized || (size_changed && ctx.input(|i| i.pointer.any_down())) {
+                                        // Enforce allowed height range (user-configurable via UI):
+                                        // min 300, max 800. Keep width as reported.
+                                        let clamped_h = rect_size.y.clamp(300.0, 800.0);
+                                        editor.modal_size = egui::vec2(rect_size.x, clamped_h);
+                                        editor.modal_initialized = true;
+                                    }
+                                    // Update stored modal_pos while the user is dragging
+                                    // the window (pointer down). This captures user moves
+                                    // but ignores transient content-driven position
+                                    // changes.
+                                    if ctx.input(|i| i.pointer.any_down()) {
+                                        // rect_center and avail_center are Pos2; compute an
+                                        // offset Pos2 so modal_pos keeps the delta as Pos2.
+                                        editor.modal_pos = egui::pos2(rect_center.x - avail_center.x, rect_center.y - avail_center.y);
+                                    }
+                                }
+                            } // end matching component check
+                        }
+
+                        // editor borrow dropped here; perform commit/apply if requested
+                        if let Some(vals) = commit_values {
+                            if let Some((comp, attr)) = commit_target {
+                                if apply_to_staged_entity_type(
+                                    document.as_deref_mut(),
+                                    hitbox_editor,
+                                    selected_name,
+                                    fallback_entity_type,
+                                    |et| et.set_component_attribute_value(&comp, &attr, Value::Array(vals.clone())),
+                                ) {
+                                    hitbox_editor.dirty_entity_types.insert(selected_name.to_string());
+                                }
+                                if commit_close {
+                                    hitbox_editor.array_editor = None;
+                                }
+                            }
+                        } else if commit_close {
+                            // just close without applying
+                            hitbox_editor.array_editor = None;
+                        }
+                    }
                     });
                 }
             });
