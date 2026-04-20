@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde_json::Value;
 use std::collections::HashSet;
 
-use super::hitbox::EntityTypeEditorState;
+use crate::entity_type::EntityTypeEditorState;
 
 /// Lightweight row description used by the attribute table renderers.
 #[derive(Clone)]
@@ -13,11 +13,11 @@ pub(crate) struct AttributeUiRow {
 }
 
 pub(crate) fn cloned_staged_entity_type(
-    document: Option<&crate::editor::EditorDocument>,
+    document: Option<&crate::level::state::EditorDocument>,
     entity_type_editor: &EntityTypeEditorState,
     selected_name: &str,
-    fallback: &crate::model::EntityTypeDefinition,
-) -> crate::model::EntityTypeDefinition {
+    fallback: &crate::core::EntityTypeDefinition,
+) -> crate::core::EntityTypeDefinition {
     if let Some(doc) = document {
         return doc
             .entity_types
@@ -34,11 +34,11 @@ pub(crate) fn cloned_staged_entity_type(
 }
 
 pub(crate) fn apply_to_staged_entity_type(
-    document: Option<&mut crate::editor::EditorDocument>,
+    document: Option<&mut crate::level::state::EditorDocument>,
     entity_type_editor: &mut EntityTypeEditorState,
     selected_name: &str,
-    fallback: &crate::model::EntityTypeDefinition,
-    mutator: impl FnOnce(&mut crate::model::EntityTypeDefinition),
+    fallback: &crate::core::EntityTypeDefinition,
+    mutator: impl FnOnce(&mut crate::core::EntityTypeDefinition),
 ) -> bool {
     if let Some(doc) = document {
         if let Some(et) = doc.entity_types.get_mut(selected_name) {
@@ -57,7 +57,7 @@ pub(crate) fn apply_to_staged_entity_type(
 }
 
 pub(crate) fn component_object_snapshot(
-    entity_type: &crate::model::EntityTypeDefinition,
+    entity_type: &crate::core::EntityTypeDefinition,
     component_name: &str,
 ) -> Option<serde_json::Map<String, Value>> {
     let components_obj = entity_type
@@ -71,11 +71,8 @@ pub(crate) fn component_object_snapshot(
         .and_then(|value| value.as_object().cloned())
 }
 
-pub(crate) fn component_default_value(
-    component_name: &str,
-    attribute_name: &str,
-) -> Option<Value> {
-    let mut probe = crate::model::EntityTypeDefinition {
+pub(crate) fn component_default_value(component_name: &str, attribute_name: &str) -> Option<Value> {
+    let mut probe = crate::core::EntityTypeDefinition {
         components: None,
         category_tag: None,
         width: None,
@@ -89,12 +86,13 @@ pub(crate) fn component_default_value(
 }
 
 pub(crate) fn save_staged_entity_type(
-    document: Option<&crate::editor::EditorDocument>,
+    document: Option<&crate::level::state::EditorDocument>,
     entity_type_editor: &EntityTypeEditorState,
     selected_name: &str,
-    fallback: &crate::model::EntityTypeDefinition,
+    fallback: &crate::core::EntityTypeDefinition,
 ) -> Result<(), String> {
-    let mut to_save = cloned_staged_entity_type(document, entity_type_editor, selected_name, fallback);
+    let mut to_save =
+        cloned_staged_entity_type(document, entity_type_editor, selected_name, fallback);
 
     if !entity_type_editor.dirty_states.is_empty() {
         let mut state_machine = to_save
@@ -116,13 +114,13 @@ pub(crate) fn save_staged_entity_type(
             .map_err(|error| error.to_string())?;
     }
 
-    crate::io::save_entity_type_definition(selected_name, &to_save)
+    crate::core::io::save_entity_type_definition(selected_name, &to_save)
 }
 
 pub(crate) fn sorted_attribute_rows(
-    mapping: &crate::editor::ComponentValueMapping,
-    entity_type: &crate::model::EntityTypeDefinition,
-    fallback_entity: &crate::model::EntityTypeDefinition,
+    mapping: &crate::level::state::ComponentValueMapping,
+    entity_type: &crate::core::EntityTypeDefinition,
+    fallback_entity: &crate::core::EntityTypeDefinition,
     component_name: &str,
 ) -> Vec<AttributeUiRow> {
     let mut rows: Vec<AttributeUiRow> = Vec::new();
@@ -138,7 +136,8 @@ pub(crate) fn sorted_attribute_rows(
             .filter_map(|(name, def)| {
                 // Allow mapping entries for components that intentionally
                 // accept arbitrary keys (e.g. collider uses a flattened map).
-                let allow_extra = matches!(component_name.to_ascii_lowercase().as_str(), "collider");
+                let allow_extra =
+                    matches!(component_name.to_ascii_lowercase().as_str(), "collider");
                 if allow_extra || super::component_attribute_type(component_name, name).is_some() {
                     Some(AttributeUiRow {
                         name: name.clone(),
@@ -195,7 +194,11 @@ pub(crate) fn sorted_attribute_rows(
     for &(name, typ) in super::component_declared_attributes(component_name) {
         if !seen.contains(&name.to_string()) {
             seen.insert(name.to_string());
-            rows.push(AttributeUiRow { name: name.to_string(), attr_type: typ.to_string(), options: Vec::new() });
+            rows.push(AttributeUiRow {
+                name: name.to_string(),
+                attr_type: typ.to_string(),
+                options: Vec::new(),
+            });
         }
     }
 

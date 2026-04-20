@@ -1,40 +1,23 @@
 use bevy::asset::AssetServer;
 use bevy::ecs::message::MessageReader;
-use bevy::input::ButtonState;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy::input::ButtonState;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+use crate::core::LevelFile;
 use crate::entity_type;
-use crate::level::state::{
-    PointerState,
-    EditorUiState,
-    SelectionState,
-    ToastState,
-    SceneDirty,
-    ZOverlayMode,
-    HitboxOverlayState,
-    EntityTypesSyncState,
-    UndoHistory,
-    UndoCaptureState,
-    ClipboardEntity,
-    EditorDocument,
-    SnapState,
-    EntityTypeViewState,
+use crate::level::helper::{
+    apply_snapping, entity_render_center, is_inside_level_bounds, is_player_entity_type,
+    topmost_entity_at_position, z_overlay_color_for_value,
 };
-use crate::model::{LevelFile};
-use crate::editor::{
-    EditorCamera,
-    RenderedLevelEntity,
-    RenderedZOverlay,
-    entity_render_center,
-    apply_snapping,
-    topmost_entity_at_position,
-    is_inside_level_bounds,
-    z_overlay_color_for_value,
-    is_player_entity_type,
+use crate::level::run::{EditorCamera, RenderedLevelEntity, RenderedZOverlay};
+use crate::level::state::{
+    ClipboardEntity, EditorDocument, EditorUiState, EntityTypeViewState, EntityTypesSyncState,
+    HitboxOverlayState, PointerState, SceneDirty, SelectionState, SnapState, ToastState,
+    UndoCaptureState, UndoHistory, ZOverlayMode,
 };
 
 pub fn update_pointer_world_position(
@@ -139,11 +122,18 @@ pub fn toggle_snap(
     }
 
     snap_state.enabled = !snap_state.enabled;
-    toast.message = Some(if snap_state.enabled { "Snap: on".to_string() } else { "Snap: off".to_string() });
+    toast.message = Some(if snap_state.enabled {
+        "Snap: on".to_string()
+    } else {
+        "Snap: off".to_string()
+    });
     toast.expires_at_seconds = time.elapsed_secs_f64() + 1.2;
 }
 
-pub fn logical_char_just_pressed(key_events: &mut MessageReader<KeyboardInput>, target: &str) -> bool {
+pub fn logical_char_just_pressed(
+    key_events: &mut MessageReader<KeyboardInput>,
+    target: &str,
+) -> bool {
     key_events.read().any(|event| {
         if event.state != ButtonState::Pressed {
             return false;
@@ -217,7 +207,7 @@ pub fn copy_entity_shortcut(
     let is_player = document
         .entity_types
         .get(&entity.entity_type)
-        .map(crate::editor::is_player_entity_type)
+        .map(is_player_entity_type)
         .unwrap_or(false);
 
     if is_player {
@@ -259,7 +249,8 @@ pub fn paste_entity_shortcut(
     undo_history.states.push_back(document.level.clone());
 
     let mut new_entity = original_entity.clone();
-    new_entity.id = crate::io::next_entity_id(&new_entity.entity_type, &document.level.entities);
+    new_entity.id =
+        crate::core::io::next_entity_id(&new_entity.entity_type, &document.level.entities);
     new_entity.x += 50.0;
     new_entity.y += 50.0;
 
@@ -283,7 +274,7 @@ pub fn save_shortcut(
         return;
     }
 
-    match crate::io::save_level(&document.level_fs_path, &document.level) {
+    match crate::core::io::save_level(&document.level_fs_path, &document.level) {
         Ok(()) => {
             document.dirty = false;
             toast.message = Some("Saved".to_string());
@@ -338,7 +329,10 @@ pub fn adjust_selected_entity_z_shortcut(
     mut document: ResMut<EditorDocument>,
     mut undo_history: ResMut<UndoHistory>,
     mut rendered_entities: Query<(&RenderedLevelEntity, &mut Transform), Without<RenderedZOverlay>>,
-    mut rendered_overlays: Query<(&RenderedZOverlay, &mut Transform, &mut Sprite), Without<RenderedLevelEntity>>,
+    mut rendered_overlays: Query<
+        (&RenderedZOverlay, &mut Transform, &mut Sprite),
+        Without<RenderedLevelEntity>,
+    >,
     mut scene_dirty: ResMut<SceneDirty>,
 ) {
     if ui_state.show_add_menu {
@@ -399,7 +393,7 @@ pub fn adjust_selected_entity_z_shortcut(
     for (rendered, mut transform, mut sprite) in &mut rendered_overlays {
         if rendered.index == index {
             transform.translation.z = z + 0.01;
-            sprite.color = crate::editor::z_overlay_color_for_value(z);
+            sprite.color = z_overlay_color_for_value(z);
         }
     }
 }
@@ -411,7 +405,10 @@ pub fn select_entity_on_click(
     document: Res<EditorDocument>,
     mut selection: ResMut<SelectionState>,
 ) {
-    if ui_state.show_add_menu || pointer_state.over_ui || !mouse_buttons.just_pressed(MouseButton::Left) {
+    if ui_state.show_add_menu
+        || pointer_state.over_ui
+        || !mouse_buttons.just_pressed(MouseButton::Left)
+    {
         return;
     }
 
@@ -419,16 +416,15 @@ pub fn select_entity_on_click(
         return;
     };
 
-    // Use the editor topmost helper for now via crate::editor:: namespace.
-    // We will move helper functions into level or core in a follow-up step.
-    let hit = crate::editor::topmost_entity_at_position(pointer_world, &document.level, &document.entity_types);
+    // Use the level helper directly.
+    let hit = topmost_entity_at_position(pointer_world, &document.level, &document.entity_types);
 
     if let Some((index, entity_position)) = hit {
         selection.selected_index = Some(index);
         selection.bounds_selected = false;
         selection.is_dragging = true;
         selection.drag_offset = entity_position - pointer_world;
-    } else if crate::editor::is_inside_level_bounds(pointer_world, &document.level) {
+    } else if is_inside_level_bounds(pointer_world, &document.level) {
         selection.selected_index = None;
         selection.bounds_selected = true;
         selection.is_dragging = false;
@@ -474,7 +470,9 @@ pub fn drag_selected_entity(
     let new_position = pointer_world + selection.drag_offset;
 
     let old_position = Vec2::new(current_entity.x, current_entity.y);
-    if (new_position - old_position).length_squared() > f32::EPSILON && !capture_state.drag_snapshot_taken {
+    if (new_position - old_position).length_squared() > f32::EPSILON
+        && !capture_state.drag_snapshot_taken
+    {
         if undo_history.states.len() >= 100 {
             undo_history.states.pop_front();
         }
@@ -489,7 +487,7 @@ pub fn drag_selected_entity(
         return;
     }
     // Apply snapping after updating the entity position.
-    crate::editor::apply_snapping(&mut document, index, snap_state.enabled);
+    apply_snapping(&mut document, index, snap_state.enabled);
     document.dirty = true;
 
     let (render_position, _) = if let Some(e) = document.level.entities.get(index) {
@@ -498,9 +496,9 @@ pub fn drag_selected_entity(
             .get(&e.entity_type)
             .map(|entity_type| entity_type.size())
             .unwrap_or(Vec2::ZERO);
-        (crate::editor::entity_render_center(Vec2::new(e.x, e.y), size), size)
+        (entity_render_center(Vec2::new(e.x, e.y), size), size)
     } else {
-        (crate::editor::entity_render_center(new_position, Vec2::ZERO), Vec2::ZERO)
+        (entity_render_center(new_position, Vec2::ZERO), Vec2::ZERO)
     };
 
     for (rendered, mut transform) in &mut rendered_entities {
@@ -583,7 +581,7 @@ pub fn move_selected_entity_with_keyboard(
         entity.y += move_delta.y;
         (entity.x, entity.y)
     };
-    crate::editor::apply_snapping(&mut document, index, snap_state.enabled);
+    apply_snapping(&mut document, index, snap_state.enabled);
     document.dirty = true;
 
     let (render_position, _) = if let Some(e) = document.level.entities.get(index) {
@@ -592,9 +590,12 @@ pub fn move_selected_entity_with_keyboard(
             .get(&e.entity_type)
             .map(|entity_type| entity_type.size())
             .unwrap_or(Vec2::ZERO);
-        (crate::editor::entity_render_center(Vec2::new(e.x, e.y), size), size)
+        (entity_render_center(Vec2::new(e.x, e.y), size), size)
     } else {
-        (crate::editor::entity_render_center(Vec2::new(new_x, new_y), Vec2::ZERO), Vec2::ZERO)
+        (
+            entity_render_center(Vec2::new(new_x, new_y), Vec2::ZERO),
+            Vec2::ZERO,
+        )
     };
 
     for (rendered, mut transform) in &mut rendered_entities {
@@ -628,7 +629,9 @@ pub fn camera_controls(
     };
 
     if mouse_buttons.pressed(MouseButton::Right) {
-        let delta = mouse_motion.read().fold(Vec2::ZERO, |acc, event| acc + event.delta);
+        let delta = mouse_motion
+            .read()
+            .fold(Vec2::ZERO, |acc, event| acc + event.delta);
         transform.translation.x -= delta.x * current_scale;
         transform.translation.y += delta.y * current_scale;
     } else {

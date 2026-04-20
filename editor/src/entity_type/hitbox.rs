@@ -27,7 +27,12 @@ pub(crate) struct RectHitbox {
 }
 
 impl RectHitbox {
-    pub fn from_points(points: &[[f32; 2]], image_w: f32, image_h: f32, units_per_pixel: f32) -> Self {
+    pub fn from_points(
+        points: &[[f32; 2]],
+        image_w: f32,
+        image_h: f32,
+        units_per_pixel: f32,
+    ) -> Self {
         let max_w_units = image_w.max(super::HITBOX_MIN_SIZE_PX) * units_per_pixel;
         let max_h_units = image_h.max(super::HITBOX_MIN_SIZE_PX) * units_per_pixel;
 
@@ -73,7 +78,14 @@ impl RectHitbox {
         self.top = self.top.clamp(self.bottom + min_size_units, max_h);
     }
 
-    pub fn drag_edge(&mut self, edge: DragEdge, units_delta: egui::Vec2, image_w: f32, image_h: f32, units_per_pixel: f32) {
+    pub fn drag_edge(
+        &mut self,
+        edge: DragEdge,
+        units_delta: egui::Vec2,
+        image_w: f32,
+        image_h: f32,
+        units_per_pixel: f32,
+    ) {
         match edge {
             DragEdge::Left => {
                 self.left += units_delta.x;
@@ -112,7 +124,7 @@ pub(crate) struct EntityTypeEditorState {
     pub collapsed_components: HashSet<String>,
     pub json_editor_state: HashMap<String, String>,
     pub dirty_entity_types: HashSet<String>,
-    pub edited_entity_types: HashMap<String, crate::model::EntityTypeDefinition>,
+    pub edited_entity_types: HashMap<String, crate::core::EntityTypeDefinition>,
     // Optional state when editing an array property in a modal.
     pub array_editor: Option<ArrayEditorState>,
 }
@@ -137,7 +149,11 @@ impl Default for EntityTypeEditorState {
     }
 }
 
-pub(crate) fn hitbox_to_screen(rect: RectHitbox, image_rect: egui::Rect, image_size: egui::Vec2) -> egui::Rect {
+pub(crate) fn hitbox_to_screen(
+    rect: RectHitbox,
+    image_rect: egui::Rect,
+    image_size: egui::Vec2,
+) -> egui::Rect {
     let x_scale = if image_size.x > 0.0 {
         image_rect.width() / image_size.x
     } else {
@@ -187,7 +203,10 @@ pub(crate) fn hitbox_to_screen_with_ratio(
 }
 
 pub(crate) fn pick_hitbox_edge(pointer: egui::Pos2, screen_hitbox: egui::Rect) -> Option<DragEdge> {
-    if !screen_hitbox.expand(super::HITBOX_EDGE_PICK_TOLERANCE_PX).contains(pointer) {
+    if !screen_hitbox
+        .expand(super::HITBOX_EDGE_PICK_TOLERANCE_PX)
+        .contains(pointer)
+    {
         return None;
     }
 

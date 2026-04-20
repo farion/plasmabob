@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
-use egui_extras::{TableBuilder, Column};
+use egui_extras::{Column, TableBuilder};
 use serde_json::Value;
 
 use super::hitbox::EntityTypeEditorState;
@@ -11,13 +11,13 @@ use super::hitbox::EntityTypeEditorState;
 pub(crate) fn render_components_sidebar(
     ctx: &egui::Context,
     selected_name: &str,
-    document: &mut Option<ResMut<crate::editor::EditorDocument>>,
+    document: &mut Option<ResMut<crate::level::state::EditorDocument>>,
     entity_type_editor: &mut EntityTypeEditorState,
-    fallback_entity_type: &crate::model::EntityTypeDefinition,
-    mapping: &crate::editor::ComponentValueMapping,
-    mut toast: &mut crate::editor::ToastState,
+    fallback_entity_type: &crate::core::EntityTypeDefinition,
+    mapping: &crate::level::state::ComponentValueMapping,
+    mut toast: &mut crate::level::state::ToastState,
     time: &Time,
-    mut widths: ResMut<crate::editor::table_ui::ColumnWidths>,
+    mut widths: ResMut<crate::core::ColumnWidths>,
 ) {
     // Delegate to the original logic but qualify calls to parent helpers with
     // super:: so this module remains a thin extraction.
@@ -33,7 +33,7 @@ pub(crate) fn render_components_sidebar(
             ui.heading("Components");
             ui.add_space(6.0);
 
-            let available_components = match crate::io::scan_game_components() {
+            let available_components = match crate::core::io::scan_game_components() {
                 Ok(v) => v,
                 Err(e) => {
                     toast.message = Some(format!("Could not scan components: {}", e));
@@ -146,7 +146,13 @@ pub(crate) fn render_components_sidebar(
                                 egui::pos2(arrow_rect.max.x + 6.0, left_rect.min.y),
                                 egui::pos2(left_rect.max.x, left_rect.max.y),
                             );
-                            ui.put(label_rect, egui::Label::new(egui::RichText::new(component_name).strong()));
+                            // Use an allocated UI region with a left-aligned layout so the
+                            // component name is left-aligned within the header cell.
+                            ui.allocate_ui_at_rect(label_rect, |ui| {
+                                ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                                    ui.add(egui::Label::new(egui::RichText::new(component_name).strong()));
+                                });
+                            });
 
                             let right_rect = egui::Rect::from_min_max(
                                 egui::pos2(header_rect.max.x - clear_col_w, header_rect.min.y),
@@ -194,7 +200,12 @@ pub(crate) fn render_components_sidebar(
                                                     egui::pos2(cell_rect.min.x + name_indent, cell_rect.min.y),
                                                     cell_rect.max,
                                                 );
-                                                ui.put(label_rect, egui::Label::new(&row.name));
+                                                 // Left-align attribute name within the name column.
+                                                 ui.allocate_ui_at_rect(label_rect, |ui| {
+                                                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                                                         ui.label(&row.name);
+                                                     });
+                                                 });
                                             });
 
                                              r.col(|ui| {

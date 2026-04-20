@@ -1,41 +1,44 @@
+use crate::core::LevelFile;
 use bevy::asset::AssetServer;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use crate::model::LevelFile;
 use std::collections::HashMap;
 
-use crate::editor::{
-    ActiveCharacter,
-    SceneEntity,
-    PendingBackgroundTiles,
-    BackgroundTilesReady,
-    RenderedLevelEntity,
-    RenderedZOverlay,
-    EditorCamera,
-    z_overlay_color_for_value,
-    entity_render_center,
+use crate::level::helper::{
+    entity_render_center, resolve_character_asset_path, z_overlay_color_for_value,
+};
+use crate::level::run::{
+    ActiveCharacter, BackgroundTilesReady, EditorCamera, PendingBackgroundTiles,
+    RenderedLevelEntity, RenderedZOverlay, SceneEntity,
 };
 
-use crate::level::state::{EntityTypeViewState};
-use crate::model::EntityTypeDefinition;
+use crate::core::EntityTypeDefinition;
+use crate::level::state::EntityTypeViewState;
 
-pub fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, level: &LevelFile, level_size: Vec2, active: ActiveCharacter) {
+pub fn spawn_background(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    level: &LevelFile,
+    level_size: Vec2,
+    active: ActiveCharacter,
+) {
     // moved from editor.rs
     let background_candidate = level
         .background
         .as_deref()
         .filter(|path| !path.is_empty())
         .or_else(|| {
-            level.terrain
+            level
+                .terrain
                 .as_ref()
                 .and_then(|terrain| terrain.background.as_deref())
                 .filter(|path| !path.is_empty())
         });
 
     let background_path = if let Some(bp) = background_candidate {
-        match crate::editor::resolve_character_asset_path(asset_server, bp, active) {
+        match resolve_character_asset_path(asset_server, bp, active) {
             Ok(p) => p,
-            Err(_) => crate::model::normalize_asset_reference(bp),
+            Err(_) => crate::core::normalize_asset_reference(bp),
         }
     } else {
         String::new()
@@ -43,13 +46,7 @@ pub fn spawn_background(commands: &mut Commands, asset_server: &AssetServer, lev
 
     let image = asset_server.load(background_path);
 
-    commands.spawn((
-        SceneEntity,
-        PendingBackgroundTiles {
-            image,
-            level_size,
-        },
-    ));
+    commands.spawn((SceneEntity, PendingBackgroundTiles { image, level_size }));
 }
 
 pub fn spawn_background_tiles_when_ready(
@@ -78,11 +75,7 @@ pub fn spawn_background_tiles_when_ready(
             let x = index as f32 * tile_width + tile_width * 0.5;
             let y = tile_height * 0.5;
 
-            commands.spawn((
-                SceneEntity,
-                sprite,
-                Transform::from_xyz(x, y, -10.0),
-            ));
+            commands.spawn((SceneEntity, sprite, Transform::from_xyz(x, y, -10.0)));
         }
 
         commands.entity(entity).insert(BackgroundTilesReady);
@@ -109,8 +102,8 @@ pub fn spawn_level_entities(
         let transform = Transform::from_xyz(render_position.x, render_position.y, z);
 
         if let Some(texture_path) = entity_type.default_texture_asset_path() {
-            let normalized = crate::model::normalize_asset_reference(&texture_path);
-            let resolved = match crate::editor::resolve_character_asset_path(asset_server, &normalized, active) {
+            let normalized = crate::core::normalize_asset_reference(&texture_path);
+            let resolved = match resolve_character_asset_path(asset_server, &normalized, active) {
                 Ok(p) => p,
                 Err(_) => normalized.clone(),
             };
@@ -166,7 +159,13 @@ pub fn rebuild_scene_if_needed(
 
     let document_level_size = level_size(&document.level, &document.entity_types);
     let active = *active_character;
-    spawn_background(&mut commands, &asset_server, &document.level, document_level_size, active);
+    spawn_background(
+        &mut commands,
+        &asset_server,
+        &document.level,
+        document_level_size,
+        active,
+    );
     spawn_level_entities(
         &mut commands,
         &asset_server,
@@ -176,7 +175,12 @@ pub fn rebuild_scene_if_needed(
         active,
     );
     if camera_fit_requested.0 {
-        fit_camera_to_level(&document.level, &document.entity_types, &window_query, &mut camera_query);
+        fit_camera_to_level(
+            &document.level,
+            &document.entity_types,
+            &window_query,
+            &mut camera_query,
+        );
         camera_fit_requested.0 = false;
     }
 
@@ -189,8 +193,12 @@ pub fn fit_camera_to_level(
     window_query: &Query<&Window, With<PrimaryWindow>>,
     camera_query: &mut Query<(&mut Transform, &mut Projection), With<EditorCamera>>,
 ) {
-    let Ok(window) = window_query.single() else { return; };
-    let Ok((mut transform, mut projection)) = camera_query.single_mut() else { return; };
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+    let Ok((mut transform, mut projection)) = camera_query.single_mut() else {
+        return;
+    };
 
     let level_size = level_size(level, entity_types).max(Vec2::new(100.0, 100.0));
     transform.translation.x = level_size.x * 0.5;
@@ -210,7 +218,9 @@ pub fn level_size(level: &LevelFile, entity_types: &HashMap<String, EntityTypeDe
 
     let mut max_corner = Vec2::ZERO;
     for entity in &level.entities {
-        let Some(entity_type) = entity_types.get(&entity.entity_type) else { continue; };
+        let Some(entity_type) = entity_types.get(&entity.entity_type) else {
+            continue;
+        };
         let size = entity_type.size();
         max_corner.x = max_corner.x.max(entity.x + size.x);
         max_corner.y = max_corner.y.max(entity.y + size.y);

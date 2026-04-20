@@ -1,11 +1,10 @@
-mod editor;
-mod io;
-mod model;
+pub mod core;
 mod dashboard;
+mod editor;
 mod entity_type;
 pub mod level;
-pub mod core;
 
+use crate::core::io;
 use serde_json::Value;
 
 fn main() {
@@ -15,7 +14,10 @@ fn main() {
             println!("Update Entity Types: starting...");
             match io::sync_entity_types_with_sprites() {
                 Ok(report) => {
-                    println!("Update Entity Types: finished. created={}, updated={}, deleted={}", report.created, report.updated, report.deleted);
+                    println!(
+                        "Update Entity Types: finished. created={}, updated={}, deleted={}",
+                        report.created, report.updated, report.deleted
+                    );
                     return;
                 }
                 Err(e) => {
@@ -29,13 +31,16 @@ fn main() {
                 let sprites_dir = io::assets_dir().join("sprites");
                 let entity_dir = sprites_dir.join(&entity_name);
                 if !entity_dir.is_dir() {
-                    eprintln!("entity sprites directory not found: {}", entity_dir.display());
+                    eprintln!(
+                        "entity sprites directory not found: {}",
+                        entity_dir.display()
+                    );
                     std::process::exit(2);
                 }
                 match io::collect_sprite_frames(&entity_name, &entity_dir) {
-                                Ok(_grouped) => {
-                                let root = Value::Object(serde_json::Map::new());
-                                match io::build_entity_type_json(&entity_name, &entity_dir, root) {
+                    Ok(_grouped) => {
+                        let root = Value::Object(serde_json::Map::new());
+                        match io::build_entity_type_json(&entity_name, &entity_dir, root) {
                             Ok(val) => {
                                 println!("{}", serde_json::to_string_pretty(&val).unwrap());
                                 return;
@@ -57,4 +62,3 @@ fn main() {
 
     dashboard::run();
 }
-

@@ -55,7 +55,11 @@ pub(crate) fn parse_array_type_signature(type_str: &str) -> ParsedArrayType {
                     // element type is between [ and ;
                     let elem = &s[start + 1..semi];
                     let element_is_array = elem.starts_with('[') || elem.starts_with("Vec<");
-                    let element_is_number = elem.contains("f32") || elem.contains("f64") || elem.contains("number") || elem.contains("i32") || elem.contains("i64");
+                    let element_is_number = elem.contains("f32")
+                        || elem.contains("f64")
+                        || elem.contains("number")
+                        || elem.contains("i32")
+                        || elem.contains("i64");
                     // if elem itself is [T;M], detect inner fixed len
                     let mut inner_fixed = None;
                     if elem.starts_with('[') {
@@ -89,14 +93,32 @@ pub(crate) fn parse_array_type_signature(type_str: &str) -> ParsedArrayType {
                     if let Some(semi) = inner.find(';') {
                         if let Some(end) = inner.find(']') {
                             if let Ok(n) = inner[semi + 1..end].parse::<usize>() {
-                                let element_is_number = inner.contains("f32") || inner.contains("f64") || inner.contains("number") || inner.contains("i32") || inner.contains("i64");
-                                return ParsedArrayType { element_is_array: true, element_is_number, inner_fixed_len: Some(n), outer_fixed_len: None };
+                                let element_is_number = inner.contains("f32")
+                                    || inner.contains("f64")
+                                    || inner.contains("number")
+                                    || inner.contains("i32")
+                                    || inner.contains("i64");
+                                return ParsedArrayType {
+                                    element_is_array: true,
+                                    element_is_number,
+                                    inner_fixed_len: Some(n),
+                                    outer_fixed_len: None,
+                                };
                             }
                         }
                     }
                 } else {
-                    let element_is_number = inner.contains("f32") || inner.contains("f64") || inner.contains("number") || inner.contains("i32") || inner.contains("i64");
-                    return ParsedArrayType { element_is_array: false, element_is_number, inner_fixed_len: None, outer_fixed_len: None };
+                    let element_is_number = inner.contains("f32")
+                        || inner.contains("f64")
+                        || inner.contains("number")
+                        || inner.contains("i32")
+                        || inner.contains("i64");
+                    return ParsedArrayType {
+                        element_is_array: false,
+                        element_is_number,
+                        inner_fixed_len: None,
+                        outer_fixed_len: None,
+                    };
                 }
             }
         }
@@ -110,7 +132,12 @@ pub(crate) fn parse_array_type_signature(type_str: &str) -> ParsedArrayType {
                 if let Some(semi) = inner.find(';') {
                     if let Ok(n) = inner[semi + 1..].parse::<usize>() {
                         let element_is_number = inner.contains("number") || inner.contains("f32");
-                        return ParsedArrayType { element_is_array: false, element_is_number, inner_fixed_len: None, outer_fixed_len: Some(n) };
+                        return ParsedArrayType {
+                            element_is_array: false,
+                            element_is_number,
+                            inner_fixed_len: None,
+                            outer_fixed_len: Some(n),
+                        };
                     }
                 }
             }
@@ -118,8 +145,17 @@ pub(crate) fn parse_array_type_signature(type_str: &str) -> ParsedArrayType {
     }
 
     // Fallback: assume not array-of-array and not fixed length; detect numbers if present
-    let element_is_number = s.contains("f32") || s.contains("f64") || s.contains("number") || s.contains("i32") || s.contains("i64");
-    ParsedArrayType { element_is_array: false, element_is_number, inner_fixed_len: None, outer_fixed_len: None }
+    let element_is_number = s.contains("f32")
+        || s.contains("f64")
+        || s.contains("number")
+        || s.contains("i32")
+        || s.contains("i64");
+    ParsedArrayType {
+        element_is_array: false,
+        element_is_number,
+        inner_fixed_len: None,
+        outer_fixed_len: None,
+    }
 }
 
 pub(crate) fn inner_array_value_to_csv_string(v: &Value) -> String {
@@ -146,7 +182,11 @@ pub(crate) fn format_array_short(arr: &Vec<Value>) -> String {
         .iter()
         .map(|v| match v {
             Value::Number(n) => {
-                if let Some(f) = n.as_f64() { format!("{}", f) } else { n.to_string() }
+                if let Some(f) = n.as_f64() {
+                    format!("{}", f)
+                } else {
+                    n.to_string()
+                }
             }
             Value::String(s) => format!("\"{}\"", s),
             other => serde_json::to_string(other).unwrap_or_default(),
@@ -155,7 +195,10 @@ pub(crate) fn format_array_short(arr: &Vec<Value>) -> String {
     format!("[{}]", parts.join(","))
 }
 
-pub(crate) fn csv_string_to_value_array(s: &str, inner_is_number: bool) -> Result<Vec<Value>, String> {
+pub(crate) fn csv_string_to_value_array(
+    s: &str,
+    inner_is_number: bool,
+) -> Result<Vec<Value>, String> {
     if s.trim().is_empty() {
         return Ok(vec![]);
     }
@@ -165,7 +208,11 @@ pub(crate) fn csv_string_to_value_array(s: &str, inner_is_number: bool) -> Resul
         if inner_is_number {
             match t.parse::<f64>() {
                 Ok(f) => {
-                    if let Some(num) = serde_json::Number::from_f64(f) { out.push(Value::Number(num)); } else { return Err(format!("invalid number: '{}'", t)); }
+                    if let Some(num) = serde_json::Number::from_f64(f) {
+                        out.push(Value::Number(num));
+                    } else {
+                        return Err(format!("invalid number: '{}'", t));
+                    }
                 }
                 Err(_) => return Err(format!("invalid number: '{}'", t)),
             }
@@ -183,7 +230,7 @@ pub(crate) fn csv_string_to_value_array(s: &str, inner_is_number: bool) -> Resul
 pub(crate) fn render_array_modal(
     ctx: &egui::Context,
     editor: &mut ArrayEditorState,
-    toast: &mut crate::editor::ToastState,
+    toast: &mut crate::level::state::ToastState,
     time: &bevy::prelude::Time,
 ) -> (Option<Vec<Value>>, Option<(String, String)>, bool) {
     let mut commit_values: Option<Vec<Value>> = None;
@@ -191,8 +238,15 @@ pub(crate) fn render_array_modal(
     let mut commit_close = false;
 
     // Draw backdrop
-    let layer_id = egui::LayerId::new(egui::Order::Background, egui::Id::new("array_editor_modal_layer"));
-    ctx.layer_painter(layer_id).rect_filled(ctx.available_rect(), 0.0, egui::Color32::from_black_alpha(160));
+    let layer_id = egui::LayerId::new(
+        egui::Order::Background,
+        egui::Id::new("array_editor_modal_layer"),
+    );
+    ctx.layer_painter(layer_id).rect_filled(
+        ctx.available_rect(),
+        0.0,
+        egui::Color32::from_black_alpha(160),
+    );
 
     let center = ctx.available_rect().center();
     let pos = egui::pos2(
@@ -200,13 +254,18 @@ pub(crate) fn render_array_modal(
         center.y + editor.modal_pos.y - editor.modal_size.y * 0.5,
     );
 
-    let mut wnd = egui::Window::new(format!("Edit {}", editor.display_type)).collapsible(false).default_pos([pos.x, pos.y]);
+    let mut wnd = egui::Window::new(format!("Edit {}", editor.display_type))
+        .collapsible(false)
+        .default_pos([pos.x, pos.y]);
     if !editor.modal_initialized {
         wnd = wnd.fixed_size([editor.modal_size.x, editor.modal_size.y]);
     } else {
         wnd = wnd.resizable(true);
     }
-    let wnd = wnd.id(egui::Id::new(format!("array_editor_modal::{}::{}", editor.component_name, editor.attr_name)));
+    let wnd = wnd.id(egui::Id::new(format!(
+        "array_editor_modal::{}::{}",
+        editor.component_name, editor.attr_name
+    )));
 
     let res = wnd.show(ctx, |ui| {
         ui.vertical(|ui| {
@@ -216,16 +275,23 @@ pub(crate) fn render_array_modal(
                     None => true,
                 };
 
-                if ui.add_enabled(can_add, egui::Button::new(egui_phosphor_icons::icons::PLUS)).clicked() {
+                if ui
+                    .add_enabled(can_add, egui::Button::new(egui_phosphor_icons::icons::PLUS))
+                    .clicked()
+                {
                     if !can_add {
-                        toast.message = Some("Cannot add element: array is at fixed maximum length".to_string());
+                        toast.message = Some(
+                            "Cannot add element: array is at fixed maximum length".to_string(),
+                        );
                         toast.expires_at_seconds = time.elapsed_secs_f64() + 3.0;
                     } else if editor.element_is_array {
                         if let Some(n) = editor.inner_fixed_len {
                             let mut v = Vec::new();
                             for _ in 0..n {
                                 if editor.element_is_number {
-                                    v.push(Value::Number(serde_json::Number::from_f64(0.0).unwrap()));
+                                    v.push(Value::Number(
+                                        serde_json::Number::from_f64(0.0).unwrap(),
+                                    ));
                                 } else {
                                     v.push(Value::String(String::new()));
                                 }
@@ -238,7 +304,9 @@ pub(crate) fn render_array_modal(
                         }
                     } else {
                         if editor.element_is_number {
-                            editor.values.push(Value::Number(serde_json::Number::from_f64(0.0).unwrap()));
+                            editor
+                                .values
+                                .push(Value::Number(serde_json::Number::from_f64(0.0).unwrap()));
                         } else {
                             editor.values.push(Value::String(String::new()));
                         }
@@ -266,7 +334,9 @@ pub(crate) fn render_array_modal(
                     while i < editor.values.len() {
                         let v = &editor.values[i];
                         if editor.element_is_array {
-                            editor.inner_edit_strings.push(inner_array_value_to_csv_string(v));
+                            editor
+                                .inner_edit_strings
+                                .push(inner_array_value_to_csv_string(v));
                         } else {
                             editor.inner_edit_strings.push(match v {
                                 Value::String(s) => s.clone(),
@@ -294,34 +364,61 @@ pub(crate) fn render_array_modal(
                             if ui.text_edit_singleline(s).changed() {
                                 // validate
                                 match csv_string_to_value_array(s, editor.element_is_number) {
-                                    Ok(parsed) => { pending_updates[index] = Some(Value::Array(parsed)); }
-                                    Err(e) => { toast.message = Some(format!("Invalid inner array: {}", e)); toast.expires_at_seconds = time.elapsed_secs_f64() + 3.0; }
+                                    Ok(parsed) => {
+                                        pending_updates[index] = Some(Value::Array(parsed));
+                                    }
+                                    Err(e) => {
+                                        toast.message = Some(format!("Invalid inner array: {}", e));
+                                        toast.expires_at_seconds = time.elapsed_secs_f64() + 3.0;
+                                    }
                                 }
                             }
                         } else if editor.element_is_number {
                             let mut f = snapshot.as_f64().unwrap_or(0.0);
                             if ui.add(egui::DragValue::new(&mut f).speed(1.0)).changed() {
-                                if let Some(n) = serde_json::Number::from_f64(f) { pending_updates[index] = Some(Value::Number(n)); }
+                                if let Some(n) = serde_json::Number::from_f64(f) {
+                                    pending_updates[index] = Some(Value::Number(n));
+                                }
                             }
                         } else {
-                            let mut s = snapshot.as_str().map(|s| s.to_string()).unwrap_or_default();
-                            if ui.text_edit_singleline(&mut s).changed() { pending_updates[index] = Some(Value::String(s)); }
+                            let mut s =
+                                snapshot.as_str().map(|s| s.to_string()).unwrap_or_default();
+                            if ui.text_edit_singleline(&mut s).changed() {
+                                pending_updates[index] = Some(Value::String(s));
+                            }
                         }
 
-                        if ui.small_button("↑").clicked() && index > 0 { move_up = Some(index); }
-                        if ui.small_button("↓").clicked() && index + 1 < len { move_down = Some(index); }
-                        if ui.small_button("-").clicked() { remove_index = Some(index); }
+                        if ui.small_button("↑").clicked() && index > 0 {
+                            move_up = Some(index);
+                        }
+                        if ui.small_button("↓").clicked() && index + 1 < len {
+                            move_down = Some(index);
+                        }
+                        if ui.small_button("-").clicked() {
+                            remove_index = Some(index);
+                        }
                     });
                 }
 
                 // Apply pending updates
                 for (i, upd) in pending_updates.into_iter().enumerate() {
-                    if let Some(v) = upd { editor.values[i] = v; }
+                    if let Some(v) = upd {
+                        editor.values[i] = v;
+                    }
                 }
 
-                if let Some(idx) = remove_index { editor.values.remove(idx); editor.inner_edit_strings.remove(idx); }
-                if let Some(idx) = move_up { editor.values.swap(idx, idx - 1); editor.inner_edit_strings.swap(idx, idx - 1); }
-                if let Some(idx) = move_down { editor.values.swap(idx, idx + 1); editor.inner_edit_strings.swap(idx, idx + 1); }
+                if let Some(idx) = remove_index {
+                    editor.values.remove(idx);
+                    editor.inner_edit_strings.remove(idx);
+                }
+                if let Some(idx) = move_up {
+                    editor.values.swap(idx, idx - 1);
+                    editor.inner_edit_strings.swap(idx, idx - 1);
+                }
+                if let Some(idx) = move_down {
+                    editor.values.swap(idx, idx + 1);
+                    editor.inner_edit_strings.swap(idx, idx + 1);
+                }
             });
 
             ui.separator();
@@ -337,7 +434,9 @@ pub(crate) fn render_array_modal(
                     editor.inner_edit_strings.clear();
                     for v in &editor.values {
                         if editor.element_is_array {
-                            editor.inner_edit_strings.push(inner_array_value_to_csv_string(v));
+                            editor
+                                .inner_edit_strings
+                                .push(inner_array_value_to_csv_string(v));
                         } else {
                             editor.inner_edit_strings.push(match v {
                                 Value::String(s) => s.clone(),

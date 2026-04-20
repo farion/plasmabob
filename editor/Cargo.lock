@@ -4769,6 +4769,7 @@ dependencies = [
  "image",
  "serde",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]

@@ -1,6 +1,10 @@
+use super::array_editor::{
+    format_array_short, inner_array_value_to_csv_string, parse_array_type_signature,
+    ArrayEditorState,
+};
+use crate::entity_type::hitbox::EntityTypeEditorState;
 use bevy_egui::egui;
 use serde_json::Value;
-use super::array_editor::{format_array_short, parse_array_type_signature, inner_array_value_to_csv_string, ArrayEditorState};
 
 // Renders the compact sidebar view for an attribute whose type starts with "array".
 // Shows a short representation and a pencil button that initializes the array
@@ -14,9 +18,9 @@ pub(crate) fn render_array_property(
     middle_col_w: f32,
     component_name: &str,
     selected_name: &str,
-    document: Option<&mut crate::editor::EditorDocument>,
-    entity_type_editor: &mut crate::entity_type::EntityTypeEditorState,
-    fallback_entity_type: &crate::model::EntityTypeDefinition,
+    document: Option<&mut crate::level::state::EditorDocument>,
+    entity_type_editor: &mut EntityTypeEditorState,
+    fallback_entity_type: &crate::core::EntityTypeDefinition,
 ) {
     let mut values = explicit_value
         .and_then(|v| v.as_array().cloned())
@@ -28,7 +32,10 @@ pub(crate) fn render_array_property(
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(short));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.add(egui::Button::new(egui_phosphor_icons::icons::PENCIL_SIMPLE)).clicked() {
+            if ui
+                .add(egui::Button::new(egui_phosphor_icons::icons::PENCIL_SIMPLE))
+                .clicked()
+            {
                 // initialize array editor state
                 let type_desc = format!("{}.{} {}", component_name, row_name, attr_type);
                 let parsed = parse_array_type_signature(attr_type);

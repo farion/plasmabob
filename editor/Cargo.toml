@@ -12,6 +12,7 @@ plasmabob = { package = "PlasmaBob", path = ".." }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 image = { version = "0.25", default-features = false, features = ["png"] }
+tracing = "0.1"
 
 [profile.dev]
 opt-level = 1

@@ -1,13 +1,13 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::io::{LevelEntry, WorldEntry};
-use crate::model::{EntityDefinition, EntityTypeDefinition, LevelFile};
+use crate::core::io::{LevelEntry, WorldEntry};
+use crate::core::{EntityDefinition, EntityTypeDefinition, LevelFile};
 
 #[derive(Resource, Default)]
 pub struct LevelCatalog {
@@ -55,7 +55,7 @@ pub struct ToastState {
 #[derive(Resource)]
 pub struct EntityTypesSyncState {
     pub(crate) running: Arc<AtomicBool>,
-    pub(crate) result: Arc<Mutex<Option<Result<crate::io::EntityTypeSyncReport, String>>>>,
+    pub(crate) result: Arc<Mutex<Option<Result<crate::core::io::EntityTypeSyncReport, String>>>>,
 }
 
 impl Default for EntityTypesSyncState {
