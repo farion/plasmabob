@@ -5,6 +5,9 @@ use super::array_editor::{
 use crate::entity_type::hitbox::EntityTypeEditorState;
 use bevy_egui::egui;
 use serde_json::Value;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_ARRAY_EDITOR_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
 // Renders the compact sidebar view for an attribute whose type starts with "array".
 // Shows a short representation and a pencil button that initializes the array
@@ -66,6 +69,7 @@ pub(crate) fn render_array_property(
                     modal_pos: egui::pos2(0.0, 0.0),
                     modal_size: egui::vec2(500.0, 300.0),
                     modal_initialized: false,
+                    window_session_id: NEXT_ARRAY_EDITOR_SESSION_ID.fetch_add(1, Ordering::Relaxed),
                 });
             }
         });

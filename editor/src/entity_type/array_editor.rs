@@ -30,6 +30,9 @@ pub(crate) struct ArrayEditorState {
     // egui will remember subsequent manual resizes instead of us forcing
     // a size each frame.
     pub modal_initialized: bool,
+    // Unique per-open window id suffix so each modal session starts from
+    // configured defaults instead of potentially stale egui window memory.
+    pub window_session_id: u64,
 }
 
 // Helper parsed type info
@@ -249,6 +252,12 @@ pub(crate) fn render_array_modal(
     );
 
     let center = ctx.available_rect().center();
+
+    let min_sz = 300.0_f32;
+    let max_sz = 800.0_f32;
+    editor.modal_size.x = editor.modal_size.x.clamp(min_sz, max_sz);
+    editor.modal_size.y = editor.modal_size.y.clamp(min_sz, max_sz);
+
     let pos = egui::pos2(
         center.x + editor.modal_pos.x - editor.modal_size.x * 0.5,
         center.y + editor.modal_pos.y - editor.modal_size.y * 0.5,
@@ -256,15 +265,14 @@ pub(crate) fn render_array_modal(
 
     let mut wnd = egui::Window::new(format!("Edit {}", editor.display_type))
         .collapsible(false)
-        .default_pos([pos.x, pos.y]);
-    if !editor.modal_initialized {
-        wnd = wnd.fixed_size([editor.modal_size.x, editor.modal_size.y]);
-    } else {
-        wnd = wnd.resizable(true);
-    }
+        .default_pos([pos.x, pos.y])
+        .default_size([editor.modal_size.x, editor.modal_size.y])
+        .min_size([min_sz, min_sz])
+        .max_size([max_sz, max_sz])
+        .resizable(true);
     let wnd = wnd.id(egui::Id::new(format!(
-        "array_editor_modal::{}::{}",
-        editor.component_name, editor.attr_name
+        "array_editor_modal::{}::{}::{}",
+        editor.component_name, editor.attr_name, editor.window_session_id
     )));
 
     let res = wnd.show(ctx, |ui| {
@@ -322,8 +330,14 @@ pub(crate) fn render_array_modal(
 
             ui.separator();
 
-            // List elements
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            // Keep the list area explicitly bounded by the current modal height
+            // so content cannot force the window to expand to parent height.
+            let chrome_height = 120.0_f32;
+            let list_max_height = (editor.modal_size.y - chrome_height).clamp(80.0, max_sz);
+            egui::ScrollArea::vertical()
+                .max_height(list_max_height)
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
                 let mut remove_index: Option<usize> = None;
                 let mut move_up: Option<usize> = None;
                 let mut move_down: Option<usize> = None;
@@ -388,13 +402,22 @@ pub(crate) fn render_array_modal(
                             }
                         }
 
-                        if ui.small_button("↑").clicked() && index > 0 {
+                        // Use phosphor icons for element controls. Disable up/down at
+                        // list boundaries so users cannot move beyond the ends.
+                        let up_enabled = index > 0;
+                        let up_resp = ui.add_enabled(up_enabled, egui::Button::new(egui_phosphor_icons::icons::CARET_UP).min_size(egui::vec2(20.0, 20.0)));
+                        if up_resp.clicked() && up_enabled {
                             move_up = Some(index);
                         }
-                        if ui.small_button("↓").clicked() && index + 1 < len {
+
+                        let down_enabled = index + 1 < len;
+                        let down_resp = ui.add_enabled(down_enabled, egui::Button::new(egui_phosphor_icons::icons::CARET_DOWN).min_size(egui::vec2(20.0, 20.0)));
+                        if down_resp.clicked() && down_enabled {
                             move_down = Some(index);
                         }
-                        if ui.small_button("-").clicked() {
+
+                        let trash_resp = ui.add(egui::Button::new(egui_phosphor_icons::icons::TRASH).min_size(egui::vec2(20.0, 20.0)));
+                        if trash_resp.clicked() {
                             remove_index = Some(index);
                         }
                     });
@@ -424,7 +447,13 @@ pub(crate) fn render_array_modal(
             ui.separator();
 
             ui.horizontal(|ui| {
-                if ui.button("Apply").clicked() {
+                // If the array has a fixed outer size, only allow commit when
+                // that size is reached.
+                let can_commit = match editor.outer_fixed_len {
+                    Some(required) => editor.values.len() == required,
+                    None => true,
+                };
+                if ui.add_enabled(can_commit, egui::Button::new("Apply")).clicked() {
                     commit_values = Some(editor.values.clone());
                     commit_target = Some((editor.component_name.clone(), editor.attr_name.clone()));
                     commit_close = true;
@@ -450,10 +479,16 @@ pub(crate) fn render_array_modal(
         });
     });
 
-    // Persist window size and drag offset when window response is available
-    if let Some(_window_info) = res.and_then(|w| w.inner) {
-        // If res.inner exists we can query geometry; use saved size/pos if changed
-        // Note: egui currently does not provide direct API to read final window rect here
+    // Persist user-resized window size and drag offset for this open modal
+    // session (clamped to configured bounds).
+    if let Some(window_info) = res {
+        let rect = window_info.response.rect;
+        editor.modal_size = egui::vec2(
+            rect.width().clamp(min_sz, max_sz),
+            rect.height().clamp(min_sz, max_sz),
+        );
+        let rect_center = rect.center();
+        editor.modal_pos = egui::pos2(rect_center.x - center.x, rect_center.y - center.y);
         editor.modal_initialized = true;
     }
 

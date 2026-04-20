@@ -142,14 +142,22 @@ pub(crate) fn render_components_sidebar(
                                  if is_collapsed { entity_type_editor.collapsed_components.remove(component_name); } else { entity_type_editor.collapsed_components.insert(component_name.clone()); }
                             }
 
+                            // Compute an x-offset for the header label so it lines up
+                            // with the attribute name cells below. The arrow/button is
+                            // placed near the left edge; start the label after the
+                            // arrow plus a small gap so both header and rows share
+                            // the same horizontal origin.
+                            let header_label_offset = arrow_rect.max.x - header_rect.min.x + 6.0;
                             let label_rect = egui::Rect::from_min_max(
-                                egui::pos2(arrow_rect.max.x + 6.0, left_rect.min.y),
+                                egui::pos2(header_rect.min.x + header_label_offset, left_rect.min.y),
                                 egui::pos2(left_rect.max.x, left_rect.max.y),
                             );
                             // Use an allocated UI region with a left-aligned layout so the
                             // component name is left-aligned within the header cell.
+                            // Center the header text vertically so it aligns with
+                            // the arrow/button on the right of the header.
                             ui.allocate_ui_at_rect(label_rect, |ui| {
-                                ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                                     ui.add(egui::Label::new(egui::RichText::new(component_name).strong()));
                                 });
                             });
@@ -196,13 +204,17 @@ pub(crate) fn render_components_sidebar(
                                             r.col(|ui| {
                                                 let cell_size = egui::vec2(name_col_w, 20.0);
                                                 let (cell_rect, _cell_resp) = ui.allocate_exact_size(cell_size, egui::Sense::hover());
-                                                let label_rect = egui::Rect::from_min_max(
-                                                    egui::pos2(cell_rect.min.x + name_indent, cell_rect.min.y),
-                                                    cell_rect.max,
-                                                );
-                                                 // Left-align attribute name within the name column.
+                                                 // Align attribute name with the header label by
+                                                 // using the same offset from the left edge.
+                                                 let label_rect = egui::Rect::from_min_max(
+                                                     egui::pos2(cell_rect.min.x + header_label_offset, cell_rect.min.y),
+                                                     cell_rect.max,
+                                                 );
+                                                 // Vertically center attribute names within the
+                                                 // row to match the vertical position of the
+                                                 // reset button in the clear column.
                                                  ui.allocate_ui_at_rect(label_rect, |ui| {
-                                                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                                                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                                                          ui.label(&row.name);
                                                      });
                                                  });

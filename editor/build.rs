@@ -2,45 +2,64 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-fn map_inner_type_to_editor(inner: &str, field_name: &str) -> &'static str {
+/// Extract the fixed element count from a `[T; N]` type string, if present.
+fn extract_fixed_array_len(s: &str) -> Option<usize> {
+    // Match pattern `[T; N]` or `[T;N]`
+    let s = s.trim();
+    if s.starts_with('[') {
+        if let Some(semi) = s.find(';') {
+            if let Some(close) = s.rfind(']') {
+                let n_str = s[semi + 1..close].trim();
+                return n_str.parse::<usize>().ok();
+            }
+        }
+    }
+    None
+}
+
+fn map_inner_type_to_editor(inner: &str, field_name: &str) -> String {
     let s = inner.trim();
     // Prefer array/vec patterns before scalar float detection because e.g.
     // "[f32; 2]" contains "f32" and would otherwise be classified as
     // a scalar number.
     if s.contains("[f32") || s.contains("[f64") {
         if field_name == "waypoints" {
-            return "waypoints";
+            return "waypoints".to_string();
         }
-        return "array<number>";
+        // Preserve fixed-size information so the editor can enforce it.
+        if let Some(n) = extract_fixed_array_len(s) {
+            return format!("array<number;{}>", n);
+        }
+        return "array<number>".to_string();
     }
     if s.contains("Vec<") {
         if s.contains("String") {
-            return "array<string>";
+            return "array<string>".to_string();
         }
         if s.contains("[f32") || s.contains("[f64") {
             if field_name == "waypoints" {
-                return "waypoints";
+                return "waypoints".to_string();
             }
-            return "array<number>";
+            return "array<number>".to_string();
         }
-        return "array<number>";
+        return "array<number>".to_string();
     }
     if s.contains("String") {
-        return "string";
+        return "string".to_string();
     }
     if s.contains("bool") {
-        return "bool";
+        return "bool".to_string();
     }
     if s.contains("f32") || s.contains("f64") {
-        return "number";
+        return "number".to_string();
     }
     if s.contains("i8") || s.contains("i16") || s.contains("i32") || s.contains("i64")
         || s.contains("u8") || s.contains("u16") || s.contains("u32") || s.contains("u64")
     {
-        return "int";
+        return "int".to_string();
     }
 
-    "json"
+    "json".to_string()
 }
 
 fn main() {
@@ -158,7 +177,7 @@ fn main() {
                 }
             }
 
-            let editor_type = map_inner_type_to_editor(&inner, &field_name).to_string();
+            let editor_type = map_inner_type_to_editor(&inner, &field_name);
             attrs.push((json_name, editor_type));
         }
 

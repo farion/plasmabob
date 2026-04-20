@@ -1,14 +1,14 @@
 {
   "components": {
     "health": {
-      "max": null,
+      "max": 135,
       "current": null,
       "despawn_on_death": null,
       "despawn_delay_ms": null
     },
     "controlled_movement": {
-      "speed": null,
-      "jump_force": null,
+      "speed": 300.0,
+      "jump_force": 800.0,
       "allow_double_jump": null,
       "jumps_performed": null,
       "dash_force": null,
@@ -27,31 +27,197 @@
       "extra_accel": null
     },
     "controlled_range_attack": {
-      "damage": null,
-      "range": null,
-      "speed": null,
+      "damage": 23,
+      "range": 1000.0,
+      "speed": 2000.0,
       "cooldown": null,
-      "projectile_type": null,
+      "projectile_type": "player_projectile",
       "shoot_effect": null,
       "impact_effect": null
-    },
-    "auto_melee_attack": {
-      "damage": null,
-      "range": null,
-      "cooldown": null,
-      "enabled": null
     },
     "damageable": {
       "damaged_duration_secs": null
     },
     "team": {
-      "name": null
+      "name": "player"
     },
     "state_machine": {
-      "initial_state": "",
-      "states": {}
+      "initial_state": "idle",
+      "states": {
+        "moving": {
+          "animation": [
+            "sprites/player/player-walk-1.png",
+            "sprites/player/player-walk-2.png"
+          ],
+          "animation_frame_ms": 180,
+          "collider_box": [
+            [
+              32.0,
+              7.0
+            ],
+            [
+              102.0,
+              7.0
+            ],
+            [
+              102.0,
+              120.0
+            ],
+            [
+              32.0,
+              120.0
+            ]
+          ],
+          "lock_ms": 0,
+          "sound_start": "sounds/player-startwalk.wav",
+          "sound_loop": "sounds/player-walk.wav",
+          "sound_end": "sounds/player-walk.wav"
+        },
+        "idle": {
+          "animation": [
+            "sprites/player/player-default.png"
+          ],
+          "animation_frame_ms": 180,
+          "collider_box": [
+            [
+              31.0,
+              10.0
+            ],
+            [
+              98.0,
+              10.0
+            ],
+            [
+              98.0,
+              118.0
+            ],
+            [
+              31.0,
+              118.0
+            ]
+          ],
+          "lock_ms": 0,
+          "sound_start": null,
+          "sound_loop": null,
+          "sound_end": null
+        },
+        "damaged": {
+          "animation": [
+            "sprites/player/player-hit.png"
+          ],
+          "animation_frame_ms": 180,
+          "collider_box": [
+            [
+              28.0,
+              11.0
+            ],
+            [
+              90.0,
+              11.0
+            ],
+            [
+              90.0,
+              121.0
+            ],
+            [
+              28.0,
+              121.0
+            ]
+          ],
+          "lock_ms": 300,
+          "sound_start": null,
+          "sound_loop": null,
+          "sound_end": null
+        },
+        "dead": {
+          "animation": [
+            "sprites/player/player-die.png"
+          ],
+          "animation_frame_ms": 180,
+          "collider_box": [
+            [
+              5.0,
+              19.0
+            ],
+            [
+              98.0,
+              19.0
+            ],
+            [
+              98.0,
+              76.0
+            ],
+            [
+              5.0,
+              76.0
+            ]
+          ],
+          "lock_ms": 0,
+          "sound_start": "sounds/player-die.wav",
+          "sound_loop": null,
+          "sound_end": null
+        },
+        "jumping": {
+          "animation": [
+            "sprites/player/player-jump.png"
+          ],
+          "animation_frame_ms": 180,
+          "collider_box": [
+            [
+              29.0,
+              19.0
+            ],
+            [
+              92.0,
+              19.0
+            ],
+            [
+              92.0,
+              124.0
+            ],
+            [
+              29.0,
+              124.0
+            ]
+          ],
+          "lock_ms": 0,
+          "sound_start": null,
+          "sound_loop": null,
+          "sound_end": null
+        },
+        "range_attacking": {
+          "animation": [
+            "sprites/player/player-fight.png"
+          ],
+          "animation_frame_ms": 180,
+          "collider_box": [
+            [
+              35.0,
+              10.0
+            ],
+            [
+              96.0,
+              10.0
+            ],
+            [
+              96.0,
+              121.0
+            ],
+            [
+              35.0,
+              121.0
+            ]
+          ],
+          "lock_ms": 500,
+          "sound_start": null,
+          "sound_loop": null,
+          "sound_end": null
+        }
+      }
     },
-    "collider": {}
+    "collider": {
+      "mode": "from_state"
+    }
   },
   "category_tag": "player",
   "width": 175.0,
