@@ -1,6 +1,5 @@
 pub mod core;
 mod dashboard;
-mod editor;
 mod entity_type;
 pub mod level;
 

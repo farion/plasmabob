@@ -204,15 +204,12 @@ pub fn editing_ui(
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
                         ui.label("x:");
-                        changed |= ui.add(egui::DragValue::new(&mut x).speed(1.0)).changed();
                     });
                     ui.horizontal(|ui| {
                         ui.label("y:");
-                        changed |= ui.add(egui::DragValue::new(&mut y).speed(1.0)).changed();
                     });
                     ui.horizontal(|ui| {
                         ui.label("z:");
-                        changed |= ui.add(egui::DragValue::new(&mut z).speed(1.0)).changed();
                     });
                     ui.add_space(6.0);
 
@@ -652,6 +649,7 @@ pub fn draw_keyboard_legend_overlay(
 
 pub fn draw_z_layer_legend(ui: &mut egui::Ui, z: &mut f32) -> bool {
     // Minimal inline legend implementation to avoid depending on editor.rs.
+    let mut changed = false;
     egui::Grid::new("z_layer_legend_grid")
         .num_columns(2)
         .show(ui, |ui| {
@@ -666,9 +664,9 @@ pub fn draw_z_layer_legend(ui: &mut egui::Ui, z: &mut f32) -> bool {
             ] {
                 let color = egui::Color32::from_rgb(rgb[0], rgb[1], rgb[2]);
                 ui.colored_label(color, label);
-                ui.add(egui::DragValue::new(z).speed(1.0));
+                changed |= ui.add(egui::DragValue::new(z).speed(1.0)).changed();
                 ui.end_row();
             }
         });
-    true
+    changed
 }

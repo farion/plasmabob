@@ -242,9 +242,38 @@ pub(crate) fn render_components_sidebar(
                                                          super::array_property::render_array_property(ui, &row.name, &row.attr_type, explicit_value.as_ref(), display_default.as_ref(), middle_col_w, component_name, selected_name, document.as_deref_mut(), entity_type_editor, fallback_entity_type);
                                                     }
                                                     _ => {
+                                                        // Place a compact edit button at the beginning
+                                                        // of the middle cell, then render the JSON text
+                                                        // area to the right of it. This ensures the edit
+                                                        // control is always at the left edge of the cell.
                                                         let editor_key = format!("json::{}::{}::{}", selected_name, component_name, row.name);
                                                         let initial_text = explicit_value.as_ref().or(display_default.as_ref()).map(|v| serde_json::to_string_pretty(v).unwrap_or_else(|_| "null".to_string())).unwrap_or_else(|| "null".to_string());
-                                                         super::json_property::render_json_property(ui, &editor_key, &initial_text, middle_col_w, document.as_deref_mut(), entity_type_editor, selected_name, component_name, &row.name, fallback_entity_type);
+                                                        let btn_w = 26.0_f32;
+                                                        // Allocate the exact area for the middle cell so we can
+                                                        // place the edit button at the left and the JSON editor
+                                                        // to the right deterministically.
+                                                        let cell_size = egui::vec2(middle_col_w, 20.0);
+                                                        let (cell_rect, _cell_resp) = ui.allocate_exact_size(cell_size, egui::Sense::hover());
+
+                                                        // button area on the left
+                                                        let btn_rect = egui::Rect::from_min_max(
+                                                            egui::pos2(cell_rect.min.x, cell_rect.min.y),
+                                                            egui::pos2(cell_rect.min.x + btn_w, cell_rect.max.y),
+                                                        );
+                                                        let btn_resp = ui.put(btn_rect, egui::Button::new(egui_phosphor_icons::icons::PENCIL_SIMPLE).min_size(egui::vec2(btn_w, 20.0)));
+                                                        if btn_resp.clicked() {
+                                                            entity_type_editor.json_editor_state.entry(editor_key.clone()).or_insert_with(|| initial_text.clone());
+                                                        }
+
+                                                        // remaining area for text editor
+                                                        let text_rect = egui::Rect::from_min_max(
+                                                            egui::pos2(btn_rect.max.x + 6.0, cell_rect.min.y),
+                                                            cell_rect.max,
+                                                        );
+                                                        ui.allocate_ui_at_rect(text_rect, |ui| {
+                                                            let text_w = (text_rect.width()).max(40.0);
+                                                            super::json_property::render_json_property(ui, &editor_key, &initial_text, text_w, document.as_deref_mut(), entity_type_editor, selected_name, component_name, &row.name, fallback_entity_type);
+                                                        });
                                                     }
                                                 }
 

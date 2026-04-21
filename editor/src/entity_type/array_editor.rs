@@ -322,7 +322,13 @@ pub(crate) fn render_array_modal(
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("Close").clicked() {
+                    if ui
+                        .add(
+                            egui::Button::new(egui_phosphor_icons::icons::X)
+                                .min_size(egui::vec2(20.0, 20.0)),
+                        )
+                        .clicked()
+                    {
                         commit_close = true;
                     }
                 });
@@ -338,127 +344,165 @@ pub(crate) fn render_array_modal(
                 .max_height(list_max_height)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                let mut remove_index: Option<usize> = None;
-                let mut move_up: Option<usize> = None;
-                let mut move_down: Option<usize> = None;
-                // Ensure inner_edit_strings has an entry per outer element so
-                // we can safely borrow a mutable reference to each string later.
-                if editor.inner_edit_strings.len() < editor.values.len() {
-                    let mut i = editor.inner_edit_strings.len();
-                    while i < editor.values.len() {
-                        let v = &editor.values[i];
-                        if editor.element_is_array {
-                            editor
-                                .inner_edit_strings
-                                .push(inner_array_value_to_csv_string(v));
-                        } else {
-                            editor.inner_edit_strings.push(match v {
-                                Value::String(s) => s.clone(),
-                                Value::Number(n) => n.to_string(),
-                                other => serde_json::to_string(other).unwrap_or_default(),
-                            });
+                    let mut remove_index: Option<usize> = None;
+                    let mut move_up: Option<usize> = None;
+                    let mut move_down: Option<usize> = None;
+                    // Ensure inner_edit_strings has an entry per outer element so
+                    // we can safely borrow a mutable reference to each string later.
+                    if editor.inner_edit_strings.len() < editor.values.len() {
+                        let mut i = editor.inner_edit_strings.len();
+                        while i < editor.values.len() {
+                            let v = &editor.values[i];
+                            if editor.element_is_array {
+                                editor
+                                    .inner_edit_strings
+                                    .push(inner_array_value_to_csv_string(v));
+                            } else {
+                                editor.inner_edit_strings.push(match v {
+                                    Value::String(s) => s.clone(),
+                                    Value::Number(n) => n.to_string(),
+                                    other => serde_json::to_string(other).unwrap_or_default(),
+                                });
+                            }
+                            i += 1;
                         }
-                        i += 1;
                     }
-                }
 
-                // Work on a snapshot to avoid simultaneous mutable borrows when
-                // editing inner strings and applying value changes. Collect
-                // pending updates and apply them after the UI iteration.
-                let len = editor.values.len();
-                let snapshots = editor.values.clone();
-                let mut pending_updates: Vec<Option<Value>> = vec![None; len];
+                    // Work on a snapshot to avoid simultaneous mutable borrows when
+                    // editing inner strings and applying value changes. Collect
+                    // pending updates and apply them after the UI iteration.
+                    let len = editor.values.len();
+                    let snapshots = editor.values.clone();
+                    let mut pending_updates: Vec<Option<Value>> = vec![None; len];
 
-                for index in 0..len {
-                    ui.horizontal(|ui| {
-                        let snapshot = &snapshots[index];
-                        if editor.element_is_array {
-                            // inner array edited as CSV string
-                            let s = editor.inner_edit_strings.get_mut(index).unwrap();
-                            if ui.text_edit_singleline(s).changed() {
-                                // validate
-                                match csv_string_to_value_array(s, editor.element_is_number) {
-                                    Ok(parsed) => {
-                                        pending_updates[index] = Some(Value::Array(parsed));
-                                    }
-                                    Err(e) => {
-                                        toast.message = Some(format!("Invalid inner array: {}", e));
-                                        toast.expires_at_seconds = time.elapsed_secs_f64() + 3.0;
+                    for index in 0..len {
+                        ui.horizontal(|ui| {
+                            let snapshot = &snapshots[index];
+                            if editor.element_is_array {
+                                // inner array edited as CSV string
+                                let s = editor.inner_edit_strings.get_mut(index).unwrap();
+                                // wrap the text edit in a frame with the input_bg fill
+                                let frame_resp = egui::Frame::none()
+                                    .fill(egui::Color32::from_rgb(55, 60, 66))
+                                    .show(ui, |ui| ui.text_edit_singleline(s));
+                                if frame_resp.inner.changed() {
+                                    // validate
+                                    match csv_string_to_value_array(s, editor.element_is_number) {
+                                        Ok(parsed) => {
+                                            pending_updates[index] = Some(Value::Array(parsed));
+                                        }
+                                        Err(e) => {
+                                            toast.message =
+                                                Some(format!("Invalid inner array: {}", e));
+                                            toast.expires_at_seconds =
+                                                time.elapsed_secs_f64() + 3.0;
+                                        }
                                     }
                                 }
-                            }
-                        } else if editor.element_is_number {
-                            let mut f = snapshot.as_f64().unwrap_or(0.0);
-                            if ui.add(egui::DragValue::new(&mut f).speed(1.0)).changed() {
-                                if let Some(n) = serde_json::Number::from_f64(f) {
-                                    pending_updates[index] = Some(Value::Number(n));
+                            } else if editor.element_is_number {
+                                let mut f = snapshot.as_f64().unwrap_or(0.0);
+                                let frame_resp = egui::Frame::none()
+                                    .fill(egui::Color32::from_rgb(55, 60, 66))
+                                    .show(ui, |ui| ui.add(egui::DragValue::new(&mut f).speed(1.0)));
+                                if frame_resp.inner.changed() {
+                                    if let Some(n) = serde_json::Number::from_f64(f) {
+                                        pending_updates[index] = Some(Value::Number(n));
+                                    }
+                                }
+                            } else {
+                                let mut s =
+                                    snapshot.as_str().map(|s| s.to_string()).unwrap_or_default();
+                                let frame_resp = egui::Frame::none()
+                                    .fill(egui::Color32::from_rgb(55, 60, 66))
+                                    .show(ui, |ui| ui.text_edit_singleline(&mut s));
+                                if frame_resp.inner.changed() {
+                                    pending_updates[index] = Some(Value::String(s));
                                 }
                             }
-                        } else {
-                            let mut s =
-                                snapshot.as_str().map(|s| s.to_string()).unwrap_or_default();
-                            if ui.text_edit_singleline(&mut s).changed() {
-                                pending_updates[index] = Some(Value::String(s));
+
+                            // Use phosphor icons for element controls. Disable up/down at
+                            // list boundaries so users cannot move beyond the ends.
+                            let up_enabled = index > 0;
+                            let up_resp = ui.add_enabled(
+                                up_enabled,
+                                egui::Button::new(egui_phosphor_icons::icons::CARET_UP)
+                                    .min_size(egui::vec2(20.0, 20.0)),
+                            );
+                            if up_resp.clicked() && up_enabled {
+                                move_up = Some(index);
                             }
-                        }
 
-                        // Use phosphor icons for element controls. Disable up/down at
-                        // list boundaries so users cannot move beyond the ends.
-                        let up_enabled = index > 0;
-                        let up_resp = ui.add_enabled(up_enabled, egui::Button::new(egui_phosphor_icons::icons::CARET_UP).min_size(egui::vec2(20.0, 20.0)));
-                        if up_resp.clicked() && up_enabled {
-                            move_up = Some(index);
-                        }
+                            let down_enabled = index + 1 < len;
+                            let down_resp = ui.add_enabled(
+                                down_enabled,
+                                egui::Button::new(egui_phosphor_icons::icons::CARET_DOWN)
+                                    .min_size(egui::vec2(20.0, 20.0)),
+                            );
+                            if down_resp.clicked() && down_enabled {
+                                move_down = Some(index);
+                            }
 
-                        let down_enabled = index + 1 < len;
-                        let down_resp = ui.add_enabled(down_enabled, egui::Button::new(egui_phosphor_icons::icons::CARET_DOWN).min_size(egui::vec2(20.0, 20.0)));
-                        if down_resp.clicked() && down_enabled {
-                            move_down = Some(index);
-                        }
-
-                        let trash_resp = ui.add(egui::Button::new(egui_phosphor_icons::icons::TRASH).min_size(egui::vec2(20.0, 20.0)));
-                        if trash_resp.clicked() {
-                            remove_index = Some(index);
-                        }
-                    });
-                }
-
-                // Apply pending updates
-                for (i, upd) in pending_updates.into_iter().enumerate() {
-                    if let Some(v) = upd {
-                        editor.values[i] = v;
+                            let trash_resp = ui.add(
+                                egui::Button::new(egui_phosphor_icons::icons::TRASH)
+                                    .min_size(egui::vec2(20.0, 20.0)),
+                            );
+                            if trash_resp.clicked() {
+                                remove_index = Some(index);
+                            }
+                        });
                     }
-                }
 
-                if let Some(idx) = remove_index {
-                    editor.values.remove(idx);
-                    editor.inner_edit_strings.remove(idx);
-                }
-                if let Some(idx) = move_up {
-                    editor.values.swap(idx, idx - 1);
-                    editor.inner_edit_strings.swap(idx, idx - 1);
-                }
-                if let Some(idx) = move_down {
-                    editor.values.swap(idx, idx + 1);
-                    editor.inner_edit_strings.swap(idx, idx + 1);
-                }
-            });
+                    // Apply pending updates
+                    for (i, upd) in pending_updates.into_iter().enumerate() {
+                        if let Some(v) = upd {
+                            editor.values[i] = v;
+                        }
+                    }
+
+                    if let Some(idx) = remove_index {
+                        editor.values.remove(idx);
+                        editor.inner_edit_strings.remove(idx);
+                    }
+                    if let Some(idx) = move_up {
+                        editor.values.swap(idx, idx - 1);
+                        editor.inner_edit_strings.swap(idx, idx - 1);
+                    }
+                    if let Some(idx) = move_down {
+                        editor.values.swap(idx, idx + 1);
+                        editor.inner_edit_strings.swap(idx, idx + 1);
+                    }
+                });
 
             ui.separator();
 
-            ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 // If the array has a fixed outer size, only allow commit when
                 // that size is reached.
                 let can_commit = match editor.outer_fixed_len {
                     Some(required) => editor.values.len() == required,
                     None => true,
                 };
-                if ui.add_enabled(can_commit, egui::Button::new("Apply")).clicked() {
+                // Add Apply first so it ends up on the right when using right_to_left
+                if ui
+                    .add_enabled(
+                        can_commit,
+                        egui::Button::new(egui_phosphor_icons::icons::CHECK)
+                            .min_size(egui::vec2(60.0, 24.0)),
+                    )
+                    .clicked()
+                {
                     commit_values = Some(editor.values.clone());
                     commit_target = Some((editor.component_name.clone(), editor.attr_name.clone()));
                     commit_close = true;
                 }
-                if ui.button("Revert").clicked() {
+
+                if ui
+                    .add(
+                        egui::Button::new(egui_phosphor_icons::icons::ARROW_COUNTER_CLOCKWISE)
+                            .min_size(egui::vec2(60.0, 24.0)),
+                    )
+                    .clicked()
+                {
                     editor.values = editor.original.clone();
                     editor.inner_edit_strings.clear();
                     for v in &editor.values {
