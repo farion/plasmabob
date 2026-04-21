@@ -1,20 +1,21 @@
 {
-  "name": "Runestone 1",
   "category_tag": "Doodad",
-  "height": 128,
   "components": {
-    "collider": { "mode": "from_state" },
+    "collider": {
+      "mode": "from_state"
+    },
     "state_machine": {
       "initial_state": "idle",
       "states": {
         "idle": {
           "animation": ["sprites/runestone1/runestone1-default.png"],
           "animation_frame_ms": 500,
-          "collider_box": [[0, 0], [51, 0], [51, 128], [0, 128]],
+          "collider_box": [[0.0, 0.0], [51.0, 0.0], [51.0, 128.0], [0.0, 128.0]],
           "lock_ms": 0
         }
       }
     }
   },
-  "width": 51
+  "height": 128.0,
+  "width": 51.0
 }

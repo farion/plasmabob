@@ -11,12 +11,11 @@ use crate::core::io::{
 };
 use crate::core::{EntityDefinition, LevelBoundsDefinition};
 use crate::dashboard;
-use crate::entity_type;
 use crate::level::helper::{
-    apply_flat_component_updates, camera_center_world, entity_render_center,
-    flatten_entity_components, is_player_entity_type, z_overlay_color_for_value,
+    apply_flat_component_updates, camera_center_world, flatten_entity_components,
+    is_player_entity_type,
 };
-use crate::level::run::{ActiveCharacter, EditorCamera, SceneEntity};
+use crate::level::run::{ActiveCharacter, EditorCamera};
 use crate::level::state::*;
 use std::collections::HashMap;
 
@@ -145,7 +144,7 @@ pub fn editing_ui(
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut selection: ResMut<SelectionState>,
     mapping: Res<ComponentValueMapping>,
-    mut show_close_confirm: bevy::prelude::Local<bool>,
+    mut widths: ResMut<crate::core::ColumnWidths>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
@@ -161,7 +160,7 @@ pub fn editing_ui(
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button(egui_phosphor_icons::icons::X).clicked() {
                     if document.dirty {
-                        *show_close_confirm = true;
+                        ui_state.show_close_confirm = true;
                     } else {
                         next_state.set(crate::level::run::EditorMode::LevelPicker);
                     }
@@ -199,212 +198,58 @@ pub fn editing_ui(
 
                     ui.label(format!("ID: {}", id));
                     ui.label(format!("Type: {}", entity_type_name));
-                    ui.label(format!("Z-Index: {}", current_z));
+                    // The Z index is editable below; the small read-only label
+                    // here duplicated that information so remove it.
                     ui.label("PgUp/PgDown: +/-1, with Shift: +/-10, Home: 150, End: 0");
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
                         ui.label("x:");
+                        changed |= ui.add(egui::DragValue::new(&mut x).speed(1.0)).changed();
                     });
                     ui.horizontal(|ui| {
                         ui.label("y:");
+                        changed |= ui.add(egui::DragValue::new(&mut y).speed(1.0)).changed();
                     });
                     ui.horizontal(|ui| {
                         ui.label("z:");
+                        changed |= ui.add(egui::DragValue::new(&mut z).speed(1.0)).changed();
                     });
                     ui.add_space(6.0);
 
-                    // --- Component Overrides ---
-                    let mut override_updates: HashMap<String, serde_json::Value> = HashMap::new();
-                    let mut override_removals: std::collections::HashSet<String> =
-                        Default::default();
-                    let mut overrides_changed = false;
-
-                    if let Some(et) = &entity_type_def {
-                        let component_names = et.component_names();
-                        let has_overrideable = component_names
-                            .iter()
-                            .any(|comp| mapping.components.contains_key(comp.as_str()));
-
-                        if has_overrideable {
-                            ui.separator();
-                            ui.label(egui::RichText::new("Overrides").strong());
-                            ui.add_space(4.0);
-
-                            for comp_name in &component_names {
-                                let Some(attrs) = mapping.components.get(comp_name.as_str()) else {
-                                    continue;
-                                };
-                                let mut sorted_attrs: Vec<(
-                                    &String,
-                                    &ComponentAttributeDefinition,
-                                )> = attrs.iter().collect();
-                                sorted_attrs.sort_by_key(|(k, _)| k.as_str());
-
-                                for (attr_name, attr_def) in sorted_attrs {
-                                    let key = format!("{comp_name}.{attr_name}");
-
-                                    let entity_type_default: serde_json::Value = et
-                                        .component_attribute_value(
-                                            comp_name.as_str(),
-                                            attr_name.as_str(),
-                                        )
-                                        .unwrap_or_else(|| match attr_def.attr_type.as_str() {
-                                            "number" => serde_json::Value::Number(
-                                                serde_json::Number::from(0),
-                                            ),
-                                            "enum" => serde_json::Value::String(
-                                                attr_def
-                                                    .options
-                                                    .get(0)
-                                                    .cloned()
-                                                    .unwrap_or_default(),
-                                            ),
-                                            _ => serde_json::Value::Null,
-                                        });
-
-                                    let is_overridden = current_overrides.contains_key(&key);
-                                    let mut enable_override = is_overridden;
-
-                                    match attr_def.attr_type.as_str() {
-                                        "number" => {
-                                            let default_num =
-                                                entity_type_default.as_f64().unwrap_or(0.0) as f32;
-
-                                            ui.horizontal(|ui| {
-                                                let cb = ui.checkbox(
-                                                    &mut enable_override,
-                                                    format!("{key}:"),
-                                                );
-                                                if cb.changed() {
-                                                    if enable_override {
-                                                        if let Some(n) =
-                                                            serde_json::Number::from_f64(
-                                                                default_num as f64,
-                                                            )
-                                                        {
-                                                            override_updates.insert(
-                                                                key.clone(),
-                                                                serde_json::Value::Number(n),
-                                                            );
-                                                        }
-                                                    } else {
-                                                        override_removals.insert(key.clone());
-                                                    }
-                                                    overrides_changed = true;
-                                                }
-
-                                                if enable_override {
-                                                    let mut value = current_overrides
-                                                        .get(&key)
-                                                        .and_then(|v| v.as_f64())
-                                                        .map(|v| v as f32)
-                                                        .unwrap_or(default_num);
-                                                    let before = value;
-                                                    if ui
-                                                        .add(
-                                                            egui::DragValue::new(&mut value)
-                                                                .speed(1.0),
-                                                        )
-                                                        .changed()
-                                                        && (value - before).abs() > f32::EPSILON
-                                                    {
-                                                        if let Some(n) =
-                                                            serde_json::Number::from_f64(
-                                                                value as f64,
-                                                            )
-                                                        {
-                                                            override_updates.insert(
-                                                                key,
-                                                                serde_json::Value::Number(n),
-                                                            );
-                                                            overrides_changed = true;
-                                                        }
-                                                    }
-                                                } else {
-                                                    ui.label(
-                                                        egui::RichText::new(format!(
-                                                            "Type default: {default_num}"
-                                                        ))
-                                                        .weak()
-                                                        .italics(),
-                                                    );
-                                                }
-                                            });
-                                        }
-                                        "enum" => {
-                                            let default_str = entity_type_default
-                                                .as_str()
-                                                .unwrap_or("")
-                                                .to_string();
-
-                                            ui.horizontal(|ui| {
-                                                let cb = ui.checkbox(
-                                                    &mut enable_override,
-                                                    format!("{key}:"),
-                                                );
-                                                if cb.changed() {
-                                                    if enable_override {
-                                                        override_updates.insert(
-                                                            key.clone(),
-                                                            serde_json::Value::String(
-                                                                default_str.clone(),
-                                                            ),
-                                                        );
-                                                    } else {
-                                                        override_removals.insert(key.clone());
-                                                    }
-                                                    overrides_changed = true;
-                                                }
-
-                                                if enable_override {
-                                                    let mut current_str = current_overrides
-                                                        .get(&key)
-                                                        .and_then(|v| v.as_str())
-                                                        .unwrap_or(default_str.as_str())
-                                                        .to_string();
-                                                    let before_str = current_str.clone();
-                                                    egui::ComboBox::from_id_salt(format!(
-                                                        "override_{comp_name}_{attr_name}"
-                                                    ))
-                                                    .selected_text(&current_str)
-                                                    .show_ui(ui, |ui| {
-                                                        for option in &attr_def.options {
-                                                            ui.selectable_value(
-                                                                &mut current_str,
-                                                                option.clone(),
-                                                                option,
-                                                            );
-                                                        }
-                                                    });
-                                                    if current_str != before_str {
-                                                        override_updates.insert(
-                                                            key,
-                                                            serde_json::Value::String(current_str),
-                                                        );
-                                                        overrides_changed = true;
-                                                    }
-                                                } else {
-                                                    ui.label(
-                                                        egui::RichText::new(format!(
-                                                            "Type default: {default_str}"
-                                                        ))
-                                                        .weak()
-                                                        .italics(),
-                                                    );
-                                                }
-                                            });
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-                            ui.add_space(4.0);
-                        }
-                    }
-
                     changed |= draw_z_layer_legend(ui, &mut z);
 
-                    if changed || overrides_changed {
+                    let mut collapsed_components =
+                        std::mem::take(&mut ui_state.override_collapsed_components);
+                    let mut json_editor_state =
+                        std::mem::take(&mut ui_state.override_json_editor_state);
+                    let mut array_editor = ui_state.override_array_editor.take();
+
+                    let mut override_edits =
+                        crate::core::components_overrides::LevelOverrideEdits::default();
+                    if let Some(et) = &entity_type_def {
+                        override_edits =
+                            crate::core::components_overrides::render_level_entity_overrides_table(
+                                ui,
+                                ctx,
+                                &id,
+                                &entity_type_name,
+                                &current_overrides,
+                                et,
+                                &mapping,
+                                &mut collapsed_components,
+                                &mut json_editor_state,
+                                &mut array_editor,
+                                &mut toast,
+                                &time,
+                                &mut widths,
+                            );
+                    }
+
+                    ui_state.override_collapsed_components = collapsed_components;
+                    ui_state.override_json_editor_state = json_editor_state;
+                    ui_state.override_array_editor = array_editor;
+
+                    if changed || override_edits.has_changes() {
                         crate::level::push_undo_snapshot(&mut undo_history, &document.level);
                         if let Some(entity) = document.level.entities.get_mut(index) {
                             entity.x = x;
@@ -412,8 +257,8 @@ pub fn editing_ui(
                             entity.z_index = Some(z);
                             apply_flat_component_updates(
                                 entity,
-                                &override_removals,
-                                override_updates,
+                                &override_edits.removals,
+                                override_edits.updates,
                             );
                         }
                         document.dirty = true;
@@ -564,7 +409,7 @@ pub fn editing_ui(
         }
     }
 
-    if *show_close_confirm {
+    if ui_state.show_close_confirm {
         egui::Window::new("Confirm Close")
             .collapsible(false)
             .resizable(false)
@@ -580,7 +425,7 @@ pub fn editing_ui(
                                 document.dirty = false;
                                 toast.message = Some("Saved".to_string());
                                 toast.expires_at_seconds = time.elapsed_secs_f64() + 2.0;
-                                *show_close_confirm = false;
+                                ui_state.show_close_confirm = false;
                                 next_state.set(crate::level::run::EditorMode::LevelPicker);
                             }
                             Err(error) => {
@@ -592,12 +437,12 @@ pub fn editing_ui(
 
                     if ui.button("Discard and Close").clicked() {
                         document.dirty = false;
-                        *show_close_confirm = false;
+                        ui_state.show_close_confirm = false;
                         next_state.set(crate::level::run::EditorMode::LevelPicker);
                     }
 
                     if ui.button("Cancel").clicked() {
-                        *show_close_confirm = false;
+                        ui_state.show_close_confirm = false;
                     }
                 });
             });
@@ -649,24 +494,52 @@ pub fn draw_keyboard_legend_overlay(
 
 pub fn draw_z_layer_legend(ui: &mut egui::Ui, z: &mut f32) -> bool {
     // Minimal inline legend implementation to avoid depending on editor.rs.
-    let mut changed = false;
+    // Legend header and read-only preset Z values.
+    ui.separator();
+    ui.label(
+        egui::RichText::new("Z Legend")
+            .strong()
+            .color(ui.visuals().text_color()),
+    );
+    ui.add_space(4.0);
+    // Build sorted presets from helper so displayed ranges reflect the
+    // actual values used by the runtime.
+    let mut presets: Vec<(&str, f32, [u8; 3])> = crate::level::helper::Z_LAYER_PRESETS.to_vec();
+    presets.sort_by(|a, b| a.1.total_cmp(&b.1));
+
+    // compute midpoints between adjacent preset values
+    let mut midpoints: Vec<f32> = Vec::new();
+    for pair in presets.windows(2) {
+        let m = (pair[0].1 + pair[1].1) * 0.5;
+        midpoints.push(m);
+    }
+
     egui::Grid::new("z_layer_legend_grid")
         .num_columns(2)
         .show(ui, |ui| {
-            ui.label("Preset");
-            ui.label("Z");
-            ui.end_row();
-            for (label, value, rgb) in [
-                ("Foreground", 150.0_f32, [255u8, 0u8, 0u8]),
-                ("Gameplay", 100.0_f32, [0u8, 255u8, 0u8]),
-                ("Near Player", 50.0_f32, [255u8, 165u8, 0u8]),
-                ("Background", 0.0_f32, [0u8, 0u8, 255u8]),
-            ] {
+            for (i, (label, value, rgb)) in presets.iter().enumerate() {
                 let color = egui::Color32::from_rgb(rgb[0], rgb[1], rgb[2]);
-                ui.colored_label(color, label);
-                changed |= ui.add(egui::DragValue::new(z).speed(1.0)).changed();
+                ui.colored_label(color, *label);
+
+                let range_label = if presets.len() == 1 {
+                    format!("{:.0}", value)
+                } else if i == 0 {
+                    // lowest: <= first midpoint
+                    format!("<= {:.0}", midpoints[0])
+                } else if i == presets.len() - 1 {
+                    // highest: > last midpoint
+                    format!("> {:.0}", midpoints[midpoints.len() - 1])
+                } else {
+                    // middle ranges
+                    let low = midpoints[i - 1];
+                    let high = midpoints[i];
+                    format!("{:.0} - {:.0}", low, high)
+                };
+
+                ui.label(egui::RichText::new(range_label).color(ui.visuals().text_color()));
                 ui.end_row();
             }
         });
-    changed
+    // legend does not change state
+    false
 }

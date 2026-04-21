@@ -1,31 +1,24 @@
 {
-  "name": "Barrel 1",
   "category_tag": "item",
-  "height": 100,
-  "width": 67,
   "components": {
+    "auto_movement": {},
     "blocking": {},
     "collider": {
       "mode": "from_state"
     },
-    "rigid_body": {
-      "mode": "static"
-    },
-    "auto_movement": {
-        "pattern": "patrol",
-        "min_speed": 40.0,
-        "max_speed": 60.0
-    },
+    "rigid_body": {},
     "state_machine": {
       "initial_state": "idle",
       "states": {
         "idle": {
           "animation": ["sprites/barrel1/barrel1-default.png"],
           "animation_frame_ms": 500,
-          "collider_box": [[1, 3], [67, 3], [67, 100], [1, 100]],
+          "collider_box": [[1.0, 3.0], [67.0, 3.0], [67.0, 100.0], [1.0, 100.0]],
           "lock_ms": 500
         }
       }
     }
-  }
+  },
+  "height": 100.0,
+  "width": 67.0
 }

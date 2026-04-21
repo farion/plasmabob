@@ -1,30 +1,17 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiTextureHandle};
 use egui::TextureId;
-use egui_extras::{Column, TableBuilder};
-use serde_json::Value;
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use crate::entity_type::array_editor::{
-    format_array_short, inner_array_value_to_csv_string, parse_array_type_signature,
-    ArrayEditorState,
-};
-use crate::entity_type::array_property::render_array_property;
-use crate::entity_type::bool_property::render_bool_property;
 use crate::entity_type::components_sidebar::render_components_sidebar as sidebar_render_components_sidebar;
-use crate::entity_type::enum_property::render_enum_property;
 use crate::entity_type::helpers::{
-    apply_to_staged_entity_type, cloned_staged_entity_type, component_default_value,
-    component_object_snapshot, save_staged_entity_type, sorted_attribute_rows, AttributeUiRow,
+    apply_to_staged_entity_type, cloned_staged_entity_type, save_staged_entity_type,
 };
 use crate::entity_type::hitbox::{
-    cursor_for_drag_edge, hitbox_to_screen, hitbox_to_screen_with_ratio, pick_hitbox_edge,
-    units_per_pixel, ActiveHitboxDrag, DragEdge, EntityTypeEditorState, RectHitbox,
+    cursor_for_drag_edge, hitbox_to_screen_with_ratio, pick_hitbox_edge, units_per_pixel,
+    ActiveHitboxDrag, EntityTypeEditorState, RectHitbox,
 };
-use crate::entity_type::json_property::render_json_property;
-use crate::entity_type::number_property::render_number_property;
-use crate::entity_type::string_property::render_string_property;
 
 const HITBOX_EDGE_PICK_TOLERANCE_PX: f32 = 12.0;
 const HITBOX_MIN_SIZE_PX: f32 = 1.0;

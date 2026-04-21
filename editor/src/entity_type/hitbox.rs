@@ -2,7 +2,7 @@ use bevy_egui::egui;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
-use super::array_editor::ArrayEditorState;
+use crate::core::components_overrides::ArrayEditorState;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum DragEdge {

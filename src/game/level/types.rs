@@ -3,22 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::game::level::configs::{
-    HealthConfig,
-    ControlledMovementConfig,
-    AutoMovementConfig,
-    MovingPlatformConfig,
-    RigidBodyConfig,
-    GravityConfig,
-    BlockingConfig,
-    ControlledRangeAttackConfig,
-    AutoRangeAttackConfig,
-    AutoMeleeAttackConfig,
-    ControlledMeleeAttackConfig,
-    DamageableConfig,
-    TeamConfig,
-    OrientationConfig,
-    ColliderConfig,
-    CollectibleEffectConfig,
+    AutoMeleeAttackConfig, AutoMovementConfig, AutoRangeAttackConfig, BlockingConfig,
+    CollectibleEffectConfig, ColliderConfig, ControlledMeleeAttackConfig, ControlledMovementConfig,
+    ControlledRangeAttackConfig, DamageableConfig, GravityConfig, HealthConfig,
+    MovingPlatformConfig, OrientationConfig, RigidBodyConfig, TeamConfig,
 };
 // StateMachineConfig is parsed as a typed config; we don't store a runtime
 // StateMachine component in ComponentsDef anymore.
@@ -34,7 +22,10 @@ pub struct LevelBounds {
 
 impl Default for LevelBounds {
     fn default() -> Self {
-        LevelBounds { width: 4096.0, height: 1024.0 }
+        LevelBounds {
+            width: 4096.0,
+            height: 1024.0,
+        }
     }
 }
 
@@ -64,19 +55,19 @@ pub struct StateConfig {
     #[serde(default = "default_animation_frame_ms")]
     pub animation_frame_ms: u64,
     /// Collision box as a list of [x, y] pixel points in sprite-image space.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collider_box: Option<Vec<[f32; 2]>>,
     /// Minimum time (ms) to stay in this state before transitioning.
     #[serde(default)]
     pub lock_ms: u64,
     /// Sound played once when entering this state.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound_start: Option<String>,
     /// Sound looped while this state is active (starts after sound_start ends).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound_loop: Option<String>,
     /// Sound played once when leaving this state.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound_end: Option<String>,
 }
 
@@ -135,14 +126,14 @@ pub struct EntityTypeDefinition {
     /// Each known component is represented as an optional raw JSON value so
     /// that existing `override_from_json` helpers can consume them. Unknown
     /// component keys are preserved in `extra` via `flatten`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub components: Option<ComponentsDef>,
     /// Optional high-level category tag from the entity type JSON (e.g. "player", "enemy", "doodad").
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category_tag: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<f32>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<f32>,
     /// The key/name used in the `entity_types` map. Not present in the JSON
     /// and injected by the loader when the definitions are loaded.
@@ -166,14 +157,20 @@ impl EntityTypeDefinition {
         self.state_machine_config()
     }
 
-    pub fn set_state_machine(&mut self, state_machine: StateMachineConfig) -> Result<(), serde_json::Error> {
+    pub fn set_state_machine(
+        &mut self,
+        state_machine: StateMachineConfig,
+    ) -> Result<(), serde_json::Error> {
         let components = self.components.get_or_insert_with(ComponentsDef::default);
         components.state_machine = Some(state_machine);
         Ok(())
     }
 
     pub fn size(&self) -> Vec2 {
-        Vec2::new(self.width.unwrap_or_default(), self.height.unwrap_or_default())
+        Vec2::new(
+            self.width.unwrap_or_default(),
+            self.height.unwrap_or_default(),
+        )
     }
 
     pub fn component_names(&self) -> Vec<String> {
@@ -182,23 +179,57 @@ impl EntityTypeDefinition {
         };
 
         let mut names = Vec::new();
-        if comps.health.is_some() { names.push("health".to_string()); }
-        if comps.controlled_movement.is_some() { names.push("controlled_movement".to_string()); }
-        if comps.auto_movement.is_some() { names.push("auto_movement".to_string()); }
-        if comps.moving_platform.is_some() { names.push("moving_platform".to_string()); }
-        if comps.rigid_body.is_some() { names.push("rigid_body".to_string()); }
-        if comps.gravity.is_some() { names.push("gravity".to_string()); }
-        if comps.blocking.is_some() { names.push("blocking".to_string()); }
-        if comps.controlled_range_attack.is_some() { names.push("controlled_range_attack".to_string()); }
-        if comps.auto_range_attack.is_some() { names.push("auto_range_attack".to_string()); }
-        if comps.auto_melee_attack.is_some() { names.push("auto_melee_attack".to_string()); }
-        if comps.controlled_melee_attack.is_some() { names.push("controlled_melee_attack".to_string()); }
-        if comps.damageable.is_some() { names.push("damageable".to_string()); }
-        if comps.team.is_some() { names.push("team".to_string()); }
-        if comps.orientation.is_some() { names.push("orientation".to_string()); }
-        if comps.state_machine.is_some() { names.push("state_machine".to_string()); }
-        if comps.collider.is_some() { names.push("collider".to_string()); }
-        if comps.collectible_effect.is_some() { names.push("collectible_effect".to_string()); }
+        if comps.health.is_some() {
+            names.push("health".to_string());
+        }
+        if comps.controlled_movement.is_some() {
+            names.push("controlled_movement".to_string());
+        }
+        if comps.auto_movement.is_some() {
+            names.push("auto_movement".to_string());
+        }
+        if comps.moving_platform.is_some() {
+            names.push("moving_platform".to_string());
+        }
+        if comps.rigid_body.is_some() {
+            names.push("rigid_body".to_string());
+        }
+        if comps.gravity.is_some() {
+            names.push("gravity".to_string());
+        }
+        if comps.blocking.is_some() {
+            names.push("blocking".to_string());
+        }
+        if comps.controlled_range_attack.is_some() {
+            names.push("controlled_range_attack".to_string());
+        }
+        if comps.auto_range_attack.is_some() {
+            names.push("auto_range_attack".to_string());
+        }
+        if comps.auto_melee_attack.is_some() {
+            names.push("auto_melee_attack".to_string());
+        }
+        if comps.controlled_melee_attack.is_some() {
+            names.push("controlled_melee_attack".to_string());
+        }
+        if comps.damageable.is_some() {
+            names.push("damageable".to_string());
+        }
+        if comps.team.is_some() {
+            names.push("team".to_string());
+        }
+        if comps.orientation.is_some() {
+            names.push("orientation".to_string());
+        }
+        if comps.state_machine.is_some() {
+            names.push("state_machine".to_string());
+        }
+        if comps.collider.is_some() {
+            names.push("collider".to_string());
+        }
+        if comps.collectible_effect.is_some() {
+            names.push("collectible_effect".to_string());
+        }
         names
     }
 
@@ -214,44 +245,78 @@ impl EntityTypeDefinition {
 
         let comps = self.components.get_or_insert_with(ComponentsDef::default);
         comps.health = wanted.contains("health").then(HealthConfig::default);
-        comps.controlled_movement = wanted.contains("controlled_movement").then(ControlledMovementConfig::default);
-        comps.auto_movement = wanted.contains("auto_movement").then(AutoMovementConfig::default);
-        comps.moving_platform = wanted.contains("moving_platform").then(MovingPlatformConfig::default);
+        comps.controlled_movement = wanted
+            .contains("controlled_movement")
+            .then(ControlledMovementConfig::default);
+        comps.auto_movement = wanted
+            .contains("auto_movement")
+            .then(AutoMovementConfig::default);
+        comps.moving_platform = wanted
+            .contains("moving_platform")
+            .then(MovingPlatformConfig::default);
         comps.rigid_body = wanted.contains("rigid_body").then(RigidBodyConfig::default);
         comps.gravity = wanted.contains("gravity").then(GravityConfig::default);
         comps.blocking = wanted.contains("blocking").then(BlockingConfig::default);
-        comps.controlled_range_attack = wanted.contains("controlled_range_attack").then(ControlledRangeAttackConfig::default);
-        comps.auto_range_attack = wanted.contains("auto_range_attack").then(AutoRangeAttackConfig::default);
-        comps.auto_melee_attack = wanted.contains("auto_melee_attack").then(AutoMeleeAttackConfig::default);
-        comps.controlled_melee_attack = wanted.contains("controlled_melee_attack").then(ControlledMeleeAttackConfig::default);
-        comps.damageable = wanted.contains("damageable").then(DamageableConfig::default);
+        comps.controlled_range_attack = wanted
+            .contains("controlled_range_attack")
+            .then(ControlledRangeAttackConfig::default);
+        comps.auto_range_attack = wanted
+            .contains("auto_range_attack")
+            .then(AutoRangeAttackConfig::default);
+        comps.auto_melee_attack = wanted
+            .contains("auto_melee_attack")
+            .then(AutoMeleeAttackConfig::default);
+        comps.controlled_melee_attack = wanted
+            .contains("controlled_melee_attack")
+            .then(ControlledMeleeAttackConfig::default);
+        comps.damageable = wanted
+            .contains("damageable")
+            .then(DamageableConfig::default);
         comps.team = wanted.contains("team").then(TeamConfig::default);
-        comps.orientation = wanted.contains("orientation").then(OrientationConfig::default);
-        comps.state_machine = wanted.contains("state_machine").then(StateMachineConfig::default);
+        comps.orientation = wanted
+            .contains("orientation")
+            .then(OrientationConfig::default);
+        comps.state_machine = wanted
+            .contains("state_machine")
+            .then(StateMachineConfig::default);
         comps.collider = wanted.contains("collider").then(ColliderConfig::default);
-        comps.collectible_effect = wanted.contains("collectible_effect").then(|| CollectibleEffectConfig { heal: None });
+        comps.collectible_effect = wanted
+            .contains("collectible_effect")
+            .then(|| CollectibleEffectConfig { heal: None });
     }
 
-    pub fn component_attribute_value(&self, component: &str, attribute: &str) -> Option<serde_json::Value> {
+    pub fn component_attribute_value(
+        &self,
+        component: &str,
+        attribute: &str,
+    ) -> Option<serde_json::Value> {
         let comps = self.components.as_ref()?;
         let value = match component.to_ascii_lowercase().as_str() {
             "health" => serde_json::to_value(comps.health.as_ref()?).ok()?,
-            "controlled_movement" => serde_json::to_value(comps.controlled_movement.as_ref()?).ok()?,
+            "controlled_movement" => {
+                serde_json::to_value(comps.controlled_movement.as_ref()?).ok()?
+            }
             "auto_movement" => serde_json::to_value(comps.auto_movement.as_ref()?).ok()?,
             "moving_platform" => serde_json::to_value(comps.moving_platform.as_ref()?).ok()?,
             "rigid_body" => serde_json::to_value(comps.rigid_body.as_ref()?).ok()?,
             "gravity" => serde_json::to_value(comps.gravity.as_ref()?).ok()?,
             "blocking" => serde_json::to_value(comps.blocking.as_ref()?).ok()?,
-            "controlled_range_attack" => serde_json::to_value(comps.controlled_range_attack.as_ref()?).ok()?,
+            "controlled_range_attack" => {
+                serde_json::to_value(comps.controlled_range_attack.as_ref()?).ok()?
+            }
             "auto_range_attack" => serde_json::to_value(comps.auto_range_attack.as_ref()?).ok()?,
             "auto_melee_attack" => serde_json::to_value(comps.auto_melee_attack.as_ref()?).ok()?,
-            "controlled_melee_attack" => serde_json::to_value(comps.controlled_melee_attack.as_ref()?).ok()?,
+            "controlled_melee_attack" => {
+                serde_json::to_value(comps.controlled_melee_attack.as_ref()?).ok()?
+            }
             "damageable" => serde_json::to_value(comps.damageable.as_ref()?).ok()?,
             "team" => serde_json::to_value(comps.team.as_ref()?).ok()?,
             "orientation" => serde_json::to_value(comps.orientation.as_ref()?).ok()?,
             "state_machine" => serde_json::to_value(comps.state_machine.as_ref()?).ok()?,
             "collider" => serde_json::to_value(comps.collider.as_ref()?).ok()?,
-            "collectible_effect" => serde_json::to_value(comps.collectible_effect.as_ref()?).ok()?,
+            "collectible_effect" => {
+                serde_json::to_value(comps.collectible_effect.as_ref()?).ok()?
+            }
             _ => return None,
         };
         // Treat explicit JSON null the same as "absent": return None so
@@ -269,7 +334,12 @@ impl EntityTypeDefinition {
         }
     }
 
-    pub fn set_component_attribute_value(&mut self, component: &str, attribute: &str, value: serde_json::Value) {
+    pub fn set_component_attribute_value(
+        &mut self,
+        component: &str,
+        attribute: &str,
+        value: serde_json::Value,
+    ) {
         let mut root = self
             .components
             .as_ref()
@@ -285,7 +355,9 @@ impl EntityTypeDefinition {
             obj
         } else {
             *entry = serde_json::Value::Object(serde_json::Map::new());
-            entry.as_object_mut().expect("components entry must be object")
+            entry
+                .as_object_mut()
+                .expect("components entry must be object")
         };
         // Coerce float JSON numbers without fractional part into integers
         // to avoid deserialization failures for typed integer fields
@@ -429,28 +501,118 @@ impl<'de> serde::Deserialize<'de> for ComponentsDef {
         let map = match v {
             serde_json::Value::Object(m) => m,
             serde_json::Value::Null => return Ok(out),
-            other => return Err(serde::de::Error::custom(format!("expected object for components, got {}", other))),
+            other => {
+                return Err(serde::de::Error::custom(format!(
+                    "expected object for components, got {}",
+                    other
+                )))
+            }
         };
 
         for (k, val) in map.into_iter() {
             match k.to_ascii_lowercase().as_str() {
-                "health" => out.health = Some(serde_json::from_value::<HealthConfig>(val).map_err(serde::de::Error::custom)?),
-                "controlledmovement" | "controlled_movement" => out.controlled_movement = Some(serde_json::from_value::<ControlledMovementConfig>(val).map_err(serde::de::Error::custom)?),
-                "automovement" | "auto_movement" => out.auto_movement = Some(serde_json::from_value::<AutoMovementConfig>(val).map_err(serde::de::Error::custom)?),
-                "movingplatform" | "moving_platform" => out.moving_platform = Some(serde_json::from_value::<MovingPlatformConfig>(val).map_err(serde::de::Error::custom)?),
-                "rigidbody" | "rigid_body" => out.rigid_body = Some(serde_json::from_value::<RigidBodyConfig>(val).map_err(serde::de::Error::custom)?),
-                "gravity" => out.gravity = Some(serde_json::from_value::<GravityConfig>(val).map_err(serde::de::Error::custom)?),
-                "blocking" => out.blocking = Some(serde_json::from_value::<BlockingConfig>(val).map_err(serde::de::Error::custom)?),
-                "controlled_range_attack" | "controlledrangeattack" => out.controlled_range_attack = Some(serde_json::from_value::<ControlledRangeAttackConfig>(val).map_err(serde::de::Error::custom)?),
-                "auto_range_attack" | "autorangeattack" => out.auto_range_attack = Some(serde_json::from_value::<AutoRangeAttackConfig>(val).map_err(serde::de::Error::custom)?),
-                "auto_melee_attack" | "automeleeattack" => out.auto_melee_attack = Some(serde_json::from_value::<AutoMeleeAttackConfig>(val).map_err(serde::de::Error::custom)?),
-                "controlled_melee_attack" | "controlledmeleeattack" => out.controlled_melee_attack = Some(serde_json::from_value::<ControlledMeleeAttackConfig>(val).map_err(serde::de::Error::custom)?),
-                "damageable" => out.damageable = Some(serde_json::from_value::<DamageableConfig>(val).map_err(serde::de::Error::custom)?),
-                "team" => out.team = Some(serde_json::from_value::<TeamConfig>(val).map_err(serde::de::Error::custom)?),
-                "orientation" => out.orientation = Some(serde_json::from_value::<OrientationConfig>(val).map_err(serde::de::Error::custom)?),
-                "state_machine" | "statemachine" => out.state_machine = Some(serde_json::from_value::<StateMachineConfig>(val).map_err(serde::de::Error::custom)?),
-                "collider" => out.collider = Some(serde_json::from_value::<ColliderConfig>(val).map_err(serde::de::Error::custom)?),
-                "collectible_effect" | "collectibleeffect" => out.collectible_effect = Some(serde_json::from_value::<CollectibleEffectConfig>(val).map_err(serde::de::Error::custom)?),
+                "health" => {
+                    out.health = Some(
+                        serde_json::from_value::<HealthConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "controlledmovement" | "controlled_movement" => {
+                    out.controlled_movement = Some(
+                        serde_json::from_value::<ControlledMovementConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "automovement" | "auto_movement" => {
+                    out.auto_movement = Some(
+                        serde_json::from_value::<AutoMovementConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "movingplatform" | "moving_platform" => {
+                    out.moving_platform = Some(
+                        serde_json::from_value::<MovingPlatformConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "rigidbody" | "rigid_body" => {
+                    out.rigid_body = Some(
+                        serde_json::from_value::<RigidBodyConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "gravity" => {
+                    out.gravity = Some(
+                        serde_json::from_value::<GravityConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "blocking" => {
+                    out.blocking = Some(
+                        serde_json::from_value::<BlockingConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "controlled_range_attack" | "controlledrangeattack" => {
+                    out.controlled_range_attack = Some(
+                        serde_json::from_value::<ControlledRangeAttackConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "auto_range_attack" | "autorangeattack" => {
+                    out.auto_range_attack = Some(
+                        serde_json::from_value::<AutoRangeAttackConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "auto_melee_attack" | "automeleeattack" => {
+                    out.auto_melee_attack = Some(
+                        serde_json::from_value::<AutoMeleeAttackConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "controlled_melee_attack" | "controlledmeleeattack" => {
+                    out.controlled_melee_attack = Some(
+                        serde_json::from_value::<ControlledMeleeAttackConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "damageable" => {
+                    out.damageable = Some(
+                        serde_json::from_value::<DamageableConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "team" => {
+                    out.team = Some(
+                        serde_json::from_value::<TeamConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "orientation" => {
+                    out.orientation = Some(
+                        serde_json::from_value::<OrientationConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "state_machine" | "statemachine" => {
+                    out.state_machine = Some(
+                        serde_json::from_value::<StateMachineConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "collider" => {
+                    out.collider = Some(
+                        serde_json::from_value::<ColliderConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
+                "collectible_effect" | "collectibleeffect" => {
+                    out.collectible_effect = Some(
+                        serde_json::from_value::<CollectibleEffectConfig>(val)
+                            .map_err(serde::de::Error::custom)?,
+                    )
+                }
                 other => {
                     // Unknown component keys are ignored for now; log to help
                     // designers discover typos in JSON.
@@ -462,7 +624,6 @@ impl<'de> serde::Deserialize<'de> for ComponentsDef {
         Ok(out)
     }
 }
-
 
 /// Entity instance parsed from the level JSON. The `entity_type` field is
 /// deserialized from a String key in the JSON and resolved via the global
@@ -491,7 +652,10 @@ impl Serialize for LevelEntity {
     {
         let mut map = serde_json::Map::new();
         map.insert("id".to_string(), serde_json::Value::String(self.id.clone()));
-        map.insert("entity_type".to_string(), serde_json::Value::String(self.entity_type.clone()));
+        map.insert(
+            "entity_type".to_string(),
+            serde_json::Value::String(self.entity_type.clone()),
+        );
         map.insert("x".to_string(), serde_json::json!(self.x));
         map.insert("y".to_string(), serde_json::json!(self.y));
         if let Some(z_index) = self.z_index {
@@ -501,7 +665,10 @@ impl Serialize for LevelEntity {
             map.insert("name".to_string(), serde_json::Value::String(name.clone()));
         }
         if let Some(layer) = &self.layer {
-            map.insert("layer".to_string(), serde_json::Value::String(layer.clone()));
+            map.insert(
+                "layer".to_string(),
+                serde_json::Value::String(layer.clone()),
+            );
         }
         if let Some(components) = &self.components {
             let value = serde_json::to_value(components).map_err(serde::ser::Error::custom)?;
@@ -520,7 +687,8 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
         D: serde::Deserializer<'de>,
     {
         // Deserialize into an intermediate map so we can extract known fields
-        let map: serde_json::Map<String, serde_json::Value> = serde::Deserialize::deserialize(deserializer)?;
+        let map: serde_json::Map<String, serde_json::Value> =
+            serde::Deserialize::deserialize(deserializer)?;
 
         let id = map
             .get("id")
@@ -536,9 +704,18 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
 
         let x = map.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
         let y = map.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-        let z_index = map.get("z_index").and_then(|v| v.as_f64()).map(|v| v as f32);
-        let layer = map.get("layer").and_then(|v| v.as_str()).map(|s| s.to_string());
-        let name = map.get("name").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let z_index = map
+            .get("z_index")
+            .and_then(|v| v.as_f64())
+            .map(|v| v as f32);
+        let layer = map
+            .get("layer")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let name = map
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
         let mut components: Option<ComponentsDef> = None;
         let mut extra: HashMap<String, serde_json::Value> = HashMap::new();
@@ -546,7 +723,14 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
             // Skip known/consumed top-level fields so they don't end up
             // repeated. We only extract a typed `components` object and
             // ignore other arbitrary properties.
-            if k == "id" || k == "entity_type" || k == "x" || k == "y" || k == "z_index" || k == "layer" || k == "name" {
+            if k == "id"
+                || k == "entity_type"
+                || k == "x"
+                || k == "y"
+                || k == "z_index"
+                || k == "layer"
+                || k == "name"
+            {
                 continue;
             }
             if k == "components" {
@@ -582,7 +766,12 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
 }
 
 impl LevelEntity {
-    pub fn set_component_attribute_value(&mut self, component: &str, attribute: &str, value: serde_json::Value) {
+    pub fn set_component_attribute_value(
+        &mut self,
+        component: &str,
+        attribute: &str,
+        value: serde_json::Value,
+    ) {
         let mut root = self
             .components
             .as_ref()
@@ -598,7 +787,9 @@ impl LevelEntity {
             obj
         } else {
             *entry = serde_json::Value::Object(serde_json::Map::new());
-            entry.as_object_mut().expect("components entry must be object")
+            entry
+                .as_object_mut()
+                .expect("components entry must be object")
         };
         // Coerce float JSON numbers without fractional part into integers
         // to avoid deserialization failures for typed integer fields
@@ -688,7 +879,9 @@ pub fn parse_level_definition(json: &str) -> Result<LevelDefinition, serde_json:
     serde_json::from_str(json)
 }
 
-fn deserialize_opt_vec_string_or_seq<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+fn deserialize_opt_vec_string_or_seq<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<String>>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -701,12 +894,20 @@ where
             for item in arr {
                 match item {
                     serde_json::Value::String(s) => out.push(s),
-                    other => return Err(serde::de::Error::custom(format!("expected array of strings, got {}", other))),
+                    other => {
+                        return Err(serde::de::Error::custom(format!(
+                            "expected array of strings, got {}",
+                            other
+                        )))
+                    }
                 }
             }
             Ok(Some(out))
         }
-        other => Err(serde::de::Error::custom(format!("expected string or array of strings, got {}", other))),
+        other => Err(serde::de::Error::custom(format!(
+            "expected string or array of strings, got {}",
+            other
+        ))),
     }
 }
 
@@ -725,28 +926,40 @@ mod tests {
     fn parse_level_with_terrain() {
         let json = r#"{"terrain":{"background":"assets/backgrounds/level1.png"},"music":"assets/music/level1.ogg"}"#;
         let lvl = parse_level_definition(json).expect("should parse");
-        assert_eq!(lvl.terrain.unwrap().background.unwrap(), "assets/backgrounds/level1.png");
+        assert_eq!(
+            lvl.terrain.unwrap().background.unwrap(),
+            "assets/backgrounds/level1.png"
+        );
     }
 
     #[test]
     fn load_level_and_entity_types_from_assets() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let level_path = std::path::Path::new(manifest_dir).join("assets/worlds/auralis/viridara_level1.json");
+        let level_path =
+            std::path::Path::new(manifest_dir).join("assets/worlds/auralis/viridara_level1.json");
         let content = std::fs::read_to_string(&level_path).expect("should read level json");
         // Load all entity type JSON files from assets/entity_types and register
         // them so `parse_level_definition` (which deserializes LevelEntity)
         // can resolve typed entity types.
         let et_dir = std::path::Path::new(manifest_dir).join("assets/entity_types");
-        let mut et_map = std::collections::HashMap::<String, crate::game::level::types::EntityTypeDefinition>::new();
+        let mut et_map = std::collections::HashMap::<
+            String,
+            crate::game::level::types::EntityTypeDefinition,
+        >::new();
         for entry in std::fs::read_dir(&et_dir).expect("read entity_types dir") {
             let entry = entry.expect("dir entry");
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) != Some("json") {
                 continue;
             }
-            let stem = path.file_stem().and_then(|s| s.to_str()).expect("stem").to_string();
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .expect("stem")
+                .to_string();
             let txt = std::fs::read_to_string(&path).expect("read et file");
-            let mut et: crate::game::level::types::EntityTypeDefinition = serde_json::from_str(&txt).expect("parse et json");
+            let mut et: crate::game::level::types::EntityTypeDefinition =
+                serde_json::from_str(&txt).expect("parse et json");
             et.key = stem.clone();
             et_map.insert(stem, et);
         }
@@ -757,11 +970,13 @@ mod tests {
 
         // Ensure every entity's entity_type key matches a loaded type
         for e in &entities {
-            assert!(et_map.contains_key(&e.entity_type), "missing entity type for {}", e.entity_type);
+            assert!(
+                et_map.contains_key(&e.entity_type),
+                "missing entity type for {}",
+                e.entity_type
+            );
         }
     }
 
     // (health parsing tests removed)
 }
-
-

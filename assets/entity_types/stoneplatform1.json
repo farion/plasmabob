@@ -1,28 +1,27 @@
 {
-  "name": "Stone Platform 1",
   "category_tag": "Environment",
-  "height": 80,
   "components": {
+    "blocking": {},
     "collider": {
       "mode": "from_state"
     },
-    "blocking": {},
+    "moving_platform": {
+      "repeat": true,
+      "speed": 0.0,
+      "waypoints": []
+    },
     "state_machine": {
       "initial_state": "idle",
       "states": {
         "idle": {
           "animation": ["sprites/stoneplatform1/stoneplatform1-default.png"],
           "animation_frame_ms": 180,
-          "collider_box": [[2, 1], [336, 1], [336, 60], [2, 60]],
+          "collider_box": [[2.0, 1.0], [336.0, 1.0], [336.0, 60.0], [2.0, 60.0]],
           "lock_ms": 0
         }
       }
-    },
-    "moving_platform": {
-      "speed": 0,
-      "waypoints": [],
-      "repeat": true
     }
   },
-  "width": 337
+  "height": 80.0,
+  "width": 337.0
 }

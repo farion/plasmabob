@@ -1,13 +1,6 @@
-mod array_editor;
-mod array_property;
-mod bool_property;
 mod components_sidebar;
-mod enum_property;
 mod helpers;
 mod hitbox;
-mod json_property;
-mod number_property;
-mod string_property;
 
 pub use view::entity_type_view_ui;
 mod view;

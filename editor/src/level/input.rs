@@ -400,15 +400,20 @@ pub fn adjust_selected_entity_z_shortcut(
 
 pub fn select_entity_on_click(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
+    keys: Res<ButtonInput<KeyCode>>,
     pointer_state: Res<PointerState>,
     ui_state: Res<EditorUiState>,
     document: Res<EditorDocument>,
     mut selection: ResMut<SelectionState>,
 ) {
+    let control_pressed = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
     if ui_state.show_add_menu
         || pointer_state.over_ui
         || !mouse_buttons.just_pressed(MouseButton::Left)
+        || control_pressed
     {
+        // when control is pressed we don't start a selection because Ctrl+Left
+        // should be used for camera panning
         return;
     }
 
@@ -437,6 +442,7 @@ pub fn select_entity_on_click(
 
 pub fn drag_selected_entity(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
+    keys: Res<ButtonInput<KeyCode>>,
     pointer_state: Res<PointerState>,
     mut selection: ResMut<SelectionState>,
     mut document: ResMut<EditorDocument>,
@@ -447,6 +453,15 @@ pub fn drag_selected_entity(
     snap_state: Res<SnapState>,
 ) {
     if !mouse_buttons.pressed(MouseButton::Left) {
+        selection.is_dragging = false;
+        capture_state.drag_snapshot_taken = false;
+        return;
+    }
+
+    let control_pressed = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+    if control_pressed {
+        // If control is held we use left-drag to pan the camera, so do not
+        // drag the selected entity.
         selection.is_dragging = false;
         capture_state.drag_snapshot_taken = false;
         return;
@@ -618,17 +633,32 @@ pub fn camera_controls(
     mut mouse_motion: MessageReader<MouseMotion>,
     mut mouse_wheel: MessageReader<MouseWheel>,
     mut camera_query: Query<(&mut Transform, &mut Projection), With<EditorCamera>>,
+    pointer_state: Res<crate::level::state::PointerState>,
+    keys: Res<ButtonInput<KeyCode>>,
 ) {
     let Ok((mut transform, mut projection)) = camera_query.single_mut() else {
         return;
     };
+
+    // If the pointer is currently over UI we should not let camera controls
+    // (zoom or pan) react to mouse input — prevents scrolling the sidebar
+    // from zooming the world underneath.
+    if pointer_state.over_ui {
+        mouse_motion.clear();
+        mouse_wheel.clear();
+        return;
+    }
 
     let current_scale = match projection.as_mut() {
         Projection::Orthographic(orthographic) => orthographic.scale,
         _ => 1.0,
     };
 
-    if mouse_buttons.pressed(MouseButton::Right) {
+    // Right mouse pan OR Ctrl + Left mouse pan
+    let control_pressed = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+    if mouse_buttons.pressed(MouseButton::Right)
+        || (control_pressed && mouse_buttons.pressed(MouseButton::Left))
+    {
         let delta = mouse_motion
             .read()
             .fold(Vec2::ZERO, |acc, event| acc + event.delta);

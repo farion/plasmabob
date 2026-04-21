@@ -11,11 +11,10 @@
 [X] Auto Betty Assets
 [ ] Enemy AI. Faster with Aggro. Avoid falling. Jumps? 
 [ ] Stomp Effect
-[ ] Controlled Melee Attack?
 
 ## Editor
-[ ] Adapt Level editor to new format.
-[ ] Adapt entity editor to new format.
+[X] Adapt Level editor to new format.
+[X] Adapt entity editor to new format.
 
 -> Develop Merge
 

@@ -1,19 +1,16 @@
-use crate::entity_type::helpers::apply_to_staged_entity_type;
-use crate::entity_type::helpers::AttributeUiRow;
-use crate::entity_type::hitbox::EntityTypeEditorState;
 use bevy_egui::egui;
 use serde_json::Value;
 
 pub(crate) fn render_number_property(
     ui: &mut egui::Ui,
-    row: &AttributeUiRow,
+    row: &crate::entity_type::AttributeUiRow,
     explicit_value: Option<&Value>,
     display_default: Option<&Value>,
-    middle_col_w: f32,
+    _middle_col_w: f32,
     component_name: &str,
     selected_name: &str,
     document: Option<&mut crate::level::state::EditorDocument>,
-    entity_type_editor: &mut EntityTypeEditorState,
+    entity_type_editor: &mut crate::entity_type::EntityTypeEditorState,
     fallback_entity_type: &crate::core::EntityTypeDefinition,
 ) {
     let is_int = row.attr_type == "int";

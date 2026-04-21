@@ -20,7 +20,7 @@ pub const Z_LAYER_PRESETS: [(&str, f32, [u8; 3]); 4] = [
     ("Foreground", 150.0, [255, 0, 0]),
     ("Gameplay", 100.0, [0, 255, 0]),
     ("Near Player Background", 50.0, [255, 165, 0]),
-    ("Background", 0.0, [0, 0, 255]),
+    ("Background", 0.0, [64, 128, 255]),
 ];
 
 pub fn z_overlay_color_for_value(z: f32) -> Color {

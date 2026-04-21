@@ -1,11 +1,11 @@
 {
-  "name": "Health Potion",
   "category_tag": "collectible",
-  "height": 67,
   "components": {
-    "collider": { "mode": "from_state" },
     "collectible_effect": {
       "heal": 30
+    },
+    "collider": {
+      "mode": "from_state"
     },
     "state_machine": {
       "initial_state": "idle",
@@ -13,11 +13,12 @@
         "idle": {
           "animation": ["sprites/healthpotion/healthpotion-default.png"],
           "animation_frame_ms": 180,
-          "collider_box": [[0, 0], [36, 0], [36, 67], [0, 67]],
+          "collider_box": [[0.0, 0.0], [36.0, 0.0], [36.0, 67.0], [0.0, 67.0]],
           "lock_ms": 0
         }
       }
     }
   },
-  "width": 36
+  "height": 67.0,
+  "width": 36.0
 }

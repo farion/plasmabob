@@ -1,5 +1,3 @@
-use crate::entity_type::helpers::apply_to_staged_entity_type;
-use crate::entity_type::hitbox::EntityTypeEditorState;
 use bevy_egui::egui;
 use serde_json::Value;
 
@@ -11,7 +9,7 @@ pub(crate) fn render_string_property(
     component_name: &str,
     selected_name: &str,
     document: Option<&mut crate::level::state::EditorDocument>,
-    entity_type_editor: &mut EntityTypeEditorState,
+    entity_type_editor: &mut crate::entity_type::EntityTypeEditorState,
     fallback_entity_type: &crate::core::EntityTypeDefinition,
     attr_name: &str,
 ) {
@@ -24,7 +22,7 @@ pub(crate) fn render_string_property(
         .add(egui::TextEdit::singleline(&mut text).desired_width(middle_col_w))
         .changed()
     {
-        if apply_to_staged_entity_type(
+        if crate::entity_type::apply_to_staged_entity_type(
             document,
             entity_type_editor,
             selected_name,

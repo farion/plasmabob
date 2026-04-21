@@ -539,7 +539,18 @@ fn sync_entity_types_with_paths(
         }
     }
 
+    // Exclude a small set of test/demo sprite dirs that should not
+    // produce entity-type JSON files (e.g. bob/betty). Keep this list
+    // intentionally minimal and explicit.
+    let excluded_names = ["bob", "betty"];
     for (entity_name, sprite_dir) in sprite_directories {
+        if excluded_names.contains(&entity_name.as_str()) {
+            println!(
+                "Update Entity Types: skipping excluded sprite dir '{}'",
+                entity_name
+            );
+            continue;
+        }
         println!("Update Entity Types: processing '{}'", entity_name);
         let json_path = entity_types_dir.join(format!("{entity_name}.json"));
         let existing_json = if json_path.exists() {
@@ -714,6 +725,16 @@ pub fn build_entity_type_json(
         new_states.insert(state_key, state_definition);
     }
 
+    // Preserve any pre-existing states that did not have matching sprite
+    // frames. Previously these would be dropped which caused state
+    // information (transitions, sounds, custom fields) to be lost on
+    // regeneration. Merge leftover `existing_states` into `new_states`
+    // only when the key is not already present so explicit sprite-derived
+    // states win while unrelated states are preserved.
+    for (k, v) in existing_states.into_iter() {
+        new_states.entry(k).or_insert(v);
+    }
+
     if state_machine.initial_state.is_empty() {
         state_machine.initial_state = if new_states.contains_key("idle") {
             "idle".to_string()
@@ -838,14 +859,41 @@ pub fn collect_sprite_frames(
             continue;
         };
 
-        grouped_frames
-            .entry(state_key.clone())
-            .or_default()
-            .push(SpriteFrame {
+        // Normalize asset path by stripping editor tags like `.bob` / `.betty`
+        // from the filename before the extension so the animation lists in
+        // the generated JSON do not contain character-specific suffixes.
+        // If multiple files map to the same normalized path (duplicates),
+        // keep only the first encountered.
+        let normalized_asset_path = match Path::new(file_name).file_stem().and_then(|s| s.to_str())
+        {
+            Some(stem) => {
+                let mut norm_stem = stem.to_string();
+                for suffix in &[".bob", ".betty"] {
+                    if norm_stem.ends_with(suffix) {
+                        norm_stem.truncate(norm_stem.len() - suffix.len());
+                        break;
+                    }
+                }
+                if let Some(ext) = Path::new(file_name).extension().and_then(|e| e.to_str()) {
+                    format!("sprites/{entity_name}/{norm_stem}.{}", ext).replace('\\', "/")
+                } else {
+                    format!("sprites/{entity_name}/{norm_stem}").replace('\\', "/")
+                }
+            }
+            None => format!("sprites/{entity_name}/{file_name}").replace('\\', "/"),
+        };
+
+        let frames_vec = grouped_frames.entry(state_key.clone()).or_default();
+        if !frames_vec
+            .iter()
+            .any(|f| f.asset_path == normalized_asset_path && f.frame_index == frame_index)
+        {
+            frames_vec.push(SpriteFrame {
                 frame_index,
-                asset_path: format!("sprites/{entity_name}/{file_name}").replace('\\', "/"),
+                asset_path: normalized_asset_path,
                 filesystem_path: path,
             });
+        }
     }
 
     for frames in grouped_frames.values_mut() {
@@ -872,13 +920,21 @@ fn parse_sprite_file_name(entity_name: &str, file_name: &str) -> Option<(String,
     }
 
     let stem = Path::new(file_name).file_stem()?.to_str()?;
+    // Normalize out editor-character tags that may appear before the
+    // numeric frame suffix (e.g. `player-idle.bob-1.png` -> `player-idle-1`).
+    let mut normalized_stem = stem.to_string();
+    for tag in &[".bob", ".betty", "_bob", "_betty"] {
+        if normalized_stem.contains(tag) {
+            normalized_stem = normalized_stem.replace(tag, "");
+        }
+    }
     let entity_name_lower = entity_name.to_ascii_lowercase();
-    let stem_lower = stem.to_ascii_lowercase();
+    let stem_lower = normalized_stem.to_ascii_lowercase();
     let remainder = ["-", "_"].into_iter().find_map(|separator| {
         let prefix = format!("{entity_name_lower}{separator}");
         stem_lower
             .starts_with(&prefix)
-            .then(|| &stem[prefix.len()..])
+            .then(|| &normalized_stem[prefix.len()..])
     })?;
 
     let mut parts: Vec<&str> = remainder

@@ -2,11 +2,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct AutoMeleeAttackConfig {
-    #[serde(default)] pub damage: Option<i32>,
-    #[serde(default)] pub range: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub damage: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub range: Option<f32>,
     /// Cooldown in milliseconds
-    #[serde(default)] pub cooldown: Option<u64>,
-    #[serde(default)] pub enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cooldown: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
 }
-
-

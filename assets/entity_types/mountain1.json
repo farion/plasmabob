@@ -1,20 +1,21 @@
 {
-  "name": "Mountain 1",
   "category_tag": "doodad",
-  "height": 384,
   "components": {
-    "collider": { "mode": "from_state" },
+    "collider": {
+      "mode": "from_state"
+    },
     "state_machine": {
       "initial_state": "idle",
       "states": {
         "idle": {
           "animation": ["sprites/mountain1/mountain1-default.png"],
           "animation_frame_ms": 500,
-          "collider_box": [[0, 0], [945, 0], [945, 384], [0, 384]],
+          "collider_box": [[0.0, 0.0], [945.0, 0.0], [945.0, 384.0], [0.0, 384.0]],
           "lock_ms": 0
         }
       }
     }
   },
-  "width": 945
+  "height": 384.0,
+  "width": 945.0
 }

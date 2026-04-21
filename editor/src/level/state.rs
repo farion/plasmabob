@@ -21,6 +21,10 @@ pub struct LevelCatalog {
 pub struct EditorUiState {
     pub(crate) show_add_menu: bool,
     pub(crate) show_keyboard_legend_overlay: bool,
+    pub(crate) override_collapsed_components: std::collections::HashSet<String>,
+    pub(crate) override_json_editor_state: HashMap<String, String>,
+    pub(crate) override_array_editor: Option<crate::core::components_overrides::ArrayEditorState>,
+    pub(crate) show_close_confirm: bool,
 }
 
 impl Default for EditorUiState {
@@ -28,6 +32,10 @@ impl Default for EditorUiState {
         Self {
             show_add_menu: false,
             show_keyboard_legend_overlay: true,
+            override_collapsed_components: Default::default(),
+            override_json_editor_state: Default::default(),
+            override_array_editor: None,
+            show_close_confirm: false,
         }
     }
 }
