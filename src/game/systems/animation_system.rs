@@ -26,4 +26,3 @@ pub fn animation_tick_system(
         }
     }
 }
-

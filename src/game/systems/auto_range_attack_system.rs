@@ -1,10 +1,14 @@
 use bevy::prelude::*;
 
 use crate::game::components::auto_range_attack::AutoRangeAttack;
-use crate::game::components::{Collider, ColliderShape, Damageable, RigidBody, StateMachine, Team};
 use crate::game::components::plasma::PlasmaBeam;
-use crate::game::gfx::fire_shoot::{ensure_fire_particle_image, FireParticleImage, spawn_fire_shoot_particles};
-use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, spawn_plasma_beam_particles, PlasmaParticleImage};
+use crate::game::components::{Collider, ColliderShape, Damageable, RigidBody, StateMachine, Team};
+use crate::game::gfx::fire_shoot::{
+    ensure_fire_particle_image, spawn_fire_shoot_particles, FireParticleImage,
+};
+use crate::game::gfx::plasma_shoot::{
+    ensure_plasma_particle_image, spawn_plasma_beam_particles, PlasmaParticleImage,
+};
 use crate::game::gfx::poison::spawn_poison_particles;
 use crate::game::gfx::spit::spawn_spit_particles;
 use crate::game::runtime_components::{GameEntity, Projectile};
@@ -49,8 +53,14 @@ pub fn auto_range_attack_system(
 ) {
     let dt = time.delta();
 
-    for (attacker_entity, attacker_transform, attacker_collider, mut attack, attacker_team, attacker_sm) in
-        &mut attackers
+    for (
+        attacker_entity,
+        attacker_transform,
+        attacker_collider,
+        mut attack,
+        attacker_team,
+        attacker_sm,
+    ) in &mut attackers
     {
         if !attack.enabled {
             continue;
@@ -87,9 +97,7 @@ pub fn auto_range_attack_system(
                 }
             }
 
-            let target_team_name = target_team
-                .map(|t| t.name.as_str())
-                .unwrap_or(NEUTRAL_TEAM);
+            let target_team_name = target_team.map(|t| t.name.as_str()).unwrap_or(NEUTRAL_TEAM);
             if attacker_team_name == target_team_name {
                 continue;
             }
@@ -125,27 +133,27 @@ pub fn auto_range_attack_system(
 
         let projectile_entity = commands
             .spawn((
-            Name::new("EnemyProjectile"),
-            Transform::from_xyz(origin.x, origin.y, entity_z),
-            Collider {
-                offset: Vec2::ZERO,
-                shape: ColliderShape::Rectangle {
-                    half_extents: Vec2::splat(PROJECTILE_HALF_EXTENT),
+                Name::new("EnemyProjectile"),
+                Transform::from_xyz(origin.x, origin.y, entity_z),
+                Collider {
+                    offset: Vec2::ZERO,
+                    shape: ColliderShape::Rectangle {
+                        half_extents: Vec2::splat(PROJECTILE_HALF_EXTENT),
+                    },
                 },
-            },
-            RigidBody {
-                velocity: projectile_velocity,
-                ..default()
-            },
-            Projectile::new(
-                attacker_entity,
-                attack.damage,
-                attack.range,
-                shoot_effect.clone(),
-                impact_effect,
-            ),
-            GameEntity,
-        ))
+                RigidBody {
+                    velocity: projectile_velocity,
+                    ..default()
+                },
+                Projectile::new(
+                    attacker_entity,
+                    attack.damage,
+                    attack.range,
+                    shoot_effect.clone(),
+                    impact_effect,
+                ),
+                GameEntity,
+            ))
             .id();
 
         // Fire uses its own dedicated particle image; all other effects share the plasma image.
@@ -247,6 +255,3 @@ fn spawn_shoot_effect(
         spawn_spit_particles(commands, particle_image, origin, z, seed_base);
     }
 }
-
-
-

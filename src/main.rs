@@ -113,6 +113,7 @@ pub(crate) struct LevelSelection {
 #[derive(Resource, Debug, Clone, Copy)]
 pub(crate) struct DebugRenderSettings {
     pub(crate) show_hitbox_lines: bool,
+    pub(crate) show_enemy_ai_debug: bool,
     pub(crate) parallax_enabled: bool,
 }
 
@@ -169,6 +170,7 @@ fn main() {
         })
         .insert_resource(DebugRenderSettings {
             show_hitbox_lines: SHOW_HITBOX_DEBUG_LINES,
+            show_enemy_ai_debug: false,
             parallax_enabled: USE_PARALAX_SCROLLING,
         })
         .init_resource::<MenuSelection>()

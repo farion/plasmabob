@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::game::runtime_components::{GameEntity, Parallax, ParallaxCameraOrigin};
+use bevy::prelude::*;
 
 const GAMEPLAY_Z_MIN: f32 = 75.0;
 const GAMEPLAY_Z_MAX: f32 = 125.0;
@@ -10,7 +10,11 @@ pub fn init_parallax_system(
     camera_query: Query<&Transform, With<crate::MainCamera>>,
     entities: Query<
         (Entity, &Transform),
-        (With<GameEntity>, Without<Parallax>, Without<crate::MainCamera>),
+        (
+            With<GameEntity>,
+            Without<Parallax>,
+            Without<crate::MainCamera>,
+        ),
     >,
 ) {
     let Ok(camera_tf) = camera_query.single() else {

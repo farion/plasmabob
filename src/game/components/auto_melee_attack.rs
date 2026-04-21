@@ -24,7 +24,13 @@ impl AutoMeleeAttack {
         let mut cooldown = Timer::new(duration, TimerMode::Repeating);
         // Pre-elapse the timer so the first overlap fires damage immediately.
         cooldown.set_elapsed(duration);
-        AutoMeleeAttack { damage, range, cooldown, enabled: true, just_attacked: false }
+        AutoMeleeAttack {
+            damage,
+            range,
+            cooldown,
+            enabled: true,
+            just_attacked: false,
+        }
     }
 }
 
@@ -33,7 +39,6 @@ impl Default for AutoMeleeAttack {
         AutoMeleeAttack::new(1, 12.0, 0.5)
     }
 }
-
 
 crate::impl_override_from_config!(AutoMeleeAttack, crate::game::level::configs::AutoMeleeAttackConfig,
     pick_i32 => [damage],

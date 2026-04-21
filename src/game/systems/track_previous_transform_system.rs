@@ -18,4 +18,3 @@ pub fn track_previous_transform_system(
         }
     }
 }
-

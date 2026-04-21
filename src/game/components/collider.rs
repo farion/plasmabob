@@ -18,7 +18,9 @@ impl Default for Collider {
     fn default() -> Self {
         Collider {
             offset: Vec2::ZERO,
-            shape: ColliderShape::Rectangle { half_extents: Vec2::new(8.0, 8.0) },
+            shape: ColliderShape::Rectangle {
+                half_extents: Vec2::new(8.0, 8.0),
+            },
         }
     }
 }

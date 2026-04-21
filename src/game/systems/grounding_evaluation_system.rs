@@ -17,7 +17,8 @@ pub fn grounding_evaluation_system(
 
     for (mut gravity, rigid_body, mut grounding_state) in &mut entities {
         let required_support = rigid_body.mass.max(0.0) * gravity_strength * SUPPORT_THRESHOLD;
-        let support_force = rigid_body.mass.max(0.0) * gravity_strength * grounding_state.support_normal_sum_y;
+        let support_force =
+            rigid_body.mass.max(0.0) * gravity_strength * grounding_state.support_normal_sum_y;
 
         if support_force >= required_support && grounding_state.support_normal_sum_y > 0.0 {
             gravity.grounded = true;
@@ -32,4 +33,3 @@ pub fn grounding_evaluation_system(
         }
     }
 }
-

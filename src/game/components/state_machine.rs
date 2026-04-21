@@ -1,5 +1,5 @@
+use crate::game::level::types::{StateConfig, StateMachineConfig};
 use bevy::prelude::Component;
-use crate::game::level::types::{StateMachineConfig, StateConfig};
 use std::collections::HashMap;
 
 /// State enum for entities. Mirrors the states described in the project AGENTS.md.
@@ -68,7 +68,6 @@ impl StateMachine {
         sm
     }
 
-
     /// Transition to a new state. Resets the state timer and records the previous state.
     pub fn set_state(&mut self, new_state: EntityState) {
         if self.state != new_state {
@@ -92,14 +91,12 @@ impl StateMachine {
     pub fn tick(&mut self, dt: f32) {
         self.state_time += dt;
     }
-
 }
 
 // JSON override removed: prefer typed `override_from_config` for StateMachine.
 // JSON override removed: prefer typed `override_from_config` for StateMachine.
 
 impl StateMachine {
-
     /// Convert a state name string into the typed `EntityState` enum.
     pub fn entity_state_from_name(s: &str) -> EntityState {
         match s.to_ascii_lowercase().as_str() {
@@ -125,7 +122,10 @@ impl StateMachine {
 impl EntityState {
     /// Dying/Dead entities should not be targetable or deal damage anymore.
     pub fn is_non_interactive(self) -> bool {
-        matches!(self, EntityState::Dying | EntityState::Dead | EntityState::Collected)
+        matches!(
+            self,
+            EntityState::Dying | EntityState::Dead | EntityState::Collected
+        )
     }
 
     /// Return the canonical lowercase state name used in JSON and the asset cache.
@@ -145,4 +145,3 @@ impl EntityState {
         }
     }
 }
-

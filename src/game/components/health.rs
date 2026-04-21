@@ -21,7 +21,6 @@ impl Health {
         }
     }
 
-
     pub fn is_dead(&self) -> bool {
         self.current <= 0
     }
@@ -51,5 +50,3 @@ crate::impl_override_with_u32_default!(Health, crate::game::level::configs::heal
     pick_bool => [despawn_on_death],
     pick_u64 => [despawn_delay_ms],
 );
-
-

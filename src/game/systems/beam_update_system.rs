@@ -1,5 +1,7 @@
 use crate::game::components::plasma::PlasmaBeam;
-use crate::game::gfx::helpers::{PlasmaBeamParticle, PlasmaImpactParticle, ProjectileEffectParticle};
+use crate::game::gfx::helpers::{
+    PlasmaBeamParticle, PlasmaImpactParticle, ProjectileEffectParticle,
+};
 use crate::game::gfx::plasma_shoot::update_beam_particles;
 use bevy::prelude::*;
 
@@ -42,7 +44,12 @@ pub fn beam_update_system(
         ),
     >,
     mut projectile_effect_particles: Query<
-        (Entity, &mut ProjectileEffectParticle, &mut Transform, &mut Sprite),
+        (
+            Entity,
+            &mut ProjectileEffectParticle,
+            &mut Transform,
+            &mut Sprite,
+        ),
         (
             Without<PlasmaBeamParticle>,
             Without<PlasmaImpactParticle>,
@@ -97,13 +104,17 @@ pub fn beam_update_system(
         let fraction = impact.lifetime.fraction();
         let size = (impact.start_size * (1.08 - fraction * 0.55)).max(0.0);
         sprite.custom_size = Some(Vec2::splat(size));
-        sprite.color.set_alpha((1.08 - fraction * 0.72).clamp(0.0, 1.0));
+        sprite
+            .color
+            .set_alpha((1.08 - fraction * 0.72).clamp(0.0, 1.0));
         if impact.lifetime.just_finished() {
             commands.entity(particle_entity).try_despawn();
         }
     }
 
-    for (particle_entity, mut particle, mut transform, mut sprite) in &mut projectile_effect_particles {
+    for (particle_entity, mut particle, mut transform, mut sprite) in
+        &mut projectile_effect_particles
+    {
         particle.lifetime.tick(time.delta());
         transform.translation.x += particle.velocity.x * dt;
         transform.translation.y += particle.velocity.y * dt;

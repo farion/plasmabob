@@ -13,15 +13,12 @@ impl CollectibleEffect {
     }
 }
 
-
 impl Default for CollectibleEffect {
     fn default() -> Self {
         CollectibleEffect::new(0)
     }
 }
 
-
 crate::impl_override_from_config!(CollectibleEffect, crate::game::level::configs::collectible_effect_config::CollectibleEffectConfig,
     pick_u32 => [heal],
 );
-

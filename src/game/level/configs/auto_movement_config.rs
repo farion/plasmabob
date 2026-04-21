@@ -8,4 +8,40 @@ pub struct AutoMovementConfig {
     pub speed: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aggro: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aggro_range: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deaggro_range: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_strategy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aggro_strategy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patrol_range: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patrol_pause_time: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patrol_waypoints: Option<Vec<[f32; 2]>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_of_sight: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vision_angle: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vision_check_interval: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub can_fall_when_following: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jump_cooldown: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_speed: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub acceleration: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_timeout: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub share_aggro_with_team: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aggro_sharing_radius: Option<f32>,
 }

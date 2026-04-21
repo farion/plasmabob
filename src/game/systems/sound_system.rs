@@ -106,16 +106,17 @@ pub fn sound_system(
                 None => {
                     // No start sound → spawn loop immediately (if defined).
                     if let Some(loop_handle) = new_loop {
-                        let loop_entity = commands.spawn((
-                            AudioPlayer::<AudioSource>::new(loop_handle),
-                            PlaybackSettings {
-                                mode: PlaybackMode::Loop,
-                                volume: vol,
-                                ..default()
-                            },
-                            StateSoundLoop,
-                        ))
-                        .id();
+                        let loop_entity = commands
+                            .spawn((
+                                AudioPlayer::<AudioSource>::new(loop_handle),
+                                PlaybackSettings {
+                                    mode: PlaybackMode::Loop,
+                                    volume: vol,
+                                    ..default()
+                                },
+                                StateSoundLoop,
+                            ))
+                            .id();
                         ss.stage = SoundSeqStage::Looping { loop_entity };
                     } else {
                         ss.stage = SoundSeqStage::Idle;
@@ -127,7 +128,11 @@ pub fn sound_system(
         }
 
         // ── Tick start-sound timer ────────────────────────────────────────
-        if let SoundSeqStage::WaitingForStartEnd { ref mut timer, ref mut pending_loop } = ss.stage {
+        if let SoundSeqStage::WaitingForStartEnd {
+            ref mut timer,
+            ref mut pending_loop,
+        } = ss.stage
+        {
             timer.tick(time.delta());
             if timer.just_finished() {
                 if let Some(loop_handle) = pending_loop.take() {

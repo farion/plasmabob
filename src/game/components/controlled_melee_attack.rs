@@ -13,7 +13,11 @@ pub struct ControlledMeleeAttack {
 
 impl ControlledMeleeAttack {
     pub fn new(damage: i32, range: f32, cooldown_s: f32) -> Self {
-        ControlledMeleeAttack { damage, range, cooldown: Timer::from_seconds(cooldown_s, TimerMode::Repeating) }
+        ControlledMeleeAttack {
+            damage,
+            range,
+            cooldown: Timer::from_seconds(cooldown_s, TimerMode::Repeating),
+        }
     }
 }
 
@@ -29,4 +33,3 @@ crate::impl_override_from_config!(ControlledMeleeAttack, crate::game::level::con
     pick_f32 => [range],
     pick_timer => [cooldown],
 );
-

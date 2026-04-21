@@ -2,7 +2,9 @@ use bevy::prelude::*;
 
 use crate::game::components::plasma::PlasmaBeam;
 use crate::game::components::RigidBody;
-use crate::game::gfx::fire_shoot::{ensure_fire_particle_image, FireParticleImage, spawn_fire_shoot_particles};
+use crate::game::gfx::fire_shoot::{
+    ensure_fire_particle_image, spawn_fire_shoot_particles, FireParticleImage,
+};
 use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, PlasmaParticleImage};
 use crate::game::gfx::poison::spawn_poison_particles;
 use crate::game::gfx::spit::spawn_spit_particles;
@@ -131,4 +133,3 @@ fn set_beams_to_afterglow(projectile_entity: Entity, beams: &mut Query<(Entity, 
         }
     }
 }
-

@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-
 use super::draw_hitbox_debug_lines::DebugHitbox;
 use super::update_debug_stats_labels::DebugStatsLabel;
 
@@ -29,4 +28,3 @@ pub(crate) fn toggle_hitbox_debug_lines(
         }
     }
 }
-

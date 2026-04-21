@@ -32,7 +32,9 @@ pub fn enemy_random_patrol_system(
         }
 
         let Some(mut patrol_state) = patrol_state else {
-            commands.entity(entity).insert(PatrolState::from_entity(entity));
+            commands
+                .entity(entity)
+                .insert(PatrolState::from_entity(entity));
             continue;
         };
 
@@ -66,4 +68,3 @@ pub fn enemy_random_patrol_system(
         rigid_body.velocity.x = auto_movement.direction.x * speed;
     }
 }
-

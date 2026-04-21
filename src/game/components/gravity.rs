@@ -13,12 +13,15 @@ pub struct Gravity {
 
 impl Default for Gravity {
     fn default() -> Self {
-        Gravity { scale: 1.0, grounded: false, extra_accel: Vec2::ZERO }
+        Gravity {
+            scale: 1.0,
+            grounded: false,
+            extra_accel: Vec2::ZERO,
+        }
     }
 }
 
-impl Gravity {
-}
+impl Gravity {}
 
 // Use the macro to implement override_from_config for Gravity.
 crate::impl_override_from_config!(Gravity, crate::game::level::configs::GravityConfig,
@@ -26,4 +29,3 @@ crate::impl_override_from_config!(Gravity, crate::game::level::configs::GravityC
     pick_bool => [grounded],
     pick_vec2 => [extra_accel],
 );
-

@@ -6,7 +6,12 @@ const WAYPOINT_EPSILON: f32 = 0.001;
 
 pub fn moving_platform_system(
     time: Res<Time>,
-    mut platforms: Query<(Entity, &mut Transform, &mut MovingPlatform, Option<&mut RigidBody>)>,
+    mut platforms: Query<(
+        Entity,
+        &mut Transform,
+        &mut MovingPlatform,
+        Option<&mut RigidBody>,
+    )>,
 ) {
     let dt = time.delta_secs();
     if dt <= 0.0 {
@@ -27,7 +32,11 @@ pub fn moving_platform_system(
         let mut position = start_position;
 
         while remaining > 0.0 {
-            let Some(target) = moving_platform.waypoints.get(moving_platform.target_index).copied() else {
+            let Some(target) = moving_platform
+                .waypoints
+                .get(moving_platform.target_index)
+                .copied()
+            else {
                 break;
             };
 
@@ -66,4 +75,3 @@ pub fn moving_platform_system(
         let _disp = position - start_position;
     }
 }
-

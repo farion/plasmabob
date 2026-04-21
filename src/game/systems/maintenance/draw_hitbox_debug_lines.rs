@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 use std::collections::HashSet;
 
-use crate::game::components::{Collider, ColliderShape};
-use crate::game::components::StateMachine;
 use crate::game::components::Health;
+use crate::game::components::StateMachine;
+use crate::game::components::{Collider, ColliderShape};
 use crate::game::runtime_components::SpawnedLevelEntity;
-use crate::game::tags::{PlayerTag, EnemyTag, EnvironmentTag, DoodadTag};
+use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag};
 
 /// Marker attached to spawned debug hitbox sprites so they can be cleaned up.
 #[derive(Component)]
@@ -21,8 +21,22 @@ pub struct DebugOwner(pub Entity);
 pub(crate) fn draw_hitbox_debug_lines(
     mut commands: Commands,
     debug_settings: Res<crate::DebugRenderSettings>,
-    mut q_owners: Query<(Entity, &GlobalTransform, &Collider, Option<&PlayerTag>, Option<&EnemyTag>, Option<&EnvironmentTag>, Option<&DoodadTag>, Option<&Health>, Option<&StateMachine>, &SpawnedLevelEntity)>,
-    mut q_existing: Query<(Entity, &DebugOwner, &mut Transform, Option<&mut Sprite>), With<DebugHitbox>>,
+    mut q_owners: Query<(
+        Entity,
+        &GlobalTransform,
+        &Collider,
+        Option<&PlayerTag>,
+        Option<&EnemyTag>,
+        Option<&EnvironmentTag>,
+        Option<&DoodadTag>,
+        Option<&Health>,
+        Option<&StateMachine>,
+        &SpawnedLevelEntity,
+    )>,
+    mut q_existing: Query<
+        (Entity, &DebugOwner, &mut Transform, Option<&mut Sprite>),
+        With<DebugHitbox>,
+    >,
 ) {
     if !debug_settings.show_hitbox_lines {
         return;
@@ -36,7 +50,19 @@ pub(crate) fn draw_hitbox_debug_lines(
     }
 
     // Spawn missing debug entities and update existing ones.
-    for (owner_ent, owner_tf, collider, is_player, is_enemy, _is_env, _is_doodad, _health, _sm, spawned) in &mut q_owners {
+    for (
+        owner_ent,
+        owner_tf,
+        collider,
+        is_player,
+        is_enemy,
+        _is_env,
+        _is_doodad,
+        _health,
+        _sm,
+        spawned,
+    ) in &mut q_owners
+    {
         // Determine color by category
         let color = if is_player.is_some() {
             Color::srgba(0.0, 1.0, 0.0, 0.25) // green
@@ -56,7 +82,11 @@ pub(crate) fn draw_hitbox_debug_lines(
         };
         let size = Vec2::new(half_w * 2.0, half_h * 2.0);
         let owner_pos = owner_tf.translation();
-        let dbg_pos = Vec3::new(owner_pos.x + collider.offset.x, owner_pos.y + collider.offset.y, owner_pos.z + 0.1);
+        let dbg_pos = Vec3::new(
+            owner_pos.x + collider.offset.x,
+            owner_pos.y + collider.offset.y,
+            owner_pos.z + 0.1,
+        );
 
         // If a debug sprite already exists for this owner, update it. Otherwise spawn.
         if existing_owners.contains(&owner_ent) {
@@ -103,5 +133,3 @@ pub(crate) fn draw_hitbox_debug_lines(
         }
     }
 }
-
-

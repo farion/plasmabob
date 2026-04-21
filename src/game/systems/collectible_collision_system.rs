@@ -1,8 +1,10 @@
 use bevy::prelude::*;
 
-use crate::game::components::{CollectibleEffect, Collider, ControlledMovement, Health, StateMachine, EntityState};
-use crate::game::systems::damage_popup_system::spawn_damage_popup;
+use crate::game::components::{
+    CollectibleEffect, Collider, ControlledMovement, EntityState, Health, StateMachine,
+};
 use crate::game::runtime_components::DamagePopupSettings;
+use crate::game::systems::damage_popup_system::spawn_damage_popup;
 use crate::game::tags::CollectibleTag;
 
 /// Detect overlaps between controlled entities and collectibles. When a pickup
@@ -11,8 +13,20 @@ use crate::game::tags::CollectibleTag;
 /// collectible's StateMachine to `Collected` to play the 1s pickup animation.
 pub fn collectible_collision_system(
     mut commands: Commands,
-    mut collectibles: Query<(Entity, &Transform, &Collider, Option<&mut StateMachine>, Option<&CollectibleEffect>), With<CollectibleTag>>,
-    mut pickers: Query<(Entity, &Transform, &Collider, Option<&mut Health>), With<ControlledMovement>>,
+    mut collectibles: Query<
+        (
+            Entity,
+            &Transform,
+            &Collider,
+            Option<&mut StateMachine>,
+            Option<&CollectibleEffect>,
+        ),
+        With<CollectibleTag>,
+    >,
+    mut pickers: Query<
+        (Entity, &Transform, &Collider, Option<&mut Health>),
+        With<ControlledMovement>,
+    >,
     damage_settings: Res<DamagePopupSettings>,
     mut stats: ResMut<crate::LevelStats>,
 ) {
@@ -26,11 +40,15 @@ pub fn collectible_collision_system(
             }
         }
 
-        let Some(col_half) = rectangle_half_extents(col_col) else { continue; };
+        let Some(col_half) = rectangle_half_extents(col_col) else {
+            continue;
+        };
         let col_center = col_tr.translation.truncate() + col_col.offset;
 
         for (_picker_ent, picker_tr, picker_col, picker_health_opt) in &mut pickers {
-            let Some(p_half) = rectangle_half_extents(picker_col) else { continue; };
+            let Some(p_half) = rectangle_half_extents(picker_col) else {
+                continue;
+            };
             let picker_center = picker_tr.translation.truncate() + picker_col.offset;
 
             if aabb_overlap(col_center, col_half, picker_center, p_half) {
@@ -41,7 +59,14 @@ pub fn collectible_collision_system(
 
                         // Spawn heal popup on the picker (controlled entity)
                         let pos = picker_tr.translation + Vec3::new(0.0, 0.0, 20.0);
-                        spawn_damage_popup(&mut commands, pos, eff.heal as i32, true, true, &*damage_settings);
+                        spawn_damage_popup(
+                            &mut commands,
+                            pos,
+                            eff.heal as i32,
+                            true,
+                            true,
+                            &*damage_settings,
+                        );
                     }
                 }
 
@@ -79,7 +104,3 @@ fn aabb_overlap(c1: Vec2, h1: Vec2, c2: Vec2, h2: Vec2) -> bool {
     let max2 = c2 + h2;
     !(max1.x < min2.x || min1.x > max2.x || max1.y < min2.y || min1.y > max2.y)
 }
-
-
-
-

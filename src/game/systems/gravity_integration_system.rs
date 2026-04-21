@@ -25,4 +25,3 @@ pub fn gravity_integration_system(
         }
     }
 }
-

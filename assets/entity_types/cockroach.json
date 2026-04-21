@@ -4,7 +4,9 @@
     "auto_melee_attack": {
       "damage": 10
     },
-    "auto_movement": {},
+    "auto_movement": {
+
+    },
     "auto_range_attack": {
       "aggro_range": 500.0,
       "damage": 10,

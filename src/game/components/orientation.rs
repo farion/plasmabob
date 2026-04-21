@@ -37,9 +37,7 @@ impl Default for Orientation {
     }
 }
 
-
 crate::impl_override_from_config!(Orientation, crate::game::level::configs::OrientationConfig,
     pick_facing => [facing],
     pick_vec2 => [surface_alignment],
 );
-

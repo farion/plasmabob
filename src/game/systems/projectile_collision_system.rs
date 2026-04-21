@@ -1,17 +1,19 @@
-use bevy::prelude::*;
 use bevy::ecs::system::SystemParam;
+use bevy::prelude::*;
 
 use crate::game::components::plasma::PlasmaBeam;
-use crate::game::components::{Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, StateMachine, Team};
-use crate::game::systems::damage_popup_system::spawn_damage_popup;
-use crate::game::runtime_components::DamagePopupSettings;
+use crate::game::components::{
+    Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, StateMachine, Team,
+};
 use crate::game::gfx::fire_impact::spawn_fire_impact_explosion;
 use crate::game::gfx::fire_shoot::{ensure_fire_particle_image, FireParticleImage};
 use crate::game::gfx::plasma_impact::spawn_plasma_impact_explosion;
 use crate::game::gfx::plasma_shoot::{ensure_plasma_particle_image, PlasmaParticleImage};
 use crate::game::gfx::poison::spawn_poison_particles;
 use crate::game::gfx::spit::spawn_spit_particles;
+use crate::game::runtime_components::DamagePopupSettings;
 use crate::game::runtime_components::Projectile;
+use crate::game::systems::damage_popup_system::spawn_damage_popup;
 use crate::helper::active_character::ActiveCharacter;
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::sounds::spawn_combat_sfx;
@@ -39,17 +41,15 @@ pub(crate) struct ProjectileCollisionRuntime<'w, 's> {
 pub fn projectile_collision_system(
     mut runtime: ProjectileCollisionRuntime,
     projectiles: Query<(Entity, &Transform, &Collider, &RigidBody, &Projectile)>,
-    targets: Query<
-        (
-            Entity,
-            &Transform,
-            &Collider,
-            Option<&Blocking>,
-            Option<&RigidBody>,
-            Option<&Team>,
-            Option<&crate::game::tags::PlayerTag>,
-        ),
-    >,
+    targets: Query<(
+        Entity,
+        &Transform,
+        &Collider,
+        Option<&Blocking>,
+        Option<&RigidBody>,
+        Option<&Team>,
+        Option<&crate::game::tags::PlayerTag>,
+    )>,
     teams: Query<&Team>,
     state_machines: Query<&StateMachine>,
     mut health_query: Query<&mut Health>,
@@ -61,8 +61,13 @@ pub fn projectile_collision_system(
         return;
     }
 
-    for (projectile_entity, projectile_transform, projectile_collider, projectile_body, projectile) in
-        &projectiles
+    for (
+        projectile_entity,
+        projectile_transform,
+        projectile_collider,
+        projectile_body,
+        projectile,
+    ) in &projectiles
     {
         if let Ok(owner_sm) = state_machines.get(projectile.owner) {
             if owner_sm.is_non_interactive() {
@@ -82,13 +87,21 @@ pub fn projectile_collision_system(
             .map(|team| team.name.as_str())
             .unwrap_or(NEUTRAL_TEAM);
 
-        let projectile_center = projectile_transform.translation.truncate() + projectile_collider.offset;
+        let projectile_center =
+            projectile_transform.translation.truncate() + projectile_collider.offset;
         let projectile_motion = projectile_body.velocity * dt;
 
         let mut best_hit: Option<HitCandidate> = None;
 
-        for (target_entity, target_transform, target_collider, blocking, target_body, target_team, target_player_tag) in
-            &targets
+        for (
+            target_entity,
+            target_transform,
+            target_collider,
+            blocking,
+            target_body,
+            target_team,
+            target_player_tag,
+        ) in &targets
         {
             if target_entity == projectile.owner || target_entity == projectile_entity {
                 continue;
@@ -132,7 +145,7 @@ pub fn projectile_collision_system(
 
             let distance = projectile_motion.length() * toi;
             let class_rank = if is_blocking { 0_u8 } else { 1_u8 };
-                let candidate = HitCandidate {
+            let candidate = HitCandidate {
                 entity: target_entity,
                 toi,
                 distance,
@@ -162,23 +175,43 @@ pub fn projectile_collision_system(
                 }
 
                 // Spawn floating damage numbers at the impact position.
-                let pos = Vec3::new(hit.impact_position.x, hit.impact_position.y, hit.impact_z + 20.0);
-                spawn_damage_popup(&mut runtime.commands, pos, projectile.damage as i32, false, hit.is_controlled, &DamagePopupSettings::default());
+                let pos = Vec3::new(
+                    hit.impact_position.x,
+                    hit.impact_position.y,
+                    hit.impact_z + 20.0,
+                );
+                spawn_damage_popup(
+                    &mut runtime.commands,
+                    pos,
+                    projectile.damage as i32,
+                    false,
+                    hit.is_controlled,
+                    &DamagePopupSettings::default(),
+                );
             }
 
-            let impact_effect = projectile.impact_effect.as_deref().unwrap_or("plasma_impact");
+            let impact_effect = projectile
+                .impact_effect
+                .as_deref()
+                .unwrap_or("plasma_impact");
             if is_supported_impact_effect(impact_effect) {
                 // Fire uses its own dedicated particle image; all others share the plasma image.
                 let particle_image = if impact_effect.eq_ignore_ascii_case("fire_impact") {
                     if let Some(resource) = runtime.fire_particle_image_res.as_ref() {
                         resource.0.clone()
                     } else {
-                        ensure_fire_particle_image(&mut runtime.fire_particle_image, &mut runtime.images)
+                        ensure_fire_particle_image(
+                            &mut runtime.fire_particle_image,
+                            &mut runtime.images,
+                        )
                     }
                 } else if let Some(resource) = runtime.particle_image_res.as_ref() {
                     resource.0.clone()
                 } else {
-                    ensure_plasma_particle_image(&mut runtime.plasma_particle_image, &mut runtime.images)
+                    ensure_plasma_particle_image(
+                        &mut runtime.plasma_particle_image,
+                        &mut runtime.images,
+                    )
                 };
                 let impact_z = projectile_transform.translation.z;
                 spawn_projectile_impact_effect(
@@ -318,8 +351,10 @@ fn swept_aabb_toi(
         return None;
     }
 
-    let (tx_min, tx_max) = ray_axis_times(moving_center.x, moving_delta.x, target_min.x, target_max.x)?;
-    let (ty_min, ty_max) = ray_axis_times(moving_center.y, moving_delta.y, target_min.y, target_max.y)?;
+    let (tx_min, tx_max) =
+        ray_axis_times(moving_center.x, moving_delta.x, target_min.x, target_max.x)?;
+    let (ty_min, ty_max) =
+        ray_axis_times(moving_center.y, moving_delta.y, target_min.y, target_max.y)?;
 
     let t_enter = tx_min.max(ty_min);
     let t_exit = tx_max.min(ty_max);
@@ -351,4 +386,3 @@ fn ray_axis_times(origin: f32, delta: f32, slab_min: f32, slab_max: f32) -> Opti
 fn point_in_aabb(point: Vec2, min: Vec2, max: Vec2) -> bool {
     point.x >= min.x && point.x <= max.x && point.y >= min.y && point.y <= max.y
 }
-

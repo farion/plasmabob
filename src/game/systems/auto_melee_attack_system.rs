@@ -2,10 +2,10 @@ use bevy::prelude::*;
 
 use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::{
-    Collider, ColliderShape, Damageable, Health, StateMachine, Team, ControlledMovement,
+    Collider, ColliderShape, ControlledMovement, Damageable, Health, StateMachine, Team,
 };
-use crate::game::systems::damage_popup_system::spawn_damage_popup;
 use crate::game::runtime_components::DamagePopupSettings;
+use crate::game::systems::damage_popup_system::spawn_damage_popup;
 
 const NEUTRAL_TEAM: &str = "Neutral";
 
@@ -36,10 +36,7 @@ pub fn auto_melee_attack_system(
         Option<&StateMachine>,
     )>,
     // Only entities that do NOT have AutoMeleeAttack can be targets (prevents same-archetype aliasing).
-    targets: Query<
-        (Entity, &Transform, &Collider, Option<&Team>),
-        Without<AutoMeleeAttack>,
-    >,
+    targets: Query<(Entity, &Transform, &Collider, Option<&Team>), Without<AutoMeleeAttack>>,
     state_machines: Query<&StateMachine>,
     mut health_q: Query<&mut Health>,
     mut damageable_q: Query<&mut Damageable>,
@@ -48,8 +45,14 @@ pub fn auto_melee_attack_system(
 ) {
     let dt = time.delta();
 
-    for (attacker_entity, attacker_transform, attacker_collider, mut melee, attacker_team, attacker_sm) in
-        &mut attackers
+    for (
+        attacker_entity,
+        attacker_transform,
+        attacker_collider,
+        mut melee,
+        attacker_team,
+        attacker_sm,
+    ) in &mut attackers
     {
         if !melee.enabled {
             continue;
@@ -77,8 +80,7 @@ pub fn auto_melee_attack_system(
         let Some(attacker_half) = rectangle_half_extents(attacker_collider) else {
             continue;
         };
-        let attacker_center =
-            attacker_transform.translation.truncate() + attacker_collider.offset;
+        let attacker_center = attacker_transform.translation.truncate() + attacker_collider.offset;
 
         let mut hit_any = false;
 
@@ -94,9 +96,7 @@ pub fn auto_melee_attack_system(
             }
 
             // No friendly fire — same team cannot be damaged.
-            let target_team_name = target_team
-                .map(|t| t.name.as_str())
-                .unwrap_or(NEUTRAL_TEAM);
+            let target_team_name = target_team.map(|t| t.name.as_str()).unwrap_or(NEUTRAL_TEAM);
             if attacker_team_name == target_team_name {
                 continue;
             }
@@ -109,8 +109,7 @@ pub fn auto_melee_attack_system(
             let Some(target_half) = rectangle_half_extents(target_collider) else {
                 continue;
             };
-            let target_center =
-                target_transform.translation.truncate() + target_collider.offset;
+            let target_center = target_transform.translation.truncate() + target_collider.offset;
 
             if !aabb_overlap(attacker_center, attacker_half, target_center, target_half) {
                 continue;
@@ -125,7 +124,14 @@ pub fn auto_melee_attack_system(
                 // Spawn floating damage numbers above the hit target.
                 let pos = target_transform.translation + Vec3::new(0.0, 0.0, 20.0);
                 let is_controlled = controlled_q.get(target_entity).is_ok();
-                spawn_damage_popup(&mut commands, pos, melee.damage as i32, false, is_controlled, &*damage_settings);
+                spawn_damage_popup(
+                    &mut commands,
+                    pos,
+                    melee.damage as i32,
+                    false,
+                    is_controlled,
+                    &*damage_settings,
+                );
             }
 
             // Trigger the Damaged state on the target via its timer.
@@ -163,4 +169,3 @@ fn aabb_overlap(center_a: Vec2, half_a: Vec2, center_b: Vec2, half_b: Vec2) -> b
     let diff = (center_a - center_b).abs();
     diff.x < half_a.x + half_b.x && diff.y < half_a.y + half_b.y
 }
-

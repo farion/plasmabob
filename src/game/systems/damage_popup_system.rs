@@ -85,9 +85,3 @@ pub fn damage_popup_animate_system(
         }
     }
 }
-
-
-
-
-
-

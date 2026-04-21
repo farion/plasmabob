@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use crate::game::components::controlled_range_attack::ControlledRangeAttack;
 use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::auto_range_attack::AutoRangeAttack;
+use crate::game::components::controlled_range_attack::ControlledRangeAttack;
 use crate::game::components::{
     AutoMovement, Collider, ControlledMovement, Damageable, EntityState, Gravity, Health,
     MovingPlatform, RigidBody, StateMachine,
@@ -10,8 +10,8 @@ use crate::game::components::{
 use crate::game::runtime_components::{AnimationConfig, SpawnedLevelEntity};
 use crate::game::setup::collider_helper::build_collider_from_box;
 use crate::game::setup::entity_type_assets::EntityTypeAssets;
-use crate::helper::key_bindings::KeyBindings;
 use crate::game::setup::flip_utils::adjust_new_collider_preserve_world_center;
+use crate::helper::key_bindings::KeyBindings;
 
 /// Drives every entity's `StateMachine` state each frame based on movement, physics,
 /// combat and damage signals.
@@ -111,7 +111,14 @@ pub fn state_machine_update_system(
         // --- Dying: check whether the timer has elapsed and transition to Dead ---
         if sm.is(EntityState::Dying) {
             if sm.state_time >= sm.dying_duration_secs {
-                apply_transition(&mut sm, EntityState::Dead, &entity_type_assets, spawned, &mut collider, &mut anim_s_t);
+                apply_transition(
+                    &mut sm,
+                    EntityState::Dead,
+                    &entity_type_assets,
+                    spawned,
+                    &mut collider,
+                    &mut anim_s_t,
+                );
             }
             continue;
         }
@@ -119,7 +126,14 @@ pub fn state_machine_update_system(
         // --- New death: health just reached zero ---
         if let Some(hp) = health {
             if hp.is_dead() {
-                apply_transition(&mut sm, EntityState::Dying, &entity_type_assets, spawned, &mut collider, &mut anim_s_t);
+                apply_transition(
+                    &mut sm,
+                    EntityState::Dying,
+                    &entity_type_assets,
+                    spawned,
+                    &mut collider,
+                    &mut anim_s_t,
+                );
                 continue;
             }
         }
@@ -160,10 +174,8 @@ pub fn state_machine_update_system(
         let vel_y = rigid_body.map(|rb| rb.velocity.y).unwrap_or(0.0);
         let vel_x_abs = rigid_body.map(|rb| rb.velocity.x.abs()).unwrap_or(0.0);
 
-        let is_jumping =
-            controlled_movement.is_some() && !grounded && vel_y > f32::EPSILON;
-        let is_crouching =
-            controlled_movement.is_some() && keyboard.pressed(crouch_key);
+        let is_jumping = controlled_movement.is_some() && !grounded && vel_y > f32::EPSILON;
+        let is_crouching = controlled_movement.is_some() && keyboard.pressed(crouch_key);
         let is_falling = gravity.is_some() && !grounded && vel_y < -f32::EPSILON;
         let is_moving = (controlled_movement.is_some() && vel_x_abs > f32::EPSILON)
             || auto_movement
@@ -194,7 +206,14 @@ pub fn state_machine_update_system(
         if new_state != sm.state {
             let locked = check_lock_ms(&sm, &entity_type_assets, spawned);
             if !locked {
-                apply_transition(&mut sm, new_state, &entity_type_assets, spawned, &mut collider, &mut anim_s_t);
+                apply_transition(
+                    &mut sm,
+                    new_state,
+                    &entity_type_assets,
+                    spawned,
+                    &mut collider,
+                    &mut anim_s_t,
+                );
             }
         }
     }
@@ -244,7 +263,9 @@ fn apply_transition(
     // does not cause a visible flicker.
     if let Some(col) = collider.as_mut() {
         let et = eta.map.get(&sel.entity_type);
-        let (sw, sh) = et.map(|e| (e.sprite_width, e.sprite_height)).unwrap_or((128.0, 128.0));
+        let (sw, sh) = et
+            .map(|e| (e.sprite_width, e.sprite_height))
+            .unwrap_or((128.0, 128.0));
 
         // Capture old collider offset before replacing so we can preserve
         // the world centre.
@@ -255,8 +276,19 @@ fn apply_transition(
 
         // Determine whether the sprite is currently flipped so the new collider
         // can be mirrored accordingly and positioned to keep the world centre.
-        let is_flipped = anim_s_t.as_ref().map(|(_, spr, _)| spr.flip_x).unwrap_or(false);
-        adjust_new_collider_preserve_world_center(anim_s_t.as_ref().map(|(_, _, tr)| &**tr).unwrap_or(&Transform::default()), old_col_x, &mut new_col, is_flipped);
+        let is_flipped = anim_s_t
+            .as_ref()
+            .map(|(_, spr, _)| spr.flip_x)
+            .unwrap_or(false);
+        adjust_new_collider_preserve_world_center(
+            anim_s_t
+                .as_ref()
+                .map(|(_, _, tr)| &**tr)
+                .unwrap_or(&Transform::default()),
+            old_col_x,
+            &mut new_col,
+            is_flipped,
+        );
 
         **col = new_col;
     }

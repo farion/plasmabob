@@ -30,7 +30,6 @@ impl Default for MovingPlatform {
 }
 
 impl MovingPlatform {
-
     /// Returns true when authored data allows movement.
     pub fn can_move(&self) -> bool {
         self.enabled && self.speed > 0.0 && self.waypoints.len() > 1
@@ -65,4 +64,3 @@ crate::impl_override_from_config!(MovingPlatform, crate::game::level::configs::M
     pick_bool => [repeat, enabled],
     pick_waypoints => [waypoints],
 );
-

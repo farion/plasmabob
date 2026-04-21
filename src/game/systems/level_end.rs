@@ -3,8 +3,8 @@ use bevy::prelude::*;
 use crate::app_model::AppState;
 use crate::game::components::Health;
 use crate::game::components::StateMachine;
-use crate::game::tags::PlayerTag;
 use crate::game::runtime_components::SpawnedLevelEntity;
+use crate::game::tags::PlayerTag;
 
 /// Checks for level end conditions:
 /// - player dead -> LoseView
@@ -23,7 +23,9 @@ pub fn check_level_end(
 ) {
     // Single-player: take the first player found.
     // bevy's Query method is `single()` (returns Result) in this version.
-    let Ok((player_tf, player_sprite)) = players.single() else { return; };
+    let Ok((player_tf, player_sprite)) = players.single() else {
+        return;
+    };
     let player_pos = player_tf.translation;
 
     // If any exit entity overlaps the player, trigger WinView.
@@ -33,7 +35,9 @@ pub fn check_level_end(
         }
 
         // Identify exit by entity_type or id (many levels use id "exit" or type "exit").
-        if spawned.entity_type.to_ascii_lowercase() != "exit" && spawned.id.to_ascii_lowercase() != "exit" {
+        if spawned.entity_type.to_ascii_lowercase() != "exit"
+            && spawned.id.to_ascii_lowercase() != "exit"
+        {
             continue;
         }
 
@@ -54,9 +58,11 @@ pub fn check_level_end(
         let dy = (player_pos.y - exit_pos.y).abs();
 
         if dx <= (player_half.x + exit_half.x) && dy <= (player_half.y + exit_half.y) {
-            let (enemy_tag_count, environment_tag_count) = level_tag_counts(cached_level.as_deref());
+            let (enemy_tag_count, environment_tag_count) =
+                level_tag_counts(cached_level.as_deref());
             let elapsed_seconds = stats.total_time_seconds.max(1.0);
-            let exit_bonus = (((5.0 * enemy_tag_count as f32) + (3.0 * environment_tag_count as f32))
+            let exit_bonus = (((5.0 * enemy_tag_count as f32)
+                + (3.0 * environment_tag_count as f32))
                 / elapsed_seconds)
                 * 100.0;
             stats.exit_bonus = exit_bonus.max(0.0).round() as u64;
@@ -110,8 +116,3 @@ pub fn check_player_death(
         }
     }
 }
-
-
-
-
-

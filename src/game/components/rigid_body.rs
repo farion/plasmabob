@@ -36,4 +36,3 @@ crate::impl_override_from_config!(RigidBody, crate::game::level::configs::RigidB
     pick_vec2 => [velocity],
     pick_f32 => [mass, linear_damp, restitution],
 );
-

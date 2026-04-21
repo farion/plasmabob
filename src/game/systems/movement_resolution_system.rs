@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use crate::game::components::{Blocking, Collider, ColliderShape, Gravity, RigidBody, StateMachine};
+use crate::game::components::{
+    Blocking, Collider, ColliderShape, Gravity, RigidBody, StateMachine,
+};
 use crate::game::runtime_components::{GroundingState, PreviousTransform};
 
 const MAX_GROUND_ANGLE_DEG: f32 = 45.0;
@@ -139,7 +141,15 @@ fn resolve_axis(
 
     let mut mover_aabb = aabb_from_rect(position + mover_collider.offset, mover_half_extents);
 
-    for (blocker_entity, blocker_transform, blocker_collider, blocker_rb, blocker_prev, blocker_sm) in blockers {
+    for (
+        blocker_entity,
+        blocker_transform,
+        blocker_collider,
+        blocker_rb,
+        blocker_prev,
+        blocker_sm,
+    ) in blockers
+    {
         if blocker_sm.is_some_and(|sm| sm.is_non_interactive()) {
             continue;
         }
@@ -157,8 +167,10 @@ fn resolve_axis(
 
         if axis == Vec2::X {
             // Compute overlap extents along both axes (positive if overlapping).
-            let overlap_x = mover_aabb.max.x.min(blocker_aabb.max.x) - mover_aabb.min.x.max(blocker_aabb.min.x);
-            let overlap_y = mover_aabb.max.y.min(blocker_aabb.max.y) - mover_aabb.min.y.max(blocker_aabb.min.y);
+            let overlap_x =
+                mover_aabb.max.x.min(blocker_aabb.max.x) - mover_aabb.min.x.max(blocker_aabb.min.x);
+            let overlap_y =
+                mover_aabb.max.y.min(blocker_aabb.max.y) - mover_aabb.min.y.max(blocker_aabb.min.y);
 
             // Centres to decide which object is above the other.
             let mover_center = (mover_aabb.min + mover_aabb.max) * 0.5;
@@ -211,7 +223,8 @@ fn resolve_axis(
                     let contact_normal = Vec2::Y;
                     if contact_normal.dot(Vec2::Y) >= max_ground_dot {
                         step_grounding.support_normal_sum_y += contact_normal.y;
-                        step_grounding.support_velocity = blocker_step_velocity(blocker_transform, blocker_rb, blocker_prev, dt);
+                        step_grounding.support_velocity =
+                            blocker_step_velocity(blocker_transform, blocker_rb, blocker_prev, dt);
                         step_grounding.support_entity = Some(blocker_entity);
                     }
 
@@ -290,4 +303,3 @@ fn aabb_from_rect(center: Vec2, half_extents: Vec2) -> Aabb {
         max: center + half_extents,
     }
 }
-

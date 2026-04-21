@@ -52,4 +52,3 @@ pub fn death_despawn_system(
     // Remove stale local entries for entities that no longer match the query.
     elapsed_by_entity_ms.retain(|entity, _| entities.get(*entity).is_ok());
 }
-

@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::game::runtime_components::{Parallax, ParallaxCameraOrigin};
+use bevy::prelude::*;
 
 /// Apply parallax offsets on both X and Y based on camera movement.
 pub fn apply_parallax_system(

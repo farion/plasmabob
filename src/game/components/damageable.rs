@@ -26,11 +26,9 @@ impl Default for Damageable {
     }
 }
 
-impl Damageable {
-}
+impl Damageable {}
 
 // Use macro-based implementation for consistency with other components.
 crate::impl_override_from_config!(Damageable, crate::game::level::configs::DamageableConfig,
     pick_f32 => [damaged_duration_secs],
 );
-

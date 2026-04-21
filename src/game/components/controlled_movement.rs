@@ -39,4 +39,3 @@ crate::impl_override_from_config!(ControlledMovement, crate::game::level::config
     pick_bool => [allow_double_jump],
     pick_u8 => [jumps_performed],
 );
-

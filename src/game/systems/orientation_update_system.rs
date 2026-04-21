@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::components::orientation::{FacingDirection, Orientation};
-use crate::game::components::{AutoMovement, ControlledMovement, RigidBody, Collider};
+use crate::game::components::{AutoMovement, Collider, ControlledMovement, RigidBody};
 use crate::game::setup::flip_utils::flip_entity_preserve_collider;
 
 /// Updates the `Orientation` component for entities that have a movement component.
@@ -13,8 +13,26 @@ use crate::game::setup::flip_utils::flip_entity_preserve_collider;
 /// Facing is only updated when the relevant axis value is non-zero; the last known direction
 /// is preserved while the entity is standing still.
 pub fn orientation_update_system(
-    mut controlled: Query<(&RigidBody, &mut Orientation, &mut Sprite, Option<&mut Transform>, Option<&mut Collider>), With<ControlledMovement>>,
-    mut auto_mover: Query<(&AutoMovement, &mut Orientation, &mut Sprite, Option<&mut Transform>, Option<&mut Collider>), Without<ControlledMovement>>,
+    mut controlled: Query<
+        (
+            &RigidBody,
+            &mut Orientation,
+            &mut Sprite,
+            Option<&mut Transform>,
+            Option<&mut Collider>,
+        ),
+        With<ControlledMovement>,
+    >,
+    mut auto_mover: Query<
+        (
+            &AutoMovement,
+            &mut Orientation,
+            &mut Sprite,
+            Option<&mut Transform>,
+            Option<&mut Collider>,
+        ),
+        Without<ControlledMovement>,
+    >,
 ) {
     for (rb, mut orientation, mut sprite, mut maybe_tr, mut maybe_col) in &mut controlled {
         let prev = orientation.facing;
@@ -53,4 +71,3 @@ pub fn orientation_update_system(
         }
     }
 }
-

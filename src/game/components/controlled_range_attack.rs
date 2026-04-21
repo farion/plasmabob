@@ -48,7 +48,6 @@ impl std::default::Default for ControlledRangeAttack {
     }
 }
 
-
 // Use the macro to implement overrides; use pick_timer_once so cooldown is Once and ready.
 crate::impl_override_from_config!(ControlledRangeAttack, crate::game::level::configs::ControlledRangeAttackConfig,
     pick_i32 => [damage],
@@ -56,4 +55,3 @@ crate::impl_override_from_config!(ControlledRangeAttack, crate::game::level::con
     pick_timer_once => [cooldown],
     pick_string => [projectile_type, shoot_effect, impact_effect],
 );
-
