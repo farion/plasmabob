@@ -1,0 +1,78 @@
+{
+  "terrain": null,
+  "music": [
+    "music/level1.ogg"
+  ],
+  "quotes": [],
+  "entity_types_path": "entity_types",
+  "entities": [
+    {
+      "entity_type": "street",
+      "id": "street",
+      "layer": "gameplay",
+      "x": 0.0,
+      "y": 0.0,
+      "z_index": 98.0
+    },
+    {
+      "entity_type": "player",
+      "id": "player",
+      "layer": "gameplay",
+      "x": 60.0,
+      "y": 180.0,
+      "z_index": 101.0
+    },
+    {
+      "entity_type": "cockroach",
+      "id": "cockroach_melee",
+      "layer": "gameplay",
+      "x": 970.6287231445312,
+      "y": 159.22637939453125,
+      "z_index": 100.0
+    },
+    {
+      "entity_type": "street",
+      "id": "street1",
+      "layer": "gameplay",
+      "x": 1522.0,
+      "y": 0.0,
+      "z_index": 98.0
+    },
+    {
+      "entity_type": "street",
+      "id": "street2",
+      "layer": "gameplay",
+      "x": 3044.0,
+      "y": 0.0,
+      "z_index": 98.0
+    },
+    {
+      "entity_type": "cockroach",
+      "id": "cockroach1",
+      "layer": "gameplay",
+      "x": 1800.71044921875,
+      "y": 159.991455078125,
+      "z_index": 100.0
+    },
+    {
+      "entity_type": "stoneplatform1",
+      "id": "stoneplatform11",
+      "x": 1331.6239013671875,
+      "y": 426.74072265625,
+      "z_index": 100.0
+    },
+    {
+      "entity_type": "cockroach",
+      "id": "cockroach2",
+      "layer": "gameplay",
+      "x": 1411.9869384765625,
+      "y": 479.73272705078125,
+      "z_index": 100.0
+    }
+  ],
+  "bounds": {
+    "width": 4000.0,
+    "height": 1024.0
+  },
+  "background": "worlds/auralis/backgrounds/level1.png"
+}
