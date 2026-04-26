@@ -139,7 +139,7 @@
           ],
           "lock_ms": 0
         },
-        "range-attack": {
+        "range_attacking": {
           "animation": [
             "sprites/cockroach/cockroach-range_attack.png"
           ],
@@ -163,33 +163,6 @@
             ]
           ],
           "lock_ms": 0
-        },
-        "range_attacking": {
-          "animation": [
-            "sprites/cockroach/cockroach-attack-1.png",
-            "sprites/cockroach/cockroach-attack-2.png",
-            "sprites/cockroach/cockroach-attack-3.png"
-          ],
-          "animation_frame_ms": 300,
-          "collider_box": [
-            [
-              7.0,
-              5.0
-            ],
-            [
-              159.0,
-              5.0
-            ],
-            [
-              159.0,
-              121.0
-            ],
-            [
-              7.0,
-              121.0
-            ]
-          ],
-          "lock_ms": 500
         },
         "damaged": {
           "animation": [

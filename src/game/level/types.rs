@@ -29,6 +29,7 @@ impl Default for LevelBounds {
     }
 }
 
+#[allow(dead_code)]
 impl LevelBounds {
     pub fn size(&self) -> Vec2 {
         Vec2::new(self.width, self.height)
@@ -79,6 +80,7 @@ fn default_entity_types_path() -> String {
     "entity_types".to_string()
 }
 
+#[allow(dead_code)]
 pub fn normalize_asset_reference(reference: &str) -> String {
     reference.trim().trim_start_matches("assets/").to_string()
 }
@@ -141,6 +143,7 @@ pub struct EntityTypeDefinition {
     pub key: String,
 }
 
+#[allow(dead_code)]
 impl EntityTypeDefinition {
     /// Extract and parse the typed state machine configuration from the raw
     /// `components.state_machine` is materialized into a runtime
@@ -765,6 +768,7 @@ impl<'de> serde::Deserialize<'de> for LevelEntity {
     }
 }
 
+#[allow(dead_code)]
 impl LevelEntity {
     pub fn set_component_attribute_value(
         &mut self,
@@ -866,6 +870,7 @@ pub struct CachedLevelDefinition {
     pub entity_types: HashMap<String, EntityTypeDefinition>,
 }
 
+#[allow(dead_code)]
 impl StateConfig {
     pub fn hitbox_points(&self) -> &[[f32; 2]] {
         self.collider_box.as_deref().unwrap_or(&[])

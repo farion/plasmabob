@@ -12,7 +12,8 @@
       "damage": 23,
       "projectile_type": "player_projectile",
       "range": 1000.0,
-      "speed": 2000.0
+      "speed": 2000.0,
+      "cooldown": 500
     },
     "damageable": {},
     "gravity": {},

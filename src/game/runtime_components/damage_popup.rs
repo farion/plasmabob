@@ -10,6 +10,7 @@ pub struct DamagePopup {
     /// Lifetime timer — when finished the entity will be despawned.
     pub life: Timer,
     /// True for heal (green), false for damage (red).
+    #[allow(dead_code)]
     pub is_heal: bool,
 }
 

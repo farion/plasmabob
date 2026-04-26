@@ -22,12 +22,15 @@ pub(crate) struct SfxEntity;
 
 /// Category markers so we can later adjust volumes per group
 #[derive(Component)]
+#[allow(dead_code)]
 pub(crate) struct CombatSfx;
 
 #[derive(Component)]
+#[allow(dead_code)]
 pub(crate) struct VoiceSfx;
 
 #[derive(Component)]
+#[allow(dead_code)]
 pub(crate) struct EnvironmentalSfx;
 
 pub(crate) struct SoundPlugin;

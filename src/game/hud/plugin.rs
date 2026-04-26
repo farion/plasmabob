@@ -10,6 +10,7 @@ use crate::game::hud::tick_level_time_system::tick_level_time_system;
 use crate::game::hud::update_hud_bars_system::update_hud_bars_system;
 use crate::game::hud::update_hud_lives_system::update_hud_lives_system;
 use crate::game::hud::update_hud_text_system::update_hud_text_system;
+use crate::game::systems::plugin::GameplaySet;
 
 pub struct HudPlugin;
 
@@ -24,7 +25,8 @@ impl Plugin for HudPlugin {
             .add_systems(
                 Update,
                 (
-                    sync_hud_from_player_system,
+                    // Read player values after gameplay input systems updated cooldowns this frame.
+                    sync_hud_from_player_system.after(GameplaySet::Input),
                     tick_level_time_system,
                     update_hud_bars_system,
                     update_hud_text_system,

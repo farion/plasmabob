@@ -17,7 +17,7 @@ use crate::helper::key_bindings::KeyBindings;
 /// combat and damage signals.
 ///
 /// Priority order (highest wins):
-///   Dead > Dying > MeleeAttacking > RangeAttacking > Damaged > Jumping / Crouching / Falling > Moving > Idle
+///   Dead > Dying > RangeAttacking > MeleeAttacking > Damaged > Jumping / Crouching / Falling > Moving > Idle
 ///
 /// Rules:
 /// - **Dead**: terminal — no further transitions.
@@ -114,7 +114,7 @@ pub fn state_machine_update_system(
                 apply_transition(
                     &mut sm,
                     EntityState::Dead,
-                    &entity_type_assets,
+                    entity_type_assets.as_deref(),
                     spawned,
                     &mut collider,
                     &mut anim_s_t,
@@ -129,7 +129,7 @@ pub fn state_machine_update_system(
                 apply_transition(
                     &mut sm,
                     EntityState::Dying,
-                    &entity_type_assets,
+                    entity_type_assets.as_deref(),
                     spawned,
                     &mut collider,
                     &mut anim_s_t,
@@ -184,10 +184,11 @@ pub fn state_machine_update_system(
             || moving_platform.map(|mp| mp.can_move()).unwrap_or(false);
 
         // --- Apply priority ladder (highest-priority condition wins) ---
-        let new_state = if is_melee_attacking {
-            EntityState::MeleeAttacking
-        } else if is_range_attacking {
-            EntityState::RangeAttacking
+        let new_state = if let Some(attack_state) = resolve_attack_state(
+            is_range_attacking,
+            is_melee_attacking,
+        ) {
+            attack_state
         } else if is_damaged {
             EntityState::Damaged
         } else if is_jumping {
@@ -204,12 +205,12 @@ pub fn state_machine_update_system(
 
         // --- Check lock_ms before allowing the transition ---
         if new_state != sm.state {
-            let locked = check_lock_ms(&sm, &entity_type_assets, spawned);
+            let locked = check_lock_ms(&sm, entity_type_assets.as_deref(), spawned);
             if !locked {
                 apply_transition(
                     &mut sm,
                     new_state,
-                    &entity_type_assets,
+                    entity_type_assets.as_deref(),
                     spawned,
                     &mut collider,
                     &mut anim_s_t,
@@ -224,10 +225,10 @@ pub fn state_machine_update_system(
 /// Returns `true` if the current state's `lock_ms` has not elapsed yet.
 fn check_lock_ms(
     sm: &StateMachine,
-    eta: &Option<Res<EntityTypeAssets>>,
+    eta: Option<&EntityTypeAssets>,
     spawned: Option<&SpawnedLevelEntity>,
 ) -> bool {
-    let (Some(eta), Some(sel)) = (eta.as_deref(), spawned) else {
+    let (Some(eta), Some(sel)) = (eta, spawned) else {
         return false;
     };
     let state_name = sm.state.to_state_name();
@@ -238,18 +239,31 @@ fn check_lock_ms(
     false
 }
 
+fn resolve_attack_state(
+    is_range_attacking: bool,
+    is_melee_attacking: bool,
+) -> Option<EntityState> {
+    if is_range_attacking {
+        Some(EntityState::RangeAttacking)
+    } else if is_melee_attacking {
+        Some(EntityState::MeleeAttacking)
+    } else {
+        None
+    }
+}
+
 /// Transition to `new_state` and update `AnimationConfig` + `Collider` from the cache.
 fn apply_transition(
     sm: &mut StateMachine,
     new_state: EntityState,
-    eta: &Option<Res<EntityTypeAssets>>,
+    eta: Option<&EntityTypeAssets>,
     spawned: Option<&SpawnedLevelEntity>,
     collider: &mut Option<Mut<Collider>>,
     anim_s_t: &mut Option<(Mut<AnimationConfig>, Mut<Sprite>, Mut<Transform>)>,
 ) {
     sm.set_state(new_state);
 
-    let (Some(eta), Some(sel)) = (eta.as_deref(), spawned) else {
+    let (Some(eta), Some(sel)) = (eta, spawned) else {
         return;
     };
 
@@ -303,3 +317,77 @@ fn apply_transition(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game::runtime_components::SpawnedLevelEntity;
+    use crate::game::setup::entity_type_assets::{EntityTypeAsset, StateAssets};
+    use std::collections::HashMap;
+
+    #[test]
+    fn range_attack_signal_takes_priority_over_melee_attack_signal() {
+        assert_eq!(
+            resolve_attack_state(true, true),
+            Some(EntityState::RangeAttacking)
+        );
+        assert_eq!(
+            resolve_attack_state(false, true),
+            Some(EntityState::MeleeAttacking)
+        );
+        assert_eq!(resolve_attack_state(false, false), None);
+    }
+
+    #[test]
+    fn check_lock_ms_keeps_range_attack_state_locked_for_full_duration() {
+        let mut eta = EntityTypeAssets::default();
+        let mut states = HashMap::new();
+        states.insert(
+            "idle".to_string(),
+            StateAssets {
+                frames: Vec::new(),
+                animation_frame_ms: 180,
+                lock_ms: 0,
+                collider_box: None,
+                sound_start: None,
+                sound_loop: None,
+                sound_end: None,
+            },
+        );
+        states.insert(
+            "range_attacking".to_string(),
+            StateAssets {
+                frames: Vec::new(),
+                animation_frame_ms: 180,
+                lock_ms: 1000,
+                collider_box: None,
+                sound_start: None,
+                sound_loop: None,
+                sound_end: None,
+            },
+        );
+        eta.map.insert(
+            "rangecockroach".to_string(),
+            EntityTypeAsset {
+                states,
+                fallback_state: "idle".to_string(),
+                sprite_width: 166.0,
+                sprite_height: 128.0,
+            },
+        );
+
+        let spawned = SpawnedLevelEntity {
+            id: "enemy-1".to_string(),
+            entity_type: "rangecockroach".to_string(),
+            layer: "game".to_string(),
+        };
+        let mut sm = StateMachine::new(EntityState::RangeAttacking);
+
+        sm.state_time = 0.999;
+        assert!(check_lock_ms(&sm, Some(&eta), Some(&spawned)));
+
+        sm.state_time = 1.0;
+        assert!(!check_lock_ms(&sm, Some(&eta), Some(&spawned)));
+    }
+}
+

@@ -96,6 +96,9 @@ Cross-cutting helpers and global modules live at the crate root and are importan
 - No backwards compatibility on changes is required if not explicitly mentioned in the prompt.
 - If JSON is parsed, always use completely typed structs with `serde` (no `serde_json::Value` or untyped parsing).
 
+Documentation requirement
+- When adding new components or adding new JSON-configurable attributes to existing components, add or update the corresponding markdown spec under `documentation/specs/game/components/`. Each component must have its own file describing what the component does, the JSON keys, default values and explanations (include enum options and state-specific notes where applicable).
+
 ## Internationalization (i18n)
 
 Texts in the game must be localized. The `i18n` module loads localized strings from JSON files in `assets/i18n/`. The

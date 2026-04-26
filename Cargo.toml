@@ -1,5 +1,5 @@
 [package]
-name = "PlasmaBob"
+name = "plasma_bob"
 version = "0.1.0"
 edition = "2024"
 

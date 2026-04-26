@@ -6,10 +6,14 @@ use crate::game::components::{
 use crate::game::runtime_components::PatrolState;
 use crate::game::tags::EnemyTag;
 
+#[allow(dead_code)]
 const PATROL_MIN_INTERVAL_SEC: f32 = 0.8;
+#[allow(dead_code)]
 const PATROL_MAX_INTERVAL_SEC: f32 = 2.4;
+#[allow(dead_code)]
 const DEFAULT_PATROL_SPEED: f32 = 80.0;
 
+#[allow(dead_code)]
 pub fn enemy_random_patrol_system(
     mut commands: Commands,
     time: Res<Time>,
