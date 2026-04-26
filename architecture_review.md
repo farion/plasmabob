@@ -13,21 +13,19 @@ Strengths
 - Uses run_if(in_state(AppState::GameView)) to avoid running gameplay systems outside GameView. Good resource life-cycle management via OnEnter/OnExit in GameViewPlugin (src/game/game_view.rs).
 - UI scaling, custom fonts, and plugin composition show good use of Bevy plugin model (src/main.rs, src/helper/fonts.rs).
 
-High Severity Findings (should address first)
--------------------------------------------
-1) Blocking IO on Bevy main thread during level load
-   - Where: src/game/level/loader.rs (load_level_from_asset) and related helpers used from OnEnter systems (src/game/game_view.rs::load_selected_level).
-   - Problem: loader performs synchronous file IO and directory listing; it calls blocking helpers and pollster::block_on. These calls run on Bevy's main thread during OnEnter and will stall the app (drop frames / freeze) for large assets.
-   - Recommendation: perform level parsing off the main thread and integrate with Bevy's asset system or task pool. Options:
-     1. Convert the load system to spawn a background task with AsyncComputeTaskPool::get().spawn(), then insert the CachedLevelDefinition resource when ready. Use a RunCriteria or state machine so other systems wait until resource is present. This keeps the main thread responsive.
-     2. Alternatively, lean on AssetServer/AssetCollection for streaming assets where feasible (textures/audio). For JSON, consider an async loader that returns a handle/resource and completes via futures.
-   - Concrete pointer: change load_selected_level to schedule blocking parse on AsyncComputeTaskPool and insert result when complete (src/game/game_view.rs, src/game/level/loader.rs).
+High Severity Findings (addressed)
+---------------------------------
+The two high-priority issues identified in the original review have been implemented.
 
-2) Physics & movement systems run at variable Update rate
-   - Where: many gameplay systems registered in Update (src/game/systems/plugin.rs).
-   - Problem: Physics-like systems (gravity_integration_system, movement_resolution_system, projectile_movement_system) run every Update frame. On variable or low frame rates this yields non-deterministic behavior and physics instability.
-   - Recommendation: run physics / movement systems on a fixed timestep (e.g. 60 Hz) using Bevy's FixedTimestep run criteria (bevy_time::FixedTimestep) or a custom accumulator RunCriteria. Keep non-physics logic (AI decision, animation tick) at Update rate or in a separate, looser fixed-step.
-   - Concrete pointer: group physics systems into a SystemSet with .run_if(FixedTimestep::step(1.0 / 60.0)). See src/game/systems/plugin.rs for the membership of GameplaySet::Physics.
+1) Non-blocking level loading
+   - Status: Implemented.
+   - What changed: level JSON and entity-type parsing are performed on the compute task pool instead of blocking the main thread. The LoadView now spawns an async task (AsyncComputeTaskPool) to run game::level::loader::load_level_from_asset(...) and polls the task each frame; when ready it inserts the CachedLevelDefinition resource and continues asset loading. GameView no longer performs blocking loads and redirects to LoadView when the cache is missing.
+   - Files: src/views/load_view.rs, src/game/game_view.rs
+
+2) Fixed-step physics
+   - Status: Implemented (configurable).
+   - What changed: physics-related systems (gravity integration, movement resolution, projectile movement & collision, grounding evaluation, related collision steps) run in the FixedUpdate stage instead of Update. The physics tick is configurable via environment variable PLASMABOB_PHYSICS_HZ and defaults to 60 Hz. Non-physics systems (input, AI, finalization, UI) still run on Update.
+   - Files: src/game/systems/plugin.rs, src/main.rs
 
 Medium Severity Findings
 ------------------------
@@ -52,26 +50,20 @@ Low Severity / Style
 7) Logging and diagnostics
    - Suggestion: add bevy_diagnostic::FrameTimeDiagnosticsPlugin during development to gain insight into frame time and system timings. Tracing is used (tracing::info) which is good — ensure tracing_subscriber is initialised in main if not already.
 
-Recommendations & Next Steps (practical)
----------------------------------------
-1) Non-blocking level load plan (high priority)
-   - Implement a small loader state and background task:
-     - OnEnter(GameView) -> spawn async task reading/parsing JSON on AsyncComputeTaskPool.
-     - Keep a lightweight resource like LoadingLevelTask(JoinHandle<Result<CachedLevelDefinition, _>>).
-     - Poll the handle in an Update system; when ready insert CachedLevelDefinition and remove the task resource.
-   - This is a small, local change and immediately improves startup responsiveness.
+Remaining Recommendations & Next Steps
+------------------------------------
+1) Broadphase culling for collisions (medium)
+   - Why: collision loops (movement resolution and projectile collision) still perform pairwise checks and will become expensive as entity counts grow.
+   - Suggestion: implement a coarse uniform grid or quadtree, or at minimum add an AABB broadphase cull before swept-AABB computations.
+   - Files to target: src/game/systems/movement_resolution_system.rs, src/game/systems/projectile_collision_system.rs
 
-2) Fixed-step physics (high priority)
-   - Add a FixedTimestep run criteria and move physics systems into that criteria. Example approach:
-     - Create a SystemSet PhysicsFixed with .run_if(FixedTimestep::step(1.0 / 60.0)).
-     - Register gravity_integration_system, movement_resolution_system, projectile_movement_system, projectile_collision_system in that set.
-   - Keep finalization/animation/AI at Update or a separate, lower frequency fixed-step if needed.
+2) Unit tests for deterministic math utilities (low effort)
+   - Why: many math helpers (swept_aabb_toi, ray_axis_times, resolve_axis) are pure and make for stable unit tests.
+   - Suggestion: add small test modules next to those helpers to guard against regressions.
 
-3) Add broadphase culling for collisions (medium)
-   - Implement a coarse uniform grid or simple AABB cache during movement resolution to prefilter collision pairs.
-
-4) Add unit tests for deterministic math utilities (low friction)
-   - Systems like swept_aabb_toi, ray_axis_times and resolve_axis are pure functions and suitable for unit tests (see src/game/systems/AGENTS.md recommendation).
+3) Input API consistency (low)
+   - Why: codebase uses ButtonInput<KeyCode> in many places. Input<KeyCode> is more idiomatic and offers convenience helpers.
+   - Suggestion: gradually standardize on Input<KeyCode> in UI/game systems where appropriate.
 
 Files to inspect first when implementing changes
 -----------------------------------------------

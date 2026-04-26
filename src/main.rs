@@ -25,6 +25,7 @@ mod views;
 pub(crate) mod world;
 
 const MAX_FRAME_RATE: f64 = 60.0;
+const DEFAULT_PHYSICS_HZ: f64 = 60.0;
 const SHOW_HITBOX_DEBUG_LINES: bool = false;
 const USE_PARALAX_SCROLLING: bool = true;
 
@@ -157,6 +158,7 @@ impl LevelSelection {
 pub(crate) struct MainCamera;
 
 fn main() {
+    let physics_hz = physics_hz_from_env();
     let level_selection = LevelSelection::from_cli_arg(std::env::args().nth(1));
     let audio_settings = AudioSettings::load_from_disk();
     let active_character = ActiveCharacter::load_from_disk();
@@ -174,6 +176,7 @@ fn main() {
             show_enemy_ai_debug: false,
             parallax_enabled: USE_PARALAX_SCROLLING,
         })
+        .insert_resource(Time::<Fixed>::from_hz(physics_hz))
         .init_resource::<MenuSelection>()
         .init_resource::<ExitConfirmModalState>()
         .init_resource::<WorldListSelection>()
@@ -214,6 +217,24 @@ fn main() {
         .add_systems(Update, i18n::update_localized_texts)
         .add_plugins(views::ViewsPlugin)
         .run();
+}
+
+fn physics_hz_from_env() -> f64 {
+    let Ok(raw) = std::env::var("PLASMABOB_PHYSICS_HZ") else {
+        return DEFAULT_PHYSICS_HZ;
+    };
+
+    match raw.parse::<f64>() {
+        Ok(value) if value.is_finite() && value > 0.0 => value,
+        _ => {
+            tracing::warn!(
+                value = %raw,
+                fallback = DEFAULT_PHYSICS_HZ,
+                "Invalid PLASMABOB_PHYSICS_HZ value, falling back to default"
+            );
+            DEFAULT_PHYSICS_HZ
+        }
+    }
 }
 
 fn setup_camera(mut commands: Commands) {

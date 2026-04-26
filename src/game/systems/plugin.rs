@@ -40,10 +40,14 @@ use crate::game::gfx::jump::{jump_particles_system, JumpParticlesQueue};
 pub enum GameplaySet {
     Input,
     Ai,
+    Finalize,
+}
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FixedGameplaySet {
     Physics,
     Grounding,
     Projectile,
-    Finalize,
 }
 
 pub struct SystemsPlugin;
@@ -57,15 +61,23 @@ impl Plugin for SystemsPlugin {
 
         // Register a simple queue resource for jump/land particle events.
         app.insert_resource(JumpParticlesQueue::default());
+
         app.configure_sets(
             Update,
             (
                 GameplaySet::Input,
                 GameplaySet::Ai,
-                GameplaySet::Physics,
-                GameplaySet::Grounding,
-                GameplaySet::Projectile,
                 GameplaySet::Finalize,
+            )
+                .chain()
+                .run_if(in_state(AppState::GameView)),
+        )
+        .configure_sets(
+            FixedUpdate,
+            (
+                FixedGameplaySet::Physics,
+                FixedGameplaySet::Grounding,
+                FixedGameplaySet::Projectile,
             )
                 .chain()
                 .run_if(in_state(AppState::GameView)),
@@ -84,23 +96,28 @@ impl Plugin for SystemsPlugin {
                     .after(enemy_ai_system),
                 auto_melee_attack_system.in_set(GameplaySet::Ai),
                 auto_range_attack_system.in_set(GameplaySet::Ai),
-                gravity_integration_system.in_set(GameplaySet::Physics),
+                track_previous_transform_system.in_set(GameplaySet::Finalize),
+            ),
+        )
+        .add_systems(
+            FixedUpdate,
+            (
+                gravity_integration_system.in_set(FixedGameplaySet::Physics),
                 moving_platform_system
-                    .in_set(GameplaySet::Physics)
+                    .in_set(FixedGameplaySet::Physics)
                     .before(movement_resolution_system),
-                movement_resolution_system.in_set(GameplaySet::Physics),
+                movement_resolution_system.in_set(FixedGameplaySet::Physics),
                 collectible_collision_system
-                    .in_set(GameplaySet::Projectile)
+                    .in_set(FixedGameplaySet::Projectile)
                     .after(movement_resolution_system),
-                grounding_evaluation_system.in_set(GameplaySet::Grounding),
-                projectile_collision_system.in_set(GameplaySet::Projectile),
+                grounding_evaluation_system.in_set(FixedGameplaySet::Grounding),
+                projectile_collision_system.in_set(FixedGameplaySet::Projectile),
                 projectile_movement_system
-                    .in_set(GameplaySet::Projectile)
+                    .in_set(FixedGameplaySet::Projectile)
                     .after(projectile_collision_system),
                 beam_update_system
-                    .in_set(GameplaySet::Projectile)
+                    .in_set(FixedGameplaySet::Projectile)
                     .after(projectile_movement_system),
-                track_previous_transform_system.in_set(GameplaySet::Finalize),
             ),
         )
         .add_systems(
