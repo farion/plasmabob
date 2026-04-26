@@ -1,15 +1,14 @@
 use bevy::prelude::*;
-use std::collections::HashMap;
 
 use crate::app_model::AppState;
 
 /// System-set labels used to order the two phases of GameView initialisation.
 ///
-/// `LoadLevel` runs first and populates `CachedLevelDefinition`.
+/// `LoadLevel` validates that level data is available.
 /// `Setup` runs second and spawns the visual scene from that resource.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GameSetupSet {
-    /// Load level JSON and entity-type data into `CachedLevelDefinition`.
+    /// Ensure level data exists (or redirect to `LoadView`).
     LoadLevel,
     /// Spawn camera position, background, and level entities.
     Setup,
@@ -17,9 +16,9 @@ pub enum GameSetupSet {
 
 pub struct GameViewPlugin;
 
-// When the Game view is entered we must ensure the selected level asset is
-// loaded and made available as the `CachedLevelDefinition` resource so the
-// rest of the game systems can spawn entities and play music.
+// When the Game view is entered we must ensure a `CachedLevelDefinition`
+// resource is present. If not, we redirect to `LoadView` which performs
+// asynchronous level loading.
 impl Plugin for GameViewPlugin {
     fn build(&self, app: &mut App) {
         // Enforce ordering: all Setup systems run after LoadLevel.
@@ -31,7 +30,7 @@ impl Plugin for GameViewPlugin {
             OnEnter(AppState::GameView),
             (
                 reset_level_stats,
-                load_selected_level,
+                ensure_level_is_preloaded,
             )
                 .chain()
                 .in_set(GameSetupSet::LoadLevel),
@@ -46,60 +45,25 @@ impl Plugin for GameViewPlugin {
     }
 }
 
-/// Loads the level specified by the global `LevelSelection` resource using
-/// `game::level::loader::load_level_from_asset` and inserts/overwrites the
-/// `CachedLevelDefinition` resource so game systems can consume it.
+/// If level data is missing when entering `GameView`, redirect to `LoadView`.
 ///
-/// When coming from `LoadView` the `CachedLevelDefinition` is already present;
-/// this system skips reloading in that case to avoid redundant IO.
-fn load_selected_level(
-    asset_server: Res<AssetServer>,
-    active_character: Res<crate::helper::active_character::ActiveCharacter>,
+/// `LoadView` is the single place that performs asynchronous level loading,
+/// then transitions back to `GameView` once assets are ready.
+fn ensure_level_is_preloaded(
     level_selection: Res<crate::LevelSelection>,
     existing: Option<Res<crate::game::level::types::CachedLevelDefinition>>,
-    mut commands: Commands,
-    mut music_request: ResMut<crate::helper::music::MusicRequest>,
+    mut next_state: ResMut<NextState<AppState>>,
 ) {
     // If LoadView already populated the resource, nothing to do.
     if existing.is_some() {
-        tracing::debug!("load_selected_level: CachedLevelDefinition already present, skipping");
+        tracing::debug!("ensure_level_is_preloaded: CachedLevelDefinition already present");
         return;
     }
-    // Defer to the existing loader which performs all IO and parsing and
-    // returns a `CachedLevelDefinition` on success.
-    match crate::game::level::loader::load_level_from_asset(
-        &asset_server,
-        level_selection.asset_path(),
-        *active_character,
-    ) {
-        Ok(cached) => {
-            // Extract music playlist (if any) before moving `cached` into resources.
-            let music_opt = cached.level.as_ref().and_then(|l| l.music.clone());
-
-            commands.insert_resource(cached);
-            tracing::info!(level = %level_selection.asset_path(), "Loaded level into CachedLevelDefinition");
-
-            if let Some(music) = music_opt {
-                if !music.is_empty() {
-                    // Request playlist playback via the global music player.
-                    music_request.0 = Some(music);
-                }
-            }
-        }
-        Err(err) => {
-            // Log the error first, then move it into the cached resource so
-            // callers (UI or systems) can inspect it.
-            tracing::error!(level = %level_selection.asset_path(), error = ?err, "Failed to load level");
-
-            // If loading fails, create a CachedLevelDefinition that contains the
-            // error so UI systems (or the GameView) can display it.
-            let empty = crate::game::level::types::CachedLevelDefinition {
-                level: None,
-                entity_types: HashMap::new(),
-            };
-            commands.insert_resource(empty);
-        }
-    }
+    tracing::info!(
+        level = %level_selection.asset_path(),
+        "GameView entered without cached level data; redirecting to LoadView"
+    );
+    next_state.set(AppState::LoadView);
 }
 
 fn reset_level_stats(mut level_stats: ResMut<crate::LevelStats>) {

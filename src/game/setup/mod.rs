@@ -53,6 +53,7 @@ impl Plugin for SetupPlugin {
                 init_parallax_system,
             )
                 .chain()
+                .run_if(resource_exists::<crate::game::level::types::CachedLevelDefinition>)
                 .in_set(GameSetupSet::Setup),
         )
         .add_systems(

@@ -1,6 +1,8 @@
 use bevy::asset::LoadState;
 use bevy::audio::AudioSource;
 use bevy::prelude::*;
+use bevy::tasks::{AsyncComputeTaskPool, Task};
+use futures_lite::future::{block_on, poll_once};
 use std::collections::{HashMap, HashSet};
 
 use crate::app_model::AppState;
@@ -30,6 +32,8 @@ impl Plugin for LoadViewPlugin {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LoadPhase {
+    /// Waiting for level + entity-type JSON loading/parsing task.
+    LevelData,
     /// Waiting for all sprite handles to become available.
     Sprites,
     /// Waiting for all audio handles to become available.
@@ -57,6 +61,9 @@ struct LoadProgress {
     sounds_issued: bool,
 }
 
+#[derive(Resource)]
+struct PendingLevelLoadTask(Task<Result<CachedLevelDefinition, crate::game::level::errors::LoadLevelError>>);
+
 // ─── Marker ───────────────────────────────────────────────────────────────────
 
 #[derive(Component)]
@@ -73,61 +80,41 @@ fn setup_load_view(
     active_character: Res<ActiveCharacter>,
     level_selection: Res<LevelSelection>,
     existing_cached: Option<Res<CachedLevelDefinition>>,
-    mut music_request: ResMut<MusicRequest>,
 ) {
-    // Load level JSON synchronously if not already cached.
-    let cached: CachedLevelDefinition = if existing_cached.is_some() {
-        // Already present — we'll read it from the resource in tick_load_view.
-        // Still need to collect sprite paths, so clone via match below.
-        match crate::game::level::loader::load_level_from_asset(
-            &asset_server,
-            level_selection.asset_path(),
-            *active_character,
-        ) {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::error!(error = ?e, "LoadView: failed to load level JSON");
-                CachedLevelDefinition::default()
-            }
-        }
+    let mut phase = LoadPhase::LevelData;
+    let mut sprite_paths = Vec::new();
+    let mut sprite_handles = Vec::new();
+    let mut sound_paths = Vec::new();
+
+    if let Some(cached) = existing_cached {
+        // Reuse preloaded level data and immediately continue with sprite/sound loading.
+        sprite_paths = collect_sprite_paths(&cached);
+        sprite_handles = sprite_paths
+            .iter()
+            .map(|p| load_character_asset::<Image>(&asset_server, p, *active_character))
+            .collect();
+        sound_paths = collect_sound_paths(&cached);
+        phase = LoadPhase::Sprites;
+
+        tracing::info!(
+            sprites = sprite_paths.len(),
+            sounds = sound_paths.len(),
+            "LoadView: reusing cached level data"
+        );
     } else {
-        match crate::game::level::loader::load_level_from_asset(
-            &asset_server,
-            level_selection.asset_path(),
-            *active_character,
-        ) {
-            Ok(c) => {
-                // Set up music playlist.
-                if let Some(music) = c.level.as_ref().and_then(|l| l.music.clone()) {
-                    if !music.is_empty() {
-                        music_request.0 = Some(music);
-                    }
-                }
-                c
-            }
-            Err(e) => {
-                tracing::error!(error = ?e, "LoadView: failed to load level JSON");
-                CachedLevelDefinition::default()
-            }
-        }
-    };
+        let asset_server = asset_server.clone();
+        let level_path = level_selection.asset_path().to_string();
+        let active_character = *active_character;
 
-    // Insert the freshly loaded definition (overwrites any stale previous one).
-    commands.insert_resource(cached.clone());
-
-    // Collect unique sprite paths.
-    let sprite_paths = collect_sprite_paths(&cached);
-    let sprite_handles: Vec<Handle<Image>> = sprite_paths
-        .iter()
-        .map(|p| load_character_asset::<Image>(&asset_server, p, *active_character))
-        .collect();
-    let sound_paths = collect_sound_paths(&cached);
-
-    tracing::info!(
-        sprites = sprite_paths.len(),
-        sounds = sound_paths.len(),
-        "LoadView: starting asset loading"
-    );
+        let task = AsyncComputeTaskPool::get().spawn(async move {
+            crate::game::level::loader::load_level_from_asset(
+                &asset_server,
+                &level_path,
+                active_character,
+            )
+        });
+        commands.insert_resource(PendingLevelLoadTask(task));
+    }
 
     // Spawn loading UI.
     let _text_entity = commands
@@ -154,7 +141,7 @@ fn setup_load_view(
         .id();
 
     commands.insert_resource(LoadProgress {
-        phase: LoadPhase::Sprites,
+        phase,
         sprite_paths,
         sprite_handles,
         sound_paths,
@@ -172,11 +159,61 @@ fn tick_load_view(
     images: Res<Assets<Image>>,
     audio_assets: Res<Assets<AudioSource>>,
     cached: Option<Res<CachedLevelDefinition>>,
+    mut pending_task: Option<ResMut<PendingLevelLoadTask>>,
     mut progress: ResMut<LoadProgress>,
     mut text_query: Query<&mut Text, With<LoadProgressText>>,
+    mut music_request: ResMut<MusicRequest>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     match progress.phase {
+        LoadPhase::LevelData => {
+            update_text(&mut text_query, "Loading level data...");
+            let Some(ref mut pending_task) = pending_task else {
+                tracing::warn!("LoadView: level load task missing, continuing with empty level cache");
+                commands.insert_resource(CachedLevelDefinition::default());
+                progress.phase = LoadPhase::Done;
+                return;
+            };
+
+            if let Some(result) = block_on(poll_once(&mut pending_task.0)) {
+                commands.remove_resource::<PendingLevelLoadTask>();
+
+                match result {
+                    Ok(cached) => {
+                        if let Some(music) = cached.level.as_ref().and_then(|l| l.music.clone()) {
+                            if !music.is_empty() {
+                                music_request.0 = Some(music);
+                            }
+                        }
+
+                        let sprite_paths = collect_sprite_paths(&cached);
+                        let sprite_handles = sprite_paths
+                            .iter()
+                            .map(|p| load_character_asset::<Image>(&asset_server, p, *active_character))
+                            .collect();
+                        let sound_paths = collect_sound_paths(&cached);
+
+                        tracing::info!(
+                            sprites = sprite_paths.len(),
+                            sounds = sound_paths.len(),
+                            "LoadView: level data ready, starting asset loading"
+                        );
+
+                        commands.insert_resource(cached);
+                        progress.sprite_paths = sprite_paths;
+                        progress.sprite_handles = sprite_handles;
+                        progress.sound_paths = sound_paths;
+                        progress.phase = LoadPhase::Sprites;
+                    }
+                    Err(error) => {
+                        tracing::error!(error = ?error, "LoadView: failed to load level JSON");
+                        commands.insert_resource(CachedLevelDefinition::default());
+                        progress.phase = LoadPhase::Done;
+                    }
+                }
+            }
+        }
+
         // ── Phase A: wait for sprite handles ─────────────────────────────
         LoadPhase::Sprites => {
             let loaded = progress
@@ -300,6 +337,7 @@ fn cleanup_load_view(
         commands.entity(e).despawn();
     }
     commands.remove_resource::<LoadProgress>();
+    commands.remove_resource::<PendingLevelLoadTask>();
 }
 
 // ─── Asset path collection ────────────────────────────────────────────────────
