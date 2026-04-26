@@ -128,7 +128,49 @@ pub fn save_entity_type_definition(
 }
 
 pub fn scan_levels() -> Result<Vec<LevelEntry>, String> {
-    scan_levels_in_dir(&worlds_dir())
+    let mut levels = scan_levels_in_dir(&worlds_dir())?;
+
+    // Include debug levels located under assets/debug so they can be
+    // displayed when the Debug world is selected in the editor.
+    let debug_dir = assets_dir().join("debug");
+    if debug_dir.is_dir() {
+        for entry in std::fs::read_dir(&debug_dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+
+            // For debug levels accept any JSON file found in assets/debug/, not
+            // only files matching the world-level filename pattern. Only include
+            // files that parse successfully as LevelFile.
+            if path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| !ext.eq_ignore_ascii_case("json"))
+                .unwrap_or(true)
+            {
+                continue;
+            }
+
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            if serde_json::from_str::<LevelFile>(&content).is_err() {
+                continue;
+            }
+
+            if let Ok(relative) = path.strip_prefix(assets_dir()) {
+                let asset_path = relative.to_string_lossy().replace('\\', "/");
+                levels.push(LevelEntry {
+                    display_name: asset_path.clone(),
+                    asset_path,
+                });
+            }
+        }
+    }
+
+    Ok(levels)
 }
 
 pub fn scan_worlds() -> Result<Vec<WorldEntry>, String> {
@@ -181,6 +223,21 @@ pub fn scan_worlds() -> Result<Vec<WorldEntry>, String> {
     }
 
     worlds.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+
+    // Expose a synthetic "Debug" world at the end of the worlds list so users
+    // can select it and view/play debug levels. Always add the Debug entry so
+    // it's visible in the editor even if no debug levels exist yet. Avoid
+    // duplicating an existing entry.
+    if !worlds
+        .iter()
+        .any(|w| w.asset_path.eq_ignore_ascii_case("debug"))
+    {
+        worlds.push(WorldEntry {
+            display_name: "Debug".to_string(),
+            asset_path: "debug".to_string(),
+        });
+    }
+
     Ok(worlds)
 }
 

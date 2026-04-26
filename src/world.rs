@@ -171,6 +171,11 @@ fn load_world_catalog(
         });
     }
 
+    // Note: debug levels are intentionally not added to the world catalog here
+    // so they do not appear in the world selection UI. Debug/test levels remain
+    // accessible only via the explicit shortcut/hotkey paths elsewhere in the
+    // codebase.
+
     worlds.sort_by(|left, right| {
         left.definition
             .name

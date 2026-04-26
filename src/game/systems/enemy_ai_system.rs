@@ -6,12 +6,16 @@ use crate::game::components::{
     AutoMovement, AutoMovementDefaultStrategy, AutoMovementState, Collider, ColliderShape,
     ControlledMovement, Gravity, Health, RigidBody, StateMachine, Team,
 };
+use crate::game::runtime_components::PatrolState;
+const PATROL_MIN_INTERVAL_SEC: f32 = 0.8;
+const PATROL_MAX_INTERVAL_SEC: f32 = 2.4;
 use crate::game::tags::{EnemyTag, EnvironmentTag};
 
 const EPS: f32 = 0.0001;
 const DEFAULT_JUMP_IMPULSE: f32 = 260.0;
 
 pub fn enemy_ai_system(
+    mut commands: Commands,
     time: Res<Time>,
     mut enemies: Query<
         (
@@ -20,6 +24,7 @@ pub fn enemy_ai_system(
             Option<&Collider>,
             &mut AutoMovement,
             &mut RigidBody,
+            Option<&mut PatrolState>,
             Option<&Gravity>,
             Option<&Health>,
             Option<&AutoRangeAttack>,
@@ -46,11 +51,12 @@ pub fn enemy_ai_system(
     let mut share_events: Vec<(String, Entity, f32, Vec2)> = Vec::new();
 
     for (
-        _entity,
+        entity,
         transform,
         collider,
         mut auto,
         mut rigid_body,
+        patrol_state,
         gravity,
         health,
         range_attack,
@@ -83,6 +89,7 @@ pub fn enemy_ai_system(
         }
 
         let enemy_center = world_center(transform, collider);
+        tracing::debug!(entity = ?entity, state = ?auto.state, direction = ?auto.direction, strategy = ?auto.default_strategy, speed = ?auto.speed, patrol_state_present = ?patrol_state.is_some(), "enemy_ai: pre-update");
         let attacker_team_name = team.map(|t| t.name.as_str()).unwrap_or("Neutral");
 
         if auto.aggro && auto.vision_tick_remaining <= 0.0 {
@@ -168,13 +175,34 @@ pub fn enemy_ai_system(
             };
         }
 
+        // Attach runtime PatrolState for RandomPatrol entities if missing so
+        // they can sample independent RNG streams and avoid synchronized
+        // behaviour. Inserting is done here (instead of a separate system)
+        // so PatrolState is available in subsequent frames without adding
+        // another scheduled system.
+        if auto.default_strategy == AutoMovementDefaultStrategy::RandomPatrol
+            && patrol_state.is_none()
+        {
+            commands.entity(entity).insert(PatrolState::from_entity(entity));
+        }
+
         match auto.state {
             AutoMovementState::Idle => {
                 auto.direction = Vec2::ZERO;
                 rigid_body.velocity.x = 0.0;
             }
             AutoMovementState::Patrol => {
-                apply_patrol(enemy_center, &mut auto, &mut rigid_body);
+                tracing::debug!(entity = ?entity, "enemy_ai: entering Patrol (strategy={:?}, patrol_state_present={})", auto.default_strategy, patrol_state.is_some());
+                apply_patrol(
+                    enemy_center,
+                    &mut auto,
+                    &mut rigid_body,
+                    patrol_state,
+                    dt,
+                    collider,
+                    &blockers,
+                );
+                tracing::debug!(entity = ?entity, direction = ?auto.direction, vx = ?rigid_body.velocity.x, "enemy_ai: after Patrol");
             }
             AutoMovementState::Aggro => {
                 if let Some(tpos) = target_pos {
@@ -216,7 +244,7 @@ pub fn enemy_ai_system(
     }
 
     if !share_events.is_empty() {
-        for (_entity, transform, _collider, mut auto, _rb, _g, _h, _ra, team, _sm) in &mut enemies {
+        for (_entity, transform, _collider, mut auto, _rb, _patrol_state, _g, _h, _ra, team, _sm) in &mut enemies {
             let Some(team_name) = team.map(|t| t.name.as_str()) else {
                 continue;
             };
@@ -234,8 +262,19 @@ pub fn enemy_ai_system(
     }
 }
 
-fn apply_patrol(enemy_center: Vec2, auto: &mut AutoMovement, rigid_body: &mut RigidBody) {
+fn apply_patrol(
+    enemy_center: Vec2,
+    auto: &mut AutoMovement,
+    rigid_body: &mut RigidBody,
+    patrol_state: Option<bevy::prelude::Mut<'_, PatrolState>>,
+    dt: f32,
+    collider: Option<&Collider>,
+    blockers: &Query<(&Transform, &Collider), With<EnvironmentTag>>,
+) {
+    // Consume any patrol pause set by other logic (e.g. waypoint arrival or
+    // range flip).
     if auto.patrol_pause_remaining > 0.0 {
+        auto.patrol_pause_remaining = (auto.patrol_pause_remaining - dt).max(0.0);
         auto.direction = Vec2::ZERO;
         rigid_body.velocity.x = 0.0;
         return;
@@ -247,6 +286,8 @@ fn apply_patrol(enemy_center: Vec2, auto: &mut AutoMovement, rigid_body: &mut Ri
             rigid_body.velocity.x = 0.0;
         }
         AutoMovementDefaultStrategy::RandomPatrol => {
+            // First apply the existing boundary-flip behaviour so entities
+            // reverse when reaching their patrol range.
             let delta = enemy_center.x - auto.origin.x;
             if delta.abs() >= auto.patrol_range {
                 auto.patrol_direction *= -1.0;
@@ -255,7 +296,56 @@ fn apply_patrol(enemy_center: Vec2, auto: &mut AutoMovement, rigid_body: &mut Ri
                 rigid_body.velocity.x = 0.0;
                 return;
             }
-            auto.direction = Vec2::new(auto.patrol_direction, 0.0);
+
+            // If a PatrolState is present, use its RNG to occasionally change
+            // the chosen direction so movement appears more random rather
+            // than strictly one-direction.
+            if let Some(mut ps) = patrol_state {
+                ps.timer -= dt;
+                if ps.timer <= 0.0 {
+                    let rv = ps.next_rand();
+                    // 40% left, 40% right, 20% pause
+                    ps.direction = if rv < 0.4 { -1.0 } else if rv > 0.6 { 1.0 } else { 0.0 };
+                    let interval_rand = ps.next_rand();
+                    ps.timer = PATROL_MIN_INTERVAL_SEC +
+                        (PATROL_MAX_INTERVAL_SEC - PATROL_MIN_INTERVAL_SEC) * interval_rand;
+                }
+
+                // Prevent walking off platforms when configured not to fall.
+                let prevent_fall = !auto.can_fall_when_following
+                    || auto.default_strategy == AutoMovementDefaultStrategy::RandomPatrol;
+                if ps.direction.abs() > 0.0 && prevent_fall {
+                    let has_ground = ground_ahead_exists(enemy_center, ps.direction, collider, blockers);
+                    if !has_ground {
+                        // Try the opposite direction; if that is also unsafe,
+                        // pause instead.
+                        let alt_dir = -ps.direction;
+                        if ground_ahead_exists(enemy_center, alt_dir, collider, blockers) {
+                            ps.direction = alt_dir;
+                        } else {
+                            ps.direction = 0.0;
+                        }
+                    }
+                }
+
+                auto.direction = Vec2::new(ps.direction, 0.0);
+            } else {
+                // Fallback to the simple patrol_direction behaviour if the
+                // PatrolState hasn't been attached yet.
+                let mut dir = auto.patrol_direction;
+                if dir.abs() > 0.0 && (!auto.can_fall_when_following || auto.default_strategy == AutoMovementDefaultStrategy::RandomPatrol) {
+                    if !ground_ahead_exists(enemy_center, dir, collider, blockers) {
+                        let alt = -dir;
+                        if ground_ahead_exists(enemy_center, alt, collider, blockers) {
+                            dir = alt;
+                        } else {
+                            dir = 0.0;
+                        }
+                    }
+                }
+                auto.direction = Vec2::new(dir, 0.0);
+            }
+
             rigid_body.velocity.x = auto.direction.x * auto.speed.max(auto.max_speed);
         }
         AutoMovementDefaultStrategy::WaypointsPatrol => {
@@ -412,4 +502,39 @@ fn segment_intersects_aabb(start: Vec2, end: Vec2, min: Vec2, max: Vec2) -> bool
     }
 
     true
+}
+
+fn ground_ahead_exists(
+    enemy_center: Vec2,
+    dir: f32,
+    collider: Option<&Collider>,
+    blockers: &Query<(&Transform, &Collider), With<EnvironmentTag>>,
+) -> bool {
+    if dir.abs() <= EPS {
+        return true;
+    }
+
+    // Use the entity's collider half extents or a reasonable default.
+    let half_extents = collider
+        .map(|c| match &c.shape {
+            ColliderShape::Rectangle { half_extents } => *half_extents,
+        })
+        .unwrap_or(Vec2::new(8.0, 8.0));
+
+    // Probe a point just ahead of the entity's foot position and
+    // downwards to detect blocking geometry below the landing spot.
+    let probe_x = enemy_center.x + dir.signum() * (half_extents.x + 2.0);
+    let probe_start = Vec2::new(probe_x, enemy_center.y);
+    let probe_end = probe_start + Vec2::new(0.0, half_extents.y + 6.0);
+
+    for (t, c) in blockers {
+        let ColliderShape::Rectangle { half_extents } = &c.shape;
+        let center = t.translation.truncate() + c.offset;
+        let min = center - *half_extents;
+        let max = center + *half_extents;
+        if segment_intersects_aabb(probe_start, probe_end, min, max) {
+            return true;
+        }
+    }
+    false
 }

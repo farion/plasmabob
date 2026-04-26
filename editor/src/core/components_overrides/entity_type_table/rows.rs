@@ -76,36 +76,24 @@ pub(super) fn render_component_attributes_table(
             });
 
             if explicit_value.is_none() {
-                render_default_hint_row(
-                    &mut body,
-                    component_default.is_some(),
-                    enum_default.is_some(),
-                );
+                // Only show a "default" hint when the component itself provides a
+                // default. Do not show the word "default" for enum-derived
+                // implicit values (the pulldown already implies the default).
+                render_default_hint_row(&mut body, component_default.is_some());
             }
         }
     });
 }
 
-fn render_default_hint_row(
-    body: &mut egui_extras::TableBody<'_>,
-    has_component_default: bool,
-    has_enum_default: bool,
-) {
-    let hint = if has_component_default {
-        Some("component default")
-    } else if has_enum_default {
-        Some("first enum option")
-    } else {
-        None
-    };
-    if let Some(source) = hint {
+fn render_default_hint_row(body: &mut egui_extras::TableBody<'_>, has_component_default: bool) {
+    if has_component_default {
         body.row(20.0, |mut rr| {
             rr.col(|ui| {
                 ui.label("");
             });
             rr.col(|ui| {
                 ui.label(egui::RichText::new("default").weak().italics())
-                    .on_hover_text(source);
+                    .on_hover_text("component default");
             });
             rr.col(|ui| {
                 ui.label("");

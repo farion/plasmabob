@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 
 use crate::game::components::orientation::FacingDirection;
-use crate::game::components::{AutoMovement, Blocking, CollectibleEffect, ControlledMovement, Damageable, GameEntity, Gravity, Health, MovingPlatform, Orientation, RigidBody, StateMachine};
+use crate::game::components::{
+    AutoMovement, AutoMovementDefaultStrategy, AutoMovementState, Blocking, CollectibleEffect, ControlledMovement,
+    Damageable, GameEntity, Gravity, Health, MovingPlatform, Orientation, RigidBody, StateMachine,
+};
 // component configs are parsed into `ComponentsDef` and consumed via each component's `override_from_config`
 use crate::game::components::auto_melee_attack::AutoMeleeAttack;
 use crate::game::components::auto_range_attack::AutoRangeAttack;
@@ -12,7 +15,7 @@ use crate::game::components::team::Team;
 use crate::game::level::types::{
     CachedLevelDefinition, StateConfig,
 };
-use crate::game::runtime_components::{AnimationConfig, SoundState};
+use crate::game::runtime_components::{AnimationConfig, SoundState, PatrolState};
 use crate::game::runtime_components::SpawnedLevelEntity;
 use crate::game::setup::collider_helper::build_collider_from_box;
 // flip_utils was unused here; removed to silence warnings
@@ -166,9 +169,36 @@ pub fn spawn_entities(
         }
 
         if entity_type_comps.and_then(|c| c.auto_movement.as_ref()).is_some() || level_comps.as_ref().and_then(|c| c.auto_movement.as_ref()).is_some() {
-            ent_cmd.insert(AutoMovement::default().override_from_config(
+            // Build the AutoMovement component value first so we can attach
+            // a runtime PatrolState immediately for RandomPatrol entities.
+            let auto_movement = AutoMovement::default().override_from_config(
                 entity_type_comps.and_then(|c| c.auto_movement.as_ref()),
-                level_comps.as_ref().and_then(|c| c.auto_movement.as_ref())));
+                level_comps.as_ref().and_then(|c| c.auto_movement.as_ref()),
+            );
+            // Insert the configured AutoMovement component
+            // Ensure the configured default patrol state is reflected immediately
+            // so RandomPatrol entities are active from the first frame.
+            let mut inserted_auto = auto_movement.clone();
+            // If the authored default strategy implies patrolling, set the
+            // runtime state accordingly so they don't remain Idle until some
+            // other system flips them to Patrol.
+            if inserted_auto.default_strategy == AutoMovementDefaultStrategy::RandomPatrol
+                && inserted_auto.state == AutoMovementState::Idle
+            {
+                inserted_auto.state = AutoMovementState::Patrol;
+            }
+            // Log debug info about the AutoMovement we insert so we can
+            // verify at spawn time that patrol-configured enemies are
+            // created with the expected strategy/state/speed.
+            tracing::info!(level_entity_id = %entity.id, entity = ?ent_cmd.id(), entity_type = %entity_type_key, state = ?inserted_auto.state, strategy = ?inserted_auto.default_strategy, speed = ?inserted_auto.speed, "spawn_entities: inserting AutoMovement");
+            ent_cmd.insert(inserted_auto.clone());
+            // If this entity uses RandomPatrol by default, attach a
+            // PatrolState now so it has an independent RNG and timer from
+            // the first frame (avoids waiting an extra frame for insertion).
+                if auto_movement.default_strategy == AutoMovementDefaultStrategy::RandomPatrol {
+                    let ent = ent_cmd.id();
+                    ent_cmd.insert(PatrolState::from_entity(ent));
+                }
             assigned_components.push("AutoMovement".to_string());
         }
 

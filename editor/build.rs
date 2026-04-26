@@ -53,8 +53,14 @@ fn map_inner_type_to_editor(inner: &str, field_name: &str) -> String {
     if s.contains("f32") || s.contains("f64") {
         return "number".to_string();
     }
-    if s.contains("i8") || s.contains("i16") || s.contains("i32") || s.contains("i64")
-        || s.contains("u8") || s.contains("u16") || s.contains("u32") || s.contains("u64")
+    if s.contains("i8")
+        || s.contains("i16")
+        || s.contains("i32")
+        || s.contains("i64")
+        || s.contains("u8")
+        || s.contains("u16")
+        || s.contains("u32")
+        || s.contains("u64")
     {
         return "int".to_string();
     }
@@ -63,6 +69,9 @@ fn map_inner_type_to_editor(inner: &str, field_name: &str) -> String {
 }
 
 fn main() {
+    // Regenerate whenever the source config structs change.
+    println!("cargo:rerun-if-changed=../src/game/level/configs");
+
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR");
     let configs_dir = Path::new("../src/game/level/configs");
     let mut components: Vec<(String, Vec<(String, String)>)> = Vec::new();
@@ -76,6 +85,8 @@ fn main() {
         if path.file_name().and_then(|n| n.to_str()) == Some("mod.rs") {
             continue;
         }
+
+        println!("cargo:rerun-if-changed={}", path.display());
 
         let stem = path
             .file_stem()
@@ -116,7 +127,11 @@ fn main() {
                 continue;
             }
             // Must contain a colon to be a field declaration
-            let colon_pos = if let Some(p) = line.find(':') { p } else { continue };
+            let colon_pos = if let Some(p) = line.find(':') {
+                p
+            } else {
+                continue;
+            };
 
             // Determine the declared field name: the last token before ':' is
             // typically the field name (handles "pub", "pub(crate)", etc).
@@ -125,7 +140,12 @@ fn main() {
             if tokens.is_empty() {
                 continue;
             }
-            let field_name = tokens.last().unwrap().trim().trim_end_matches(',').to_string();
+            let field_name = tokens
+                .last()
+                .unwrap()
+                .trim()
+                .trim_end_matches(',')
+                .to_string();
 
             // Extract the type text to the end of the field (stop at ',' or end)
             let mut type_part = line[colon_pos + 1..].trim().to_string();
@@ -140,7 +160,9 @@ fn main() {
                 let mut depth = 0usize;
                 let mut end_idx = None;
                 for (idx, ch) in type_part.chars().enumerate() {
-                    if ch == '<' { depth += 1 } else if ch == '>' {
+                    if ch == '<' {
+                        depth += 1
+                    } else if ch == '>' {
                         depth -= 1;
                         if depth == 0 {
                             end_idx = Some(idx);

@@ -2,10 +2,9 @@ use bevy::prelude::*;
 use bevy::time::Virtual;
 use bevy::ui::FocusPolicy;
 
-use crate::CampaignProgress;
 use crate::app_model::AppState;
 use crate::game::components::GameEntity;
-
+use crate::CampaignProgress;
 
 #[derive(Resource)]
 pub(crate) struct PauseMenuState {
@@ -31,7 +30,7 @@ pub(crate) const PAUSE_MENU_ITEMS: [(&str, PauseMenuAction); 4] = [
     ("pause.cancel", PauseMenuAction::Cancel),
 ];
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PauseMenuAction {
     Restart,
     BackToWorldMap,
@@ -59,14 +58,28 @@ pub(crate) fn update_pause_menu(
     mut virtual_time: ResMut<Time<Virtual>>,
     mut progress: ResMut<CampaignProgress>,
     mut next_state: ResMut<NextState<AppState>>,
+    level_selection: Res<crate::LevelSelection>,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
+        // Determine visible items so selection resets to the last visible index
+        let hide_back = level_selection
+            .asset_path()
+            .ends_with("assets/debug/testlevel.json")
+            || level_selection
+                .asset_path()
+                .ends_with("debug/testlevel.json");
+        let visible_count = if hide_back {
+            PAUSE_MENU_ITEMS.len() - 1
+        } else {
+            PAUSE_MENU_ITEMS.len()
+        };
+
         if pause_menu_state.is_open {
             pause_menu_state.is_open = false;
-            pause_menu_state.selection = PAUSE_MENU_ITEMS.len().saturating_sub(1);
+            pause_menu_state.selection = visible_count.saturating_sub(1);
         } else {
             pause_menu_state.is_open = true;
-            pause_menu_state.selection = PAUSE_MENU_ITEMS.len().saturating_sub(1);
+            pause_menu_state.selection = visible_count.saturating_sub(1);
         }
     }
 
@@ -85,19 +98,32 @@ pub(crate) fn update_pause_menu(
     virtual_time.pause();
 
     if roots.iter().next().is_none() {
-        spawn_pause_menu(&mut commands);
+        spawn_pause_menu(&mut commands, &level_selection);
     }
+
+    // Determine visible items count (may hide BackToWorldMap for debug level)
+    let hide_back = level_selection
+        .asset_path()
+        .ends_with("assets/debug/testlevel.json")
+        || level_selection
+            .asset_path()
+            .ends_with("debug/testlevel.json");
+    let visible_count = if hide_back {
+        PAUSE_MENU_ITEMS.len() - 1
+    } else {
+        PAUSE_MENU_ITEMS.len()
+    };
 
     if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::ArrowLeft) {
         pause_menu_state.selection = if pause_menu_state.selection == 0 {
-            PAUSE_MENU_ITEMS.len() - 1
+            visible_count - 1
         } else {
             pause_menu_state.selection - 1
         };
     }
 
     if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::ArrowRight) {
-        pause_menu_state.selection = (pause_menu_state.selection + 1) % PAUSE_MENU_ITEMS.len();
+        pause_menu_state.selection = (pause_menu_state.selection + 1) % visible_count;
     }
 
     for (interaction, button) in &interactions {
@@ -113,6 +139,7 @@ pub(crate) fn update_pause_menu(
                     &mut virtual_time,
                     &mut progress,
                     &mut next_state,
+                    &level_selection,
                 );
             }
             Interaction::None => {}
@@ -125,14 +152,29 @@ pub(crate) fn update_pause_menu(
         }
     } else if is_enter_just_pressed(&keys) {
         pause_menu_state.suppress_enter_until_release = true;
-        let (_, action) = PAUSE_MENU_ITEMS[pause_menu_state.selection];
-        execute_action(
-            action,
-            &mut pause_menu_state,
-            &mut virtual_time,
-            &mut progress,
-            &mut next_state,
-        );
+        // Map selection to visible action (skipping BackToWorldMap when hidden)
+        let mut idx = 0usize;
+        let mut chosen: Option<PauseMenuAction> = None;
+        for (_label, action) in PAUSE_MENU_ITEMS.into_iter() {
+            if hide_back && action == PauseMenuAction::BackToWorldMap {
+                continue;
+            }
+            if idx == pause_menu_state.selection {
+                chosen = Some(action);
+                break;
+            }
+            idx += 1;
+        }
+        if let Some(action) = chosen {
+            execute_action(
+                action,
+                &mut pause_menu_state,
+                &mut virtual_time,
+                &mut progress,
+                &mut next_state,
+                &level_selection,
+            );
+        }
     }
 
     for (button, children, mut background) in &mut button_query {
@@ -159,7 +201,7 @@ fn is_enter_just_pressed(keys: &ButtonInput<KeyCode>) -> bool {
     keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::NumpadEnter)
 }
 
-fn spawn_pause_menu(commands: &mut Commands) {
+fn spawn_pause_menu(commands: &mut Commands, level_selection: &crate::LevelSelection) {
     commands
         .spawn((
             Node {
@@ -228,8 +270,23 @@ fn spawn_pause_menu(commands: &mut Commands) {
                             GameEntity,
                         ))
                         .with_children(|button_list| {
-                            for (index, (label, action)) in PAUSE_MENU_ITEMS.into_iter().enumerate()
-                            {
+                            // Build menu items; hide BackToWorldMap for the debug test level
+                            let hide_back = level_selection
+                                .asset_path()
+                                .ends_with("assets/debug/testlevel.json")
+                                || level_selection
+                                    .asset_path()
+                                    .ends_with("debug/testlevel.json");
+
+                            let mut idx = 0usize;
+                            for (label, action) in PAUSE_MENU_ITEMS.into_iter() {
+                                if hide_back && action == PauseMenuAction::BackToWorldMap {
+                                    continue;
+                                }
+
+                                let index = idx;
+                                idx += 1;
+
                                 button_list
                                     .spawn((
                                         Button,
@@ -268,6 +325,7 @@ fn execute_action(
     virtual_time: &mut ResMut<Time<Virtual>>,
     progress: &mut ResMut<CampaignProgress>,
     next_state: &mut ResMut<NextState<AppState>>,
+    level_selection: &crate::LevelSelection,
 ) {
     match action {
         PauseMenuAction::Restart => {
@@ -291,7 +349,19 @@ fn execute_action(
         }
         PauseMenuAction::Cancel => {
             pause_menu_state.is_open = false;
-            pause_menu_state.selection = PAUSE_MENU_ITEMS.len().saturating_sub(1);
+            // Reset selection to last visible index
+            let hide_back = level_selection
+                .asset_path()
+                .ends_with("assets/debug/testlevel.json")
+                || level_selection
+                    .asset_path()
+                    .ends_with("debug/testlevel.json");
+            let visible_count = if hide_back {
+                PAUSE_MENU_ITEMS.len() - 1
+            } else {
+                PAUSE_MENU_ITEMS.len()
+            };
+            pause_menu_state.selection = visible_count.saturating_sub(1);
             virtual_time.unpause();
         }
     }

@@ -83,7 +83,12 @@ pub fn render_level_picker_columns(
             // Show the selected world in parentheses after the Levels heading
             let selected_world = catalog.selected_world.as_deref();
             if let Some(folder) = selected_world {
-                ui.heading(format!("Levels ({})", folder));
+                // If the synthetic Debug world is selected, show the nicer display name
+                if folder.eq_ignore_ascii_case("debug") {
+                    ui.heading("Levels (Debug)");
+                } else {
+                    ui.heading(format!("Levels ({})", folder));
+                }
             } else {
                 ui.heading("Levels");
             }
@@ -126,12 +131,23 @@ pub fn render_level_picker_columns(
 
                         let folder = selected_world.unwrap();
 
-                        let prefix = format!("worlds/{}/", folder);
-                        let filtered: Vec<&crate::core::io::LevelEntry> = catalog
-                            .levels
-                            .iter()
-                            .filter(|lvl| lvl.asset_path.starts_with(&prefix))
-                            .collect();
+                        // The Debug world is synthetic and its levels live under assets/debug
+                        // (asset path prefix "debug/"). For normal worlds levels live under
+                        // "worlds/<folder>/". Handle Debug as a special case here.
+                        let filtered: Vec<&crate::core::io::LevelEntry> = if folder.eq_ignore_ascii_case("debug") {
+                            catalog
+                                .levels
+                                .iter()
+                                .filter(|lvl| lvl.asset_path.starts_with("debug/"))
+                                .collect()
+                        } else {
+                            let prefix = format!("worlds/{}/", folder);
+                            catalog
+                                .levels
+                                .iter()
+                                .filter(|lvl| lvl.asset_path.starts_with(&prefix))
+                                .collect()
+                        };
 
                         if filtered.is_empty() {
                             ui.label("No valid level files found for this world.");

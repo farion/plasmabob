@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use crate::game::components::{AutoMovement, RigidBody, StateMachine};
+use crate::game::components::{
+    AutoMovement, AutoMovementDefaultStrategy, AutoMovementState, RigidBody, StateMachine,
+};
 use crate::game::runtime_components::PatrolState;
 use crate::game::tags::EnemyTag;
 
@@ -25,13 +27,24 @@ pub fn enemy_random_patrol_system(
     let dt = time.delta_secs();
 
     for (entity, mut auto_movement, mut rigid_body, patrol_state, state_machine) in &mut enemies {
+        // Respect non-interactive state.
         if state_machine.is_some_and(|sm| sm.is_non_interactive()) {
             auto_movement.direction = Vec2::ZERO;
             rigid_body.velocity.x = 0.0;
             continue;
         }
 
+        // Only drive random patrols for entities configured with RandomPatrol
+        // and which are currently in the Patrol state. Other states (Aggro,
+        // ReturnToOrigin, Idle) should not be overridden here.
+        if auto_movement.default_strategy != AutoMovementDefaultStrategy::RandomPatrol
+            || auto_movement.state != AutoMovementState::Patrol
+        {
+            continue;
+        }
+
         let Some(mut patrol_state) = patrol_state else {
+            // Attach deterministic per-entity RNG state on demand.
             commands
                 .entity(entity)
                 .insert(PatrolState::from_entity(entity));
@@ -43,6 +56,17 @@ pub fn enemy_random_patrol_system(
             continue;
         }
 
+        // If AI requested a short pause (e.g. after flipping at patrol range),
+        // preserve that pause.
+        if auto_movement.patrol_pause_remaining > 0.0 {
+            auto_movement.direction = Vec2::ZERO;
+            rigid_body.velocity.x = 0.0;
+            continue;
+        }
+
+        // Advance the per-entity timer and pick a new direction when it
+        // expires. This mirrors the previous patrol-state behaviour used in
+        // the dedicated random patrol system.
         patrol_state.timer -= dt;
         if patrol_state.timer <= 0.0 {
             let rand_value = patrol_state.next_rand();

@@ -2,13 +2,15 @@ use bevy::prelude::*;
 use bevy::ui::ZIndex;
 
 use crate::app_model::{
-    AppState, EXIT_CONFIRM_ITEMS, ExitConfirmAction, ExitConfirmButton, ExitConfirmModalRoot,
-    ExitConfirmModalState, MENU_ITEMS, MainMenuEntity, MenuAction, MenuButton,
-    MenuSelection, StartScreenBackground, menu_action_label_key,
+    menu_action_label_key, AppState, ExitConfirmAction, ExitConfirmButton, ExitConfirmModalRoot,
+    ExitConfirmModalState, MainMenuEntity, MenuAction, MenuButton, MenuSelection,
+    StartScreenBackground, EXIT_CONFIRM_ITEMS, MENU_ITEMS,
 };
 use crate::helper::active_character::ActiveCharacter;
 use crate::helper::asset_io::load_character_asset;
 use crate::helper::i18n;
+use crate::LevelSelection;
+use bevy::prelude::KeyCode;
 
 pub struct MainViewPlugin;
 
@@ -52,6 +54,8 @@ impl Plugin for MainViewPlugin {
                 (
                     open_or_close_exit_modal_with_escape,
                     menu_keyboard_navigation,
+                    // Ctrl+Shift+D: start debug test level
+                    debug_start_level_hotkey,
                     menu_pointer_input,
                 )
                     .in_set(MainMenuSet::Input)
@@ -405,6 +409,21 @@ fn activate_action(
     }
 }
 
+/// Listen for Ctrl+Shift+D in the main menu and start the debug test level.
+fn debug_start_level_hotkey(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut level_selection: ResMut<LevelSelection>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    if ctrl && shift && keys.just_pressed(KeyCode::KeyD) {
+        // Point the global LevelSelection to the debug test level and start loading.
+        level_selection.set_asset_path("assets/debug/testlevel.json");
+        next_state.set(AppState::LoadView);
+    }
+}
+
 fn sync_main_menu_theme(
     mut commands: Commands,
     active_character: Res<ActiveCharacter>,
@@ -418,11 +437,7 @@ fn sync_main_menu_theme(
     }
 
     for mut sprite in &mut backgrounds {
-        sprite.image = load_character_asset::<Image>(
-            &asset_server,
-            "start.jpg",
-            *active_character,
-        );
+        sprite.image = load_character_asset::<Image>(&asset_server, "start.jpg", *active_character);
     }
 
     for mut text in &mut toggle_labels {

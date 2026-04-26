@@ -22,5 +22,16 @@
         "type": "number"
       }
     }
+    ,
+    "auto_movement": {
+      "default_strategy": {
+        "type": "enum",
+        "options": [ "random_patrol", "waypoints_patrol", "stand_still" ]
+      },
+      "aggro_strategy": {
+        "type": "enum",
+        "options": [ "follow" ]
+      }
+    }
   }
 }
