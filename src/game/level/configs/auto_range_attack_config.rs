@@ -10,12 +10,6 @@ pub struct AutoRangeAttackConfig {
     pub speed: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aggro_range: Option<f32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_engage_distance: Option<f32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kiting_enabled: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kiting_hp_threshold: Option<f32>,
     /// Cooldown in milliseconds
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cooldown: Option<u64>,

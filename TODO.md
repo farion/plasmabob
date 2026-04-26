@@ -9,8 +9,8 @@
 [X] Final Level Table
 [X] Crouching
 [X] Auto Betty Assets
-[ ] Enemy AI. Faster with Aggro. Avoid falling. Jumps? 
-[ ] Stomp Effect
+[X] Enemy AI. Faster with Aggro. Avoid falling. Jumps? 
+[X] Stomp Effect
 
 ## Editor
 [X] Adapt Level editor to new format.

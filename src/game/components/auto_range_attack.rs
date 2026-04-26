@@ -13,11 +13,9 @@ pub struct AutoRangeAttack {
     /// Detection radius for selecting a target.
     pub aggro_range: f32,
     /// Preferred minimum distance for ranged combat.
-    pub min_engage_distance: f32,
-    /// Enables kiting behavior when HP drops below threshold.
-    pub kiting_enabled: bool,
-    /// Health fraction threshold where kiting activates.
-    pub kiting_hp_threshold: f32,
+    // Movement-related settings migrated into `AutoMovement` (min_engage_distance,
+    // kiting_enabled, kiting_hp_threshold). Attack component now only stores
+    // attack-specific settings.
     /// How often the attack fires.
     pub cooldown: Timer,
     /// Raw particle effect key from JSON (e.g. "fire", "poison", "spit").
@@ -44,9 +42,6 @@ impl AutoRangeAttack {
             range,
             speed: 400.0,
             aggro_range: 300.0,
-            min_engage_distance: 3.5,
-            kiting_enabled: true,
-            kiting_hp_threshold: 0.3,
             cooldown,
             particle_effect: Some("fire".to_string()),
             shoot_effect: Some("fire_shoot".to_string()),
@@ -67,8 +62,8 @@ impl Default for AutoRangeAttack {
 // The macro maps config fields to component fields using the pick_* helpers.
 crate::impl_override_from_config!(AutoRangeAttack, crate::game::level::configs::AutoRangeAttackConfig,
     pick_i32 => [damage],
-    pick_f32 => [range, speed, aggro_range, min_engage_distance, kiting_hp_threshold],
+    pick_f32 => [range, speed, aggro_range],
     pick_timer => [cooldown],
     pick_string => [particle_effect, shoot_effect, impact_effect],
-    pick_bool => [enabled, kiting_enabled],
+    pick_bool => [enabled],
 );

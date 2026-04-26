@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::components::{Collider, ColliderShape, Health, Orientation, StateMachine};
+use crate::game::components::{AutoMovement, Collider, ColliderShape, Health, Orientation, StateMachine};
 use crate::game::runtime_components::SpawnedLevelEntity;
 
 use super::draw_hitbox_debug_lines::DebugOwner;
@@ -30,6 +30,7 @@ pub(crate) fn update_debug_stats_labels(
         Option<&Orientation>,
         Option<&crate::game::tags::PlayerTag>,
         Option<&crate::game::tags::EnemyTag>,
+        Option<&AutoMovement>,
     )>,
 ) {
     for (dbg_owner, mut transform, mut text, text_font_opt, text_color_opt) in &mut query_labels {
@@ -42,6 +43,7 @@ pub(crate) fn update_debug_stats_labels(
             orientation_opt,
             player_opt,
             enemy_opt,
+            auto_movement_opt,
         )) = owners.get(dbg_owner.0)
         {
             let mut lines: Vec<String> = Vec::new();
@@ -51,6 +53,12 @@ pub(crate) fn update_debug_stats_labels(
             }
             if let Some(sm) = sm_opt {
                 lines.push(format!("State: {:?}", sm.state));
+            }
+            if let Some(auto_movement) = auto_movement_opt {
+                lines.push(format!(
+                    "Move: default={:?} aggro={:?} state={:?}",
+                    auto_movement.default_strategy, auto_movement.aggro_strategy, auto_movement.state
+                ));
             }
             if let Some(orientation) = orientation_opt {
                 // Derive angle in degrees from the surface_alignment Vec2.

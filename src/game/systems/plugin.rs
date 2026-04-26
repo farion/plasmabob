@@ -12,6 +12,7 @@ use crate::game::systems::count_deaths_system::count_deaths_system;
 use crate::game::systems::damage_popup_system::damage_popup_animate_system;
 use crate::game::systems::death_despawn_system::death_despawn_system;
 use crate::game::systems::enemy_ai_debug_draw_system::enemy_ai_debug_draw_system;
+use crate::game::systems::enemy_aggro_particles_system::enemy_aggro_particles_system;
 use crate::game::systems::enemy_ai_system::enemy_ai_system;
 use crate::game::systems::gravity_integration_system::gravity_integration_system;
 use crate::game::systems::grounding_evaluation_system::grounding_evaluation_system;
@@ -33,6 +34,7 @@ use crate::game::systems::sound_system::sound_system;
 use crate::game::systems::state_machine_update_system::state_machine_update_system;
 use crate::game::systems::toggle_parallax_system::toggle_parallax_system;
 use crate::game::systems::track_previous_transform_system::track_previous_transform_system;
+use crate::game::gfx::jump::{jump_particles_system, JumpParticlesQueue};
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GameplaySet {
@@ -53,6 +55,8 @@ impl Plugin for SystemsPlugin {
         // Damage popup settings (tweakable)
         app.init_resource::<crate::game::runtime_components::DamagePopupSettings>();
 
+        // Register a simple queue resource for jump/land particle events.
+        app.insert_resource(JumpParticlesQueue::default());
         app.configure_sets(
             Update,
             (
@@ -75,6 +79,9 @@ impl Plugin for SystemsPlugin {
                     .in_set(GameplaySet::Input)
                     .after(player_control_system),
                 enemy_ai_system.in_set(GameplaySet::Ai),
+                enemy_aggro_particles_system
+                    .in_set(GameplaySet::Ai)
+                    .after(enemy_ai_system),
                 auto_melee_attack_system.in_set(GameplaySet::Ai),
                 auto_range_attack_system.in_set(GameplaySet::Ai),
                 gravity_integration_system.in_set(GameplaySet::Physics),
@@ -134,6 +141,8 @@ impl Plugin for SystemsPlugin {
                     .after(draw_hitbox_debug_lines),
                 // Floating damage/heal numbers
                 damage_popup_animate_system.in_set(GameplaySet::Finalize),
+                // Jump / land particle effects
+                jump_particles_system.in_set(GameplaySet::Finalize),
             ),
         );
     }

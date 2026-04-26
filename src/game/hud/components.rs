@@ -29,5 +29,3 @@ pub struct LivesContainerUi;
 
 #[derive(Component)]
 pub struct LivesHeartUi;
-
-

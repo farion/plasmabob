@@ -126,3 +126,47 @@ pub(crate) fn create_fire_particle_image(size: u32) -> Image {
         RenderAssetUsages::default(),
     )
 }
+
+pub(crate) fn create_aggro_particle_image(size: u32) -> Image {
+    let mut data = vec![0u8; (size * size * 4) as usize];
+    let center = (size as f32 - 1.0) * 0.5;
+    let radius = center.max(1.0);
+
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 - center;
+            let dy = y as f32 - center;
+            let dist = (dx * dx + dy * dy).sqrt() / radius;
+            let softness = (1.0 - dist).clamp(0.0, 1.0);
+
+            // Tight hot core plus softer outer glow for spark readability.
+            let core = ((softness - 0.52) / 0.48).clamp(0.0, 1.0).powf(1.2);
+            let halo = softness.powf(2.1);
+            let alpha_f = (core * 1.0 + halo * 0.5).clamp(0.0, 1.0);
+            let alpha = (alpha_f * 255.0) as u8;
+
+            let r = (220.0 + core * 35.0).clamp(0.0, 255.0) as u8;
+            let g = (65.0 + core * 70.0 + halo * 18.0).clamp(0.0, 255.0) as u8;
+            let b = (28.0 + halo * 16.0).clamp(0.0, 255.0) as u8;
+
+            let index = ((y * size + x) * 4) as usize;
+            data[index] = r;
+            data[index + 1] = g;
+            data[index + 2] = b;
+            data[index + 3] = alpha;
+        }
+    }
+
+    Image::new(
+        Extent3d {
+            width: size,
+            height: size,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    )
+}
+

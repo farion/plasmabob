@@ -5,23 +5,27 @@
       "despawn_on_death": true,
       "despawn_delay_ms": 5000
     },
+    "auto_range_attack": {
+      "damage": 10,
+      "range": 800.0,
+      "aggro_range": 700.0
+    },
     "auto_movement": {
       "speed": 50.0,
       "aggro": true,
       "aggro_range": 300.0,
       "deaggro_range": 600.0,
       "default_strategy": "random_patrol",
-      "aggro_strategy": "follow",
+      "aggro_strategy": "kiting",
       "patrol_range": 500.0,
       "vision_angle": 360.0,
       "can_fall_when_following": true,
       "max_speed": 100.0,
       "acceleration": 300.0,
       "share_aggro_with_team": "",
-      "jump_on_aggro": true,
-      "jump_on_default": false,
-      "jump_on_return_to_origin": true,
-      "jump_force": 800.0
+      "min_engage_distance": 600.0,
+      "kiting_enabled": true,
+      "kiting_hp_threshold": 30
     },
     "rigid_body": {},
     "gravity": {},

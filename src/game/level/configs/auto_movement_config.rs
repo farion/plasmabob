@@ -31,7 +31,23 @@ pub struct AutoMovementConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vision_check_interval: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_engage_distance: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kiting_enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kiting_hp_threshold: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub can_fall_when_following: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follow_stop_distance: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jump_on_default: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jump_on_aggro: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jump_on_return_to_origin: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jump_force: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jump_cooldown: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

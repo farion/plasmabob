@@ -1,22 +1,32 @@
+use avian2d::prelude::Gravity as WorldGravity;
 use bevy::prelude::*;
+// EventWriter avoided; using JumpParticlesQueue resource instead
 use rand::seq::SliceRandom;
 
 use crate::game::components::auto_range_attack::AutoRangeAttack;
 use crate::game::components::{
-    AutoMovement, AutoMovementDefaultStrategy, AutoMovementState, Collider, ColliderShape,
-    ControlledMovement, Gravity, Health, RigidBody, StateMachine, Team,
+    AutoMovement, AutoMovementAggroStrategy, AutoMovementDefaultStrategy, AutoMovementState,
+    Blocking, Collider, ColliderShape, ControlledMovement, Gravity, Health, RigidBody,
+    StateMachine, Team,
 };
+// JumpParticlesEvent is used via the JumpParticlesQueue; no direct import needed here.
 use crate::game::runtime_components::PatrolState;
 const PATROL_MIN_INTERVAL_SEC: f32 = 0.8;
 const PATROL_MAX_INTERVAL_SEC: f32 = 2.4;
-use crate::game::tags::{EnemyTag, EnvironmentTag};
+use crate::game::tags::EnemyTag;
 
 const EPS: f32 = 0.0001;
-const DEFAULT_JUMP_IMPULSE: f32 = 260.0;
+const JUMP_CLEARANCE: f32 = 6.0;
+const JUMP_MIN_HEIGHT: f32 = 8.0;
+const JUMP_LOOKAHEAD_MIN: f32 = 12.0;
+const JUMP_LOOKAHEAD_MAX: f32 = 140.0;
+const JUMP_OVERLAP_EPS: f32 = 2.0;
+const FOLLOW_STOP_EPS: f32 = 2.0;
 
 pub fn enemy_ai_system(
     mut commands: Commands,
     time: Res<Time>,
+    world_gravity: Res<WorldGravity>,
     mut enemies: Query<
         (
             Entity,
@@ -25,7 +35,7 @@ pub fn enemy_ai_system(
             &mut AutoMovement,
             &mut RigidBody,
             Option<&mut PatrolState>,
-            Option<&Gravity>,
+            Option<&mut Gravity>,
             Option<&Health>,
             Option<&AutoRangeAttack>,
             Option<&Team>,
@@ -43,10 +53,12 @@ pub fn enemy_ai_system(
         ),
         With<ControlledMovement>,
     >,
-    blockers: Query<(&Transform, &Collider), With<EnvironmentTag>>,
+    blockers: Query<(&Transform, &Collider, Option<&StateMachine>, &Blocking), With<Blocking>>,
+    mut jump_queue: ResMut<crate::game::gfx::jump::JumpParticlesQueue>,
 ) {
     let dt = time.delta_secs();
     let now = time.elapsed_secs();
+    let world_gravity = Vec2::new(world_gravity.0.x, world_gravity.0.y);
 
     let mut share_events: Vec<(String, Entity, f32, Vec2)> = Vec::new();
 
@@ -57,7 +69,7 @@ pub fn enemy_ai_system(
         mut auto,
         mut rigid_body,
         patrol_state,
-        gravity,
+        mut gravity,
         health,
         range_attack,
         team,
@@ -142,7 +154,12 @@ pub fn enemy_ai_system(
                 if !target_sm.is_some_and(|s| s.is_non_interactive()) {
                     let candidate_pos = world_center(target_tf, target_col);
                     let dist_sq = enemy_center.distance_squared(candidate_pos);
-                    if dist_sq <= auto.deaggro_range * auto.deaggro_range {
+                    if dist_sq > auto.deaggro_range * auto.deaggro_range {
+                        // Hard de-aggro once the target leaves deaggro range.
+                        auto.target_entity = None;
+                        auto.last_known_target_pos = None;
+                        auto.state = AutoMovementState::ReturnToOrigin;
+                    } else {
                         if !auto.line_of_sight
                             || !has_los_block(enemy_center, candidate_pos, &blockers)
                         {
@@ -197,26 +214,33 @@ pub fn enemy_ai_system(
                     enemy_center,
                     &mut auto,
                     &mut rigid_body,
+                    gravity.as_deref_mut(),
                     patrol_state,
+                    world_gravity,
                     dt,
                     collider,
                     &blockers,
+                    &mut *jump_queue,
                 );
                 tracing::debug!(entity = ?entity, direction = ?auto.direction, vx = ?rigid_body.velocity.x, "enemy_ai: after Patrol");
             }
             AutoMovementState::Aggro => {
-                if let Some(tpos) = target_pos {
-                    apply_aggro(
-                        enemy_center,
-                        tpos,
-                        has_visible_target,
-                        &mut auto,
-                        &mut rigid_body,
-                        gravity,
-                        health,
-                        range_attack,
-                        dt,
-                    );
+                    if let Some(tpos) = target_pos {
+                            apply_aggro(
+                                enemy_center,
+                                tpos,
+                                has_visible_target,
+                                &mut auto,
+                                &mut rigid_body,
+                                gravity.as_deref_mut(),
+                                health,
+                                range_attack,
+                                collider,
+                                &blockers,
+                                world_gravity,
+                                dt,
+                                &mut *jump_queue,
+                            );
                 } else {
                     auto.state = AutoMovementState::ReturnToOrigin;
                 }
@@ -237,6 +261,17 @@ pub fn enemy_ai_system(
                         auto.direction.x * auto.max_speed,
                         auto.acceleration,
                         dt,
+                    );
+                    attempt_navigation_jump(
+                        enemy_center,
+                        Some(auto.origin),
+                        &mut auto,
+                        &mut rigid_body,
+                        gravity.as_deref_mut(),
+                        collider,
+                        &blockers,
+                        world_gravity,
+                        &mut *jump_queue,
                     );
                 }
             }
@@ -266,10 +301,13 @@ fn apply_patrol(
     enemy_center: Vec2,
     auto: &mut AutoMovement,
     rigid_body: &mut RigidBody,
+    gravity: Option<&mut Gravity>,
     patrol_state: Option<bevy::prelude::Mut<'_, PatrolState>>,
+    world_gravity: Vec2,
     dt: f32,
     collider: Option<&Collider>,
-    blockers: &Query<(&Transform, &Collider), With<EnvironmentTag>>,
+    blockers: &Query<(&Transform, &Collider, Option<&StateMachine>, &Blocking), With<Blocking>>,
+    jump_queue: &mut crate::game::gfx::jump::JumpParticlesQueue,
 ) {
     // Consume any patrol pause set by other logic (e.g. waypoint arrival or
     // range flip).
@@ -286,17 +324,6 @@ fn apply_patrol(
             rigid_body.velocity.x = 0.0;
         }
         AutoMovementDefaultStrategy::RandomPatrol => {
-            // First apply the existing boundary-flip behaviour so entities
-            // reverse when reaching their patrol range.
-            let delta = enemy_center.x - auto.origin.x;
-            if delta.abs() >= auto.patrol_range {
-                auto.patrol_direction *= -1.0;
-                auto.patrol_pause_remaining = auto.patrol_pause_time;
-                auto.direction = Vec2::ZERO;
-                rigid_body.velocity.x = 0.0;
-                return;
-            }
-
             // If a PatrolState is present, use its RNG to occasionally change
             // the chosen direction so movement appears more random rather
             // than strictly one-direction.
@@ -311,29 +338,46 @@ fn apply_patrol(
                         (PATROL_MAX_INTERVAL_SEC - PATROL_MIN_INTERVAL_SEC) * interval_rand;
                 }
 
-                // Prevent walking off platforms when configured not to fall.
-                let prevent_fall = !auto.can_fall_when_following
-                    || auto.default_strategy == AutoMovementDefaultStrategy::RandomPatrol;
-                if ps.direction.abs() > 0.0 && prevent_fall {
-                    let has_ground = ground_ahead_exists(enemy_center, ps.direction, collider, blockers);
+                // RandomPatrol should stay on platforms by design.
+                // Other strategies can still opt into falling via config.
+                let prevent_fall = auto.default_strategy == AutoMovementDefaultStrategy::RandomPatrol
+                    || !auto.can_fall_when_following;
+                let mut dir = ps.direction;
+                if dir.abs() > 0.0 && prevent_fall {
+                    let has_ground = ground_ahead_exists(enemy_center, dir, collider, blockers);
                     if !has_ground {
                         // Try the opposite direction; if that is also unsafe,
                         // pause instead.
-                        let alt_dir = -ps.direction;
+                        let alt_dir = -dir;
                         if ground_ahead_exists(enemy_center, alt_dir, collider, blockers) {
-                            ps.direction = alt_dir;
+                            dir = alt_dir;
                         } else {
-                            ps.direction = 0.0;
+                            dir = 0.0;
                         }
                     }
                 }
 
-                auto.direction = Vec2::new(ps.direction, 0.0);
+                // If outside patrol range, force movement back toward origin
+                // instead of pausing indefinitely on the boundary.
+                let delta = enemy_center.x - auto.origin.x;
+                if auto.patrol_range > 0.0 && delta.abs() >= auto.patrol_range {
+                    let inward = -delta.signum();
+                    if inward.abs() > EPS {
+                        dir = inward;
+                        auto.patrol_direction = inward;
+                    }
+                }
+
+                ps.direction = dir;
+                auto.direction = Vec2::new(dir, 0.0);
             } else {
                 // Fallback to the simple patrol_direction behaviour if the
                 // PatrolState hasn't been attached yet.
                 let mut dir = auto.patrol_direction;
-                if dir.abs() > 0.0 && (!auto.can_fall_when_following || auto.default_strategy == AutoMovementDefaultStrategy::RandomPatrol) {
+                if dir.abs() > 0.0
+                    && (auto.default_strategy == AutoMovementDefaultStrategy::RandomPatrol
+                        || !auto.can_fall_when_following)
+                {
                     if !ground_ahead_exists(enemy_center, dir, collider, blockers) {
                         let alt = -dir;
                         if ground_ahead_exists(enemy_center, alt, collider, blockers) {
@@ -343,10 +387,32 @@ fn apply_patrol(
                         }
                     }
                 }
+
+                // Keep the fallback path consistent with PatrolState behavior.
+                let delta = enemy_center.x - auto.origin.x;
+                if auto.patrol_range > 0.0 && delta.abs() >= auto.patrol_range {
+                    let inward = -delta.signum();
+                    if inward.abs() > EPS {
+                        dir = inward;
+                        auto.patrol_direction = inward;
+                    }
+                }
+
                 auto.direction = Vec2::new(dir, 0.0);
             }
 
             rigid_body.velocity.x = auto.direction.x * auto.speed.max(auto.max_speed);
+            attempt_navigation_jump(
+                enemy_center,
+                None,
+                auto,
+                rigid_body,
+                gravity,
+                collider,
+                blockers,
+                world_gravity,
+                jump_queue,
+            );
         }
         AutoMovementDefaultStrategy::WaypointsPatrol => {
             if auto.patrol_waypoints.is_empty() {
@@ -365,6 +431,17 @@ fn apply_patrol(
             } else {
                 auto.direction = Vec2::new(delta_x.signum(), 0.0);
                 rigid_body.velocity.x = auto.direction.x * auto.speed.max(auto.max_speed);
+                        attempt_navigation_jump(
+                            enemy_center,
+                            Some(target),
+                            auto,
+                            rigid_body,
+                            gravity,
+                            collider,
+                            blockers,
+                            world_gravity,
+                            jump_queue,
+                        );
             }
         }
     }
@@ -377,36 +454,59 @@ fn apply_aggro(
     has_visible_target: bool,
     auto: &mut AutoMovement,
     rigid_body: &mut RigidBody,
-    gravity: Option<&Gravity>,
+    gravity: Option<&mut Gravity>,
     health: Option<&Health>,
     range_attack: Option<&AutoRangeAttack>,
+    collider: Option<&Collider>,
+    blockers: &Query<(&Transform, &Collider, Option<&StateMachine>, &Blocking), With<Blocking>>,
+    world_gravity: Vec2,
     dt: f32,
+    jump_queue: &mut crate::game::gfx::jump::JumpParticlesQueue,
 ) {
     let dx = target_pos.x - enemy_center.x;
-    let dy = target_pos.y - enemy_center.y;
-    let mut desired = dx.signum();
+    let desired;
 
-    if let Some(attack) = range_attack {
-        let distance = enemy_center.distance(target_pos);
-        let hp_frac = health
-            .map(|h| {
-                if h.max > 0 {
-                    h.current as f32 / h.max as f32
-                } else {
-                    1.0
-                }
-            })
-            .unwrap_or(1.0);
-        let low_hp_kite = attack.kiting_enabled && hp_frac <= attack.kiting_hp_threshold;
+    // Determine distance and health fraction used by aggro strategies.
+    let distance = enemy_center.distance(target_pos);
+    let hp_frac = health
+        .map(|h| {
+            if h.max > 0 {
+                h.current as f32 / h.max as f32
+            } else {
+                1.0
+            }
+        })
+        .unwrap_or(1.0);
 
-        if low_hp_kite && has_visible_target {
-            desired = -dx.signum();
-        } else if distance < attack.min_engage_distance {
-            desired = -dx.signum();
-        } else if distance > attack.aggro_range {
-            desired = dx.signum();
-        } else {
-            desired = 0.0;
+    // Attack aggro range is attack-specific if present, otherwise fall back
+    // to the movement-configured aggro_range.
+    let attack_aggro_range = range_attack.map(|a| a.aggro_range).unwrap_or(auto.aggro_range);
+
+    match auto.aggro_strategy {
+        AutoMovementAggroStrategy::Kiting => {
+            let low_hp_kite = auto.kiting_enabled && hp_frac <= auto.kiting_hp_threshold;
+            let min_engage = auto.min_engage_distance;
+
+            if low_hp_kite && has_visible_target {
+                desired = -dx.signum();
+            } else if distance < min_engage {
+                desired = -dx.signum();
+            } else if distance > attack_aggro_range {
+                desired = dx.signum();
+            } else {
+                desired = 0.0;
+            }
+        }
+        _ => {
+            // Follow should keep chasing while the target is tracked.
+            // `aggro_range` gates acquisition, `deaggro_range` gates loss.
+            // Movement itself stops only in close distance.
+            let follow_stop_distance = auto.follow_stop_distance.max(0.0);
+            if distance > follow_stop_distance + FOLLOW_STOP_EPS {
+                desired = dx.signum();
+            } else {
+                desired = 0.0;
+            }
         }
     }
 
@@ -418,11 +518,17 @@ fn apply_aggro(
         accelerate_x(rigid_body, target_vx, auto.acceleration, dt);
     }
 
-    let grounded = gravity.map(|g| g.grounded).unwrap_or(false);
-    if grounded && auto.jump_cooldown_remaining <= 0.0 && dy > 24.0 && dx.abs() < 64.0 {
-        rigid_body.velocity.y = rigid_body.velocity.y.max(DEFAULT_JUMP_IMPULSE);
-        auto.jump_cooldown_remaining = auto.jump_cooldown;
-    }
+    attempt_navigation_jump(
+        enemy_center,
+        Some(target_pos),
+        auto,
+        rigid_body,
+        gravity,
+        collider,
+        blockers,
+        world_gravity,
+        jump_queue,
+    );
 }
 
 fn accelerate_x(rb: &mut RigidBody, target_vx: f32, acceleration: f32, dt: f32) {
@@ -457,9 +563,16 @@ fn within_vision_cone(direction: Vec2, to_target: Vec2, vision_angle_deg: f32) -
 fn has_los_block(
     start: Vec2,
     end: Vec2,
-    blockers: &Query<(&Transform, &Collider), With<EnvironmentTag>>,
+    blockers: &Query<(&Transform, &Collider, Option<&StateMachine>, &Blocking), With<Blocking>>,
 ) -> bool {
-    for (transform, collider) in blockers {
+    for (transform, collider, blocker_sm, blocking_comp) in blockers {
+        if blocker_sm.is_some_and(|sm| sm.is_non_interactive()) {
+            continue;
+        }
+        // Only consider blockers that are configured to block line of sight.
+        if !blocking_comp.blocks_line_of_sight {
+            continue;
+        }
         let ColliderShape::Rectangle { half_extents } = &collider.shape;
         let center = transform.translation.truncate() + collider.offset;
         let min = center - *half_extents;
@@ -508,7 +621,7 @@ fn ground_ahead_exists(
     enemy_center: Vec2,
     dir: f32,
     collider: Option<&Collider>,
-    blockers: &Query<(&Transform, &Collider), With<EnvironmentTag>>,
+    blockers: &Query<(&Transform, &Collider, Option<&StateMachine>, &Blocking), With<Blocking>>,
 ) -> bool {
     if dir.abs() <= EPS {
         return true;
@@ -521,13 +634,17 @@ fn ground_ahead_exists(
         })
         .unwrap_or(Vec2::new(8.0, 8.0));
 
-    // Probe a point just ahead of the entity's foot position and
-    // downwards to detect blocking geometry below the landing spot.
+    // Probe from just ahead of the feet downwards to detect floor at the
+    // next step location.
     let probe_x = enemy_center.x + dir.signum() * (half_extents.x + 2.0);
-    let probe_start = Vec2::new(probe_x, enemy_center.y);
-    let probe_end = probe_start + Vec2::new(0.0, half_extents.y + 6.0);
+    let foot_y = enemy_center.y - half_extents.y;
+    let probe_start = Vec2::new(probe_x, foot_y + 1.0);
+    let probe_end = probe_start + Vec2::new(0.0, -(half_extents.y + 8.0));
 
-    for (t, c) in blockers {
+    for (t, c, blocker_sm, _blocking_comp) in blockers {
+        if blocker_sm.is_some_and(|sm| sm.is_non_interactive()) {
+            continue;
+        }
         let ColliderShape::Rectangle { half_extents } = &c.shape;
         let center = t.translation.truncate() + c.offset;
         let min = center - *half_extents;
@@ -538,3 +655,164 @@ fn ground_ahead_exists(
     }
     false
 }
+
+#[allow(clippy::too_many_arguments)]
+fn attempt_navigation_jump(
+    enemy_center: Vec2,
+    navigation_target: Option<Vec2>,
+    auto: &mut AutoMovement,
+    rigid_body: &mut RigidBody,
+    gravity: Option<&mut Gravity>,
+    collider: Option<&Collider>,
+    blockers: &Query<(&Transform, &Collider, Option<&StateMachine>, &Blocking), With<Blocking>>,
+    world_gravity: Vec2,
+    jump_queue: &mut crate::game::gfx::jump::JumpParticlesQueue,
+) {
+    if !auto.jump_enabled_for_state(auto.state)
+        || auto.jump_force <= EPS
+        || auto.jump_cooldown_remaining > 0.0
+    {
+        return;
+    }
+
+    let move_dir = auto.direction.x.signum();
+    if move_dir.abs() <= EPS {
+        return;
+    }
+
+    let Some(gravity) = gravity else {
+        return;
+    };
+    if !gravity.grounded {
+        return;
+    }
+
+    let jump_height = max_jump_height(auto.jump_force, gravity.scale, world_gravity);
+    if jump_height <= JUMP_MIN_HEIGHT {
+        return;
+    }
+
+    let horizontal_speed = auto.max_speed.max(auto.speed).max(rigid_body.velocity.x.abs());
+    let lookahead = jump_lookahead_distance(
+        enemy_center,
+        navigation_target,
+        horizontal_speed,
+        auto.jump_force,
+        gravity.scale,
+        world_gravity,
+    );
+
+    if !has_reachable_jump_surface(enemy_center, move_dir, collider, blockers, jump_height, lookahead)
+    {
+        return;
+    }
+
+    rigid_body.velocity.y = rigid_body.velocity.y.max(auto.jump_force);
+    gravity.grounded = false;
+    auto.jump_cooldown_remaining = auto.jump_cooldown.max(0.0);
+    // Emit a jump particle event so gfx can spawn dust biased by movement dir.
+    let origin = enemy_center;
+    let seed_base = origin.x.to_bits().wrapping_mul(31) ^ origin.y.to_bits().wrapping_mul(131) ^ 0xDEAD_BEEFu32;
+    let horizontal_dir = auto.direction.x.signum();
+    jump_queue.0.push(crate::game::gfx::jump::JumpParticlesEvent::Jump { origin, horizontal_dir, seed_base });
+}
+
+fn has_reachable_jump_surface(
+    enemy_center: Vec2,
+    move_dir: f32,
+    collider: Option<&Collider>,
+    blockers: &Query<(&Transform, &Collider, Option<&StateMachine>, &Blocking), With<Blocking>>,
+    jump_height: f32,
+    lookahead: f32,
+) -> bool {
+    let self_half_extents = collider_half_extents(collider);
+    let foot_y = enemy_center.y - self_half_extents.y;
+    let front_x = enemy_center.x + move_dir.signum() * self_half_extents.x;
+
+    let mut best_gap = f32::INFINITY;
+    let mut best_required_rise = f32::INFINITY;
+
+    for (transform, blocker, blocker_sm, _blocking_comp) in blockers {
+        if blocker_sm.is_some_and(|sm| sm.is_non_interactive()) {
+            continue;
+        }
+
+        let (min, max) = collider_bounds(transform, blocker);
+        let gap = if move_dir > 0.0 {
+            min.x - front_x
+        } else {
+            front_x - max.x
+        };
+
+        if gap < -JUMP_OVERLAP_EPS || gap > lookahead {
+            continue;
+        }
+
+        if max.y <= foot_y + JUMP_MIN_HEIGHT {
+            continue;
+        }
+
+        let required_rise = max.y - foot_y + JUMP_CLEARANCE;
+        if required_rise > jump_height {
+            continue;
+        }
+
+        if gap < best_gap || ((gap - best_gap).abs() <= EPS && required_rise < best_required_rise) {
+            best_gap = gap;
+            best_required_rise = required_rise;
+        }
+    }
+
+    best_gap.is_finite()
+}
+
+fn jump_lookahead_distance(
+    enemy_center: Vec2,
+    navigation_target: Option<Vec2>,
+    horizontal_speed: f32,
+    jump_force: f32,
+    gravity_scale: f32,
+    world_gravity: Vec2,
+) -> f32 {
+    let gravity_strength = (world_gravity.length() * gravity_scale.abs()).max(EPS);
+    let flight_time = if gravity_strength > EPS {
+        (2.0 * jump_force.max(0.0) / gravity_strength).max(0.0)
+    } else {
+        0.0
+    };
+    let mut lookahead = (horizontal_speed.max(24.0) * flight_time).clamp(JUMP_LOOKAHEAD_MIN, JUMP_LOOKAHEAD_MAX);
+
+    if let Some(target) = navigation_target {
+        let to_target = target - enemy_center;
+        if to_target.y > JUMP_MIN_HEIGHT {
+            lookahead = lookahead.max(to_target.x.abs().clamp(JUMP_LOOKAHEAD_MIN, JUMP_LOOKAHEAD_MAX));
+        }
+    }
+
+    lookahead
+}
+
+fn max_jump_height(jump_force: f32, gravity_scale: f32, world_gravity: Vec2) -> f32 {
+    let gravity_strength = world_gravity.length() * gravity_scale.abs();
+    if gravity_strength <= EPS {
+        return jump_force.max(0.0);
+    }
+
+    let clamped_jump_force = jump_force.max(0.0);
+    (clamped_jump_force * clamped_jump_force) / (2.0 * gravity_strength)
+}
+
+fn collider_half_extents(collider: Option<&Collider>) -> Vec2 {
+    collider
+        .map(|c| match &c.shape {
+            ColliderShape::Rectangle { half_extents } => *half_extents,
+        })
+        .unwrap_or(Vec2::new(8.0, 8.0))
+}
+
+fn collider_bounds(transform: &Transform, collider: &Collider) -> (Vec2, Vec2) {
+    let ColliderShape::Rectangle { half_extents } = &collider.shape;
+    let center = transform.translation.truncate() + collider.offset;
+    (center - *half_extents, center + *half_extents)
+}
+

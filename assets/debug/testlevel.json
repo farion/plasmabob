@@ -47,7 +47,7 @@
       "z_index": 98.0
     },
     {
-      "entity_type": "cockroach",
+      "entity_type": "rangecockroach",
       "id": "cockroach1",
       "layer": "gameplay",
       "x": 1800.71044921875,
@@ -59,7 +59,7 @@
       "id": "stoneplatform11",
       "x": 1331.6239013671875,
       "y": 426.74072265625,
-      "z_index": 100.0
+      "z_index": 99.0
     },
     {
       "entity_type": "cockroach",
@@ -67,6 +67,13 @@
       "layer": "gameplay",
       "x": 1411.9869384765625,
       "y": 479.73272705078125,
+      "z_index": 100.0
+    },
+    {
+      "entity_type": "barrel1",
+      "id": "barrel11",
+      "x": 785.8873291015625,
+      "y": 161.09197998046875,
       "z_index": 100.0
     }
   ],

@@ -36,6 +36,10 @@
   "action.fullscreen": "Vollbild",
   "action.toggle_mute": "Musik stummschalten",
   "action.toggle_sound": "Sound stummschalten",
+  "toast.music.on": "Musik aktiviert",
+  "toast.music.off": "Musik stumm",
+  "toast.sound.on": "Sound aktiviert",
+  "toast.sound.off": "Sound stumm",
 
   "story.hint": "Enter / Schießen / Springen: Weiter",
   "story.asset_read_error": "Asset '{asset}' konnte nicht gelesen werden: {error}",

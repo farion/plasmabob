@@ -30,7 +30,22 @@
       },
       "aggro_strategy": {
         "type": "enum",
-        "options": [ "follow" ]
+        "options": [ "follow", "kiting" ]
+      },
+      "jump_on_default": {
+        "type": "bool"
+      },
+      "jump_on_aggro": {
+        "type": "bool"
+      },
+      "jump_on_return_to_origin": {
+        "type": "bool"
+      },
+      "jump_force": {
+        "type": "number"
+      },
+      "follow_stop_distance": {
+        "type": "number"
       }
     }
   }

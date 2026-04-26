@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+pub mod aggro;
 pub mod fire_impact;
 pub mod fire_shoot;
 pub mod helpers;
@@ -9,6 +10,7 @@ pub mod plasma_shoot;
 pub mod poison;
 pub mod spit;
 pub mod particles;
+pub mod jump;
 
 /// Shared helper used by the three projectile effect modules.
 /// Spawns `count` particles using the provided functions for velocity/size/color.

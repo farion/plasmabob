@@ -35,5 +35,3 @@ impl Plugin for HudPlugin {
             );
     }
 }
-
-

@@ -18,7 +18,7 @@ pub mod state_machine;
 pub mod team;
 
 // Re-exports for convenience
-pub use auto_movement::{AutoMovement, AutoMovementDefaultStrategy, AutoMovementState};
+pub use auto_movement::{AutoMovement, AutoMovementDefaultStrategy, AutoMovementState, AutoMovementAggroStrategy};
 pub use blocking::Blocking;
 pub use collectible_effect::CollectibleEffect;
 pub use collider::{Collider, ColliderShape};

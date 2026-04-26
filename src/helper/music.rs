@@ -2,9 +2,18 @@ use bevy::prelude::*;
 use bevy::audio::{AudioPlayer, AudioSink, AudioSource, PlaybackSettings, Volume};
 
 use crate::helper::audio_settings::AudioSettings;
+use crate::helper::audio_toast::AudioToastRequest;
 use crate::helper::active_character::ActiveCharacter;
 use crate::helper::asset_io::load_character_asset;
 use crate::helper::key_bindings::{KeyAction, KeyBindings};
+
+fn effective_music_volume(audio_settings: &AudioSettings) -> f32 {
+    if audio_settings.music_enabled {
+        audio_settings.music_volume
+    } else {
+        0.0
+    }
+}
 
 /// Pending request for the music player.
 /// None == no request pending.
@@ -45,14 +54,30 @@ fn toggle_music_mute(
     keys: Res<ButtonInput<KeyCode>>,
     key_bindings: Res<KeyBindings>,
     mut sinks: Query<&mut AudioSink, With<MusicEntity>>,
+    mut audio_settings: ResMut<AudioSettings>,
+    mut toast_request: ResMut<AudioToastRequest>,
 ) {
     let toggle_key = key_bindings.get(KeyAction::ToggleMute);
     if !keys.just_pressed(toggle_key) {
         return;
     }
 
+    // Toggle persistent setting and save
+    let new_enabled = !audio_settings.music_enabled;
+    if audio_settings.set_music_enabled(new_enabled) {
+        // best-effort save; ignore errors for now
+        let _ = audio_settings.save_to_disk();
+    }
+
+    toast_request.set(if new_enabled {
+        "toast.music.on"
+    } else {
+        "toast.music.off"
+    });
+
+    // Apply immediately to running sinks: set volume to 0 when disabled, restore when enabled
     for mut sink in &mut sinks {
-        sink.toggle_mute();
+        sink.set_volume(bevy::audio::Volume::Linear(effective_music_volume(&audio_settings)));
     }
 }
 
@@ -78,7 +103,7 @@ fn start_background_music(
             AudioPlayer::new(handle),
             PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Loop,
-                volume: Volume::Linear(audio_settings.music_volume),
+                volume: Volume::Linear(effective_music_volume(&audio_settings)),
                 ..default()
             },
             MusicEntity,
@@ -110,7 +135,7 @@ fn sync_music_track(
                 AudioPlayer::new(handle),
                 PlaybackSettings {
                     mode: bevy::audio::PlaybackMode::Loop,
-                    volume: Volume::Linear(audio_settings.music_volume),
+                    volume: Volume::Linear(effective_music_volume(&audio_settings)),
                     ..default()
                 },
                 MusicEntity,
@@ -142,7 +167,7 @@ fn sync_music_track(
             AudioPlayer::new(handle),
             PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Loop,
-                volume: Volume::Linear(audio_settings.music_volume),
+                volume: Volume::Linear(effective_music_volume(&audio_settings)),
                 ..default()
             },
             MusicEntity,
@@ -162,7 +187,7 @@ fn apply_music_volume_change(
         return;
     }
 
-    let vol = Volume::Linear(audio_settings.music_volume);
+    let vol = Volume::Linear(effective_music_volume(&audio_settings));
 
     // Runtime audio control must happen through AudioSink.
     for mut sink in &mut sinks {
@@ -210,7 +235,7 @@ fn handle_music_requests(
             AudioPlayer::new(handle),
             PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Once,
-                volume: Volume::Linear(audio_settings.music_volume),
+                volume: Volume::Linear(effective_music_volume(&audio_settings)),
                 ..default()
             },
             MusicEntity,
@@ -265,7 +290,7 @@ fn advance_playlist_if_finished(
             AudioPlayer::new(handle),
             PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Once,
-                volume: Volume::Linear(audio_settings.music_volume),
+                volume: Volume::Linear(effective_music_volume(&audio_settings)),
                 ..default()
             },
             MusicEntity,

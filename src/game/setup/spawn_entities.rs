@@ -224,7 +224,10 @@ pub fn spawn_entities(
         }
 
         if entity_type_comps.and_then(|c| c.blocking.as_ref()).is_some() || level_comps.as_ref().and_then(|c| c.blocking.as_ref()).is_some() {
-            ent_cmd.insert(Blocking::default());
+            ent_cmd.insert(Blocking::default().override_from_config(
+                entity_type_comps.and_then(|c| c.blocking.as_ref()),
+                level_comps.as_ref().and_then(|c| c.blocking.as_ref()),
+            ));
             assigned_components.push("Blocking".to_string());
         }
 

@@ -338,4 +338,3 @@ pub fn spawn_hud_system(
     });
 }
 
-

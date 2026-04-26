@@ -12,8 +12,10 @@ pub mod spawn_entities;
 
 use crate::app_model::AppState;
 use crate::game::game_view::GameSetupSet;
+use crate::game::gfx::aggro::{cleanup_aggro_particle_image, preload_aggro_particle_image};
 use crate::game::gfx::fire_shoot::{preload_fire_particle_image, cleanup_fire_particle_image};
 use crate::game::gfx::plasma_shoot::{preload_plasma_particle_image, cleanup_plasma_particle_image};
+use crate::game::gfx::jump::{preload_jump_particle_image, cleanup_jump_particle_image};
 use crate::game::systems::apply_parallax_system::apply_parallax_system;
 use crate::game::systems::init_parallax_system::init_parallax_system;
 
@@ -43,6 +45,8 @@ impl Plugin for SetupPlugin {
                 // for the current level only.
                 preload_plasma_particle_image,
                 preload_fire_particle_image,
+                preload_aggro_particle_image,
+                preload_jump_particle_image,
                 setup_canvas::setup_canvas,
                 setup_background::setup_background,
                 spawn_entities::spawn_entities,
@@ -71,6 +75,8 @@ impl Plugin for SetupPlugin {
                 // textures so they don't persist between levels.
                 cleanup_plasma_particle_image,
                 cleanup_fire_particle_image,
+                cleanup_aggro_particle_image,
+                cleanup_jump_particle_image,
             ),
         );
     }

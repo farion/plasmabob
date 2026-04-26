@@ -10,6 +10,7 @@ pub mod death_despawn_system;
 pub mod despawn_registry;
 pub mod enemy_ai_debug_draw_system;
 pub mod enemy_ai_system;
+pub mod enemy_aggro_particles_system;
 pub mod enemy_random_patrol_system;
 pub mod gravity_integration_system;
 pub mod grounding_evaluation_system;

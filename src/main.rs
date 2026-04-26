@@ -1,6 +1,7 @@
 // audio imports for menu music are handled in `views::main_view` now
 use crate::app_model::{AppState, ExitConfirmModalState, MenuSelection};
 use crate::helper::active_character::ActiveCharacter;
+use crate::helper::audio_toast::{AudioToastPlugin, AudioToastRequest};
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::fonts;
 use crate::helper::i18n;
@@ -184,6 +185,7 @@ fn main() {
         .insert_resource(i18n::CurrentLanguage::load_from_disk())
         .insert_resource(level_selection)
         .insert_resource(WorldCatalog::default())
+        .init_resource::<AudioToastRequest>()
         .insert_resource(audio_settings)
         .insert_resource(active_character)
         .insert_resource(key_bindings)
@@ -203,6 +205,7 @@ fn main() {
         .add_plugins(PhysicsPlugins::default().with_length_unit(100.0))
         .add_plugins(MusicPlugin)
         .add_plugins(SoundPlugin)
+        .add_plugins(AudioToastPlugin)
         .init_state::<AppState>()
         .add_systems(Startup, setup_camera)
         .add_systems(Startup, i18n::load_translations)

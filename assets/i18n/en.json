@@ -36,6 +36,10 @@
   "action.fullscreen": "Fullscreen",
   "action.toggle_mute": "Toggle music mute",
   "action.toggle_sound": "Toggle sound mute",
+  "toast.music.on": "Music enabled",
+  "toast.music.off": "Music muted",
+  "toast.sound.on": "Sound enabled",
+  "toast.sound.off": "Sound muted",
 
   "story.hint": "Enter / Shoot / Jump: Continue",
   "story.asset_read_error": "Asset '{asset}' could not be read: {error}",

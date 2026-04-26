@@ -34,7 +34,11 @@ pub fn sound_system(
         Option<&SpawnedLevelEntity>,
     )>,
 ) {
-    let vol = Volume::Linear(audio_settings.sounds_volume);
+    let vol = Volume::Linear(if audio_settings.sounds_enabled {
+        audio_settings.sounds_volume
+    } else {
+        0.0
+    });
 
     for (sm, mut ss, spawned) in &mut query {
         // ── Detect state transitions ──────────────────────────────────────
@@ -136,7 +140,11 @@ pub fn sound_system(
             timer.tick(time.delta());
             if timer.just_finished() {
                 if let Some(loop_handle) = pending_loop.take() {
-                    let vol_loop = Volume::Linear(audio_settings.sounds_volume);
+                    let vol_loop = Volume::Linear(if audio_settings.sounds_enabled {
+                        audio_settings.sounds_volume
+                    } else {
+                        0.0
+                    });
                     let loop_entity = commands
                         .spawn((
                             AudioPlayer::<AudioSource>::new(loop_handle),

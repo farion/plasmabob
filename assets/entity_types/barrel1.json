@@ -1,7 +1,6 @@
 {
   "category_tag": "item",
   "components": {
-    "auto_movement": {},
     "blocking": {},
     "collider": {
       "mode": "from_state"

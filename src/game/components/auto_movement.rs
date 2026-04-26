@@ -18,6 +18,7 @@ pub enum AutoMovementDefaultStrategy {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AutoMovementAggroStrategy {
     Follow,
+    Kiting,
 }
 
 /// Component for simple autonomous movement (used by enemies, platforms, etc.).
@@ -41,6 +42,16 @@ pub struct AutoMovement {
     pub vision_angle: f32,
     pub vision_check_interval: f32,
     pub can_fall_when_following: bool,
+    // Movement strategy fields related to ranged engagements (kiting/spacing)
+    pub min_engage_distance: f32,
+    pub kiting_enabled: bool,
+    pub kiting_hp_threshold: f32,
+    pub jump_on_default: bool,
+    pub jump_on_aggro: bool,
+    pub jump_on_return_to_origin: bool,
+    pub jump_force: f32,
+    /// Distance at which followers stop approaching the target. Default 0 = until contact.
+    pub follow_stop_distance: f32,
     pub jump_cooldown: f32,
     pub jump_cooldown_remaining: f32,
     pub max_speed: f32,
@@ -78,6 +89,14 @@ impl Default for AutoMovement {
             vision_angle: 120.0,
             vision_check_interval: 0.2,
             can_fall_when_following: true,
+            min_engage_distance: 3.5,
+            kiting_enabled: true,
+            kiting_hp_threshold: 0.3,
+            jump_on_default: false,
+            jump_on_aggro: true,
+            jump_on_return_to_origin: false,
+            jump_force: 260.0,
+            follow_stop_distance: 0.0,
             jump_cooldown: 0.6,
             jump_cooldown_remaining: 0.0,
             max_speed: 3.0,
@@ -100,6 +119,14 @@ impl Default for AutoMovement {
 }
 
 impl AutoMovement {
+    pub fn jump_enabled_for_state(&self, state: AutoMovementState) -> bool {
+        match state {
+            AutoMovementState::Idle | AutoMovementState::Patrol => self.jump_on_default,
+            AutoMovementState::Aggro => self.jump_on_aggro,
+            AutoMovementState::ReturnToOrigin => self.jump_on_return_to_origin,
+        }
+    }
+
     pub fn override_from_config(
         mut self,
         entity_cfg: Option<&crate::game::level::configs::AutoMovementConfig>,
@@ -143,11 +170,52 @@ impl AutoMovement {
                 c.vision_check_interval
             })
             .unwrap_or(self.vision_check_interval);
+        self.min_engage_distance =
+            crate::helper::override_helpers::pick_f32(entity_cfg, level_cfg, |c| {
+                c.min_engage_distance
+            })
+            .unwrap_or(self.min_engage_distance);
+        self.kiting_enabled =
+            crate::helper::override_helpers::pick_bool(entity_cfg, level_cfg, |c| {
+                c.kiting_enabled
+            })
+            .unwrap_or(self.kiting_enabled);
+        self.kiting_hp_threshold =
+            crate::helper::override_helpers::pick_f32(entity_cfg, level_cfg, |c| {
+                c.kiting_hp_threshold
+            })
+            .unwrap_or(self.kiting_hp_threshold);
+        self.follow_stop_distance =
+            crate::helper::override_helpers::pick_f32(entity_cfg, level_cfg, |c| {
+                c.follow_stop_distance
+            })
+            .unwrap_or(self.follow_stop_distance);
         self.can_fall_when_following =
             crate::helper::override_helpers::pick_bool(entity_cfg, level_cfg, |c| {
                 c.can_fall_when_following
             })
             .unwrap_or(self.can_fall_when_following);
+        self.jump_on_default = crate::helper::override_helpers::pick_bool(
+            entity_cfg,
+            level_cfg,
+            |c| c.jump_on_default,
+        )
+        .unwrap_or(self.jump_on_default);
+        self.jump_on_aggro = crate::helper::override_helpers::pick_bool(
+            entity_cfg,
+            level_cfg,
+            |c| c.jump_on_aggro,
+        )
+        .unwrap_or(self.jump_on_aggro);
+        self.jump_on_return_to_origin = crate::helper::override_helpers::pick_bool(
+            entity_cfg,
+            level_cfg,
+            |c| c.jump_on_return_to_origin,
+        )
+        .unwrap_or(self.jump_on_return_to_origin);
+        self.jump_force =
+            crate::helper::override_helpers::pick_f32(entity_cfg, level_cfg, |c| c.jump_force)
+                .unwrap_or(self.jump_force);
         self.jump_cooldown =
             crate::helper::override_helpers::pick_f32(entity_cfg, level_cfg, |c| c.jump_cooldown)
                 .unwrap_or(self.jump_cooldown);
@@ -198,6 +266,7 @@ impl AutoMovement {
         {
             self.aggro_strategy = match strategy.to_ascii_lowercase().as_str() {
                 "follow" => AutoMovementAggroStrategy::Follow,
+                "kite" | "kiting" => AutoMovementAggroStrategy::Kiting,
                 _ => AutoMovementAggroStrategy::Follow,
             };
         }

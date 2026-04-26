@@ -12,5 +12,3 @@ pub mod update_hud_text_system;
 pub mod pause_menu;
 
 pub use plugin::HudPlugin;
-
-
