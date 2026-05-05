@@ -54,7 +54,10 @@ jobs:
       - name: Package (tar.gz)
         run: |
           mkdir -p dist
-          cp target/release/PlasmaBob dist/PlasmaBob
+          # Cargo produces a binary named after the package (plasma_bob).
+          # Copy it to the expected packaged filename (PlasmaBob) so the
+          # rest of the packaging steps can remain unchanged.
+          cp target/release/plasma_bob dist/PlasmaBob
           cp -r assets dist/assets
           tar -C dist -czf PlasmaBob-${{ github.ref_name }}-linux.tar.gz PlasmaBob assets
 
@@ -86,7 +89,9 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Path dist | Out-Null
-          Copy-Item -Path target\release\PlasmaBob.exe -Destination dist\PlasmaBob.exe
+          # On Windows the executable produced by Cargo is lower_snake_case
+          # (plasma_bob.exe). Copy it to the expected display name.
+          Copy-Item -Path target\release\plasma_bob.exe -Destination dist\PlasmaBob.exe
           Copy-Item -Path assets -Destination dist\assets -Recurse -Force
           Compress-Archive -Path dist\PlasmaBob.exe, dist\assets -DestinationPath PlasmaBob-${{ github.ref_name }}-windows.zip
 
@@ -118,7 +123,7 @@ jobs:
       - name: Package (tar.gz)
         run: |
           mkdir -p dist
-          cp target/release/PlasmaBob dist/PlasmaBob
+          cp target/release/plasma_bob dist/PlasmaBob
           cp -r assets dist/assets
           tar -C dist -czf PlasmaBob-${{ github.ref_name }}-macos-aarch64.tar.gz PlasmaBob assets
 
