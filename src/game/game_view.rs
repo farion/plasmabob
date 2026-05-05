@@ -26,6 +26,7 @@ impl Plugin for GameViewPlugin {
             OnEnter(AppState::GameView),
             GameSetupSet::Setup.after(GameSetupSet::LoadLevel),
         )
+        .init_resource::<crate::game::debug_stats::DebugStats>()
         .add_systems(
             OnEnter(AppState::GameView),
             (
@@ -40,6 +41,7 @@ impl Plugin for GameViewPlugin {
             (cleanup_cached_level, reset_main_camera, reset_music_to_menu),
         )
         .add_plugins(crate::game::hud::HudPlugin)
+        .add_systems(OnEnter(AppState::GameView), reset_debug_stats)
         .add_plugins(crate::game::setup::SetupPlugin)
         .add_plugins(crate::game::systems::SystemsPlugin);
     }
@@ -68,6 +70,10 @@ fn ensure_level_is_preloaded(
 
 fn reset_level_stats(mut level_stats: ResMut<crate::LevelStats>) {
     *level_stats = crate::LevelStats::default();
+}
+
+fn reset_debug_stats(mut ds: ResMut<crate::game::debug_stats::DebugStats>) {
+    ds.reset();
 }
 
 /// Clean up the cached level resource when leaving the Game view to avoid

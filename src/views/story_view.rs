@@ -8,8 +8,8 @@ use crate::PendingStoryScreen;
 use crate::app_model::AppState;
 use crate::helper::active_character::ActiveCharacter;
 use crate::helper::asset_io::load_character_asset;
+use crate::helper::input::{Action, InputActionState};
 use crate::i18n::{CurrentLanguage, LocalizedText, Translations};
-use crate::key_bindings::KeyBindings;
 
 pub struct StoryViewPlugin;
 
@@ -340,7 +340,7 @@ fn smooth_scroll(
 
 fn continue_story(
     keys: Res<ButtonInput<KeyCode>>,
-    key_bindings: Res<KeyBindings>,
+    action_state: Res<InputActionState>,
     target_query: Query<&StoryContinueTarget>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
@@ -348,15 +348,10 @@ fn continue_story(
         return;
     };
 
-    // Reserve arrow keys for scrolling while StoryView is active.
-    let jump_pressed = keys.just_pressed(key_bindings.jump)
-        && key_bindings.jump != KeyCode::ArrowUp
-        && key_bindings.jump != KeyCode::ArrowDown;
-
     if keys.just_pressed(KeyCode::Enter)
         || keys.just_pressed(KeyCode::NumpadEnter)
-        || keys.just_pressed(key_bindings.shoot)
-        || jump_pressed
+        || action_state.just_pressed(Action::Shoot)
+        || action_state.just_pressed(Action::Jump)
     {
         next_state.set(target.0);
     }

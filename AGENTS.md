@@ -113,6 +113,15 @@ keys translated in those files must be used to bring texts in the game.
 
 `cargo check` is enough to check for compilation errors and warnings. No need to run `cargo build` or `cargo run` unless you want to test the game or check for runtime errors.
 
+## Collision architecture notes for agents
+
+- Runtime gameplay colliders are authored via `crate::game::components::Collider` and must stay in sync with Avian colliders used for spatial queries.
+- When inserting or updating gameplay colliders, also insert/update the Avian collider using `build_avian_collider_from_game` in `src/game/setup/collider_helper.rs`.
+- The Avian collider representation currently uses a compound with translated rectangle shape to preserve gameplay collider offset semantics.
+- Projectile collision uses `SpatialQuery::shape_hits` (`max_hits = 32`) with deterministic tie-break rules preserved in gameplay code; do not reintroduce old swept-AABB TOI helpers.
+- Movement resolution uses `SpatialQuery::aabb_intersections_with_aabb` as broadphase before local axis resolution.
+- If a system removes a gameplay collider (e.g. collectible consumption), remove the Avian collider in the same operation to avoid ghost spatial hits.
+
 ## Implementation hints for Bevy 0.18.1
 
 - `Timer::finished()` does not exist anymore, use `Timer::just_finished()` or `Timer::is_finished()` instead.

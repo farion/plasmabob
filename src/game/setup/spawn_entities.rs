@@ -17,7 +17,7 @@ use crate::game::level::types::{
 };
 use crate::game::runtime_components::{AnimationConfig, SoundState, PatrolState};
 use crate::game::runtime_components::SpawnedLevelEntity;
-use crate::game::setup::collider_helper::build_collider_from_box;
+use crate::game::setup::collider_helper::{build_avian_collider_from_game, build_collider_from_box};
 // flip_utils was unused here; removed to silence warnings
 use crate::game::setup::entity_type_assets::EntityTypeAssets;
 use crate::game::tags::{DoodadTag, EnemyTag, EnvironmentTag, PlayerTag, CollectibleTag};
@@ -308,6 +308,9 @@ pub fn spawn_entities(
                 let transform_x = x + 2.0 * cx;
                 col.offset.x = -cx;
                 ent_cmd.insert(col.clone());
+                if let Some(avian_collider) = build_avian_collider_from_game(&col) {
+                    ent_cmd.insert(avian_collider);
+                }
                 ent_cmd.insert(Transform::from_xyz(transform_x, y, z));
                 let spr = Sprite {
                     image: sprite_image.clone(),
@@ -319,6 +322,9 @@ pub fn spawn_entities(
                 ent_cmd.insert(spr);
             } else {
                 ent_cmd.insert(col.clone());
+                if let Some(avian_collider) = build_avian_collider_from_game(&col) {
+                    ent_cmd.insert(avian_collider);
+                }
             }
             assigned_components.push("Collider".to_string());
         }

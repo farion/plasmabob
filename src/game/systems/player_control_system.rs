@@ -4,12 +4,11 @@ use bevy::prelude::*;
 use crate::game::components::{ControlledMovement, Gravity, RigidBody, StateMachine};
 use crate::game::runtime_components::Facing;
 use crate::game::tags::PlayerTag;
-use crate::helper::key_bindings::KeyBindings;
+use crate::helper::input::{Action, InputActionState};
 
 pub fn player_control_system(
     mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    key_bindings: Res<KeyBindings>,
+    action_state: Res<InputActionState>,
     mut stats: ResMut<crate::LevelStats>,
     mut jump_queue: ResMut<crate::game::gfx::jump::JumpParticlesQueue>,
     mut players: Query<
@@ -32,10 +31,10 @@ pub fn player_control_system(
         }
 
         let mut axis = 0.0;
-        if keyboard.pressed(key_bindings.move_left) {
+        if action_state.pressed(Action::MoveLeft) {
             axis -= 1.0;
         }
-        if keyboard.pressed(key_bindings.move_right) {
+        if action_state.pressed(Action::MoveRight) {
             axis += 1.0;
         }
 
@@ -52,7 +51,7 @@ pub fn player_control_system(
             commands.entity(entity).insert(Facing::default());
         }
 
-        if keyboard.just_pressed(key_bindings.jump) && gravity.grounded {
+        if action_state.just_pressed(Action::Jump) && gravity.grounded {
             rigid_body.velocity.y = movement.jump_force;
             gravity.grounded = false;
             stats.jumps = stats.jumps.saturating_add(1);

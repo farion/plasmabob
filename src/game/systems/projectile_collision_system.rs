@@ -1,7 +1,9 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
+use avian2d::prelude::{Collider as AvCollider, ShapeCastConfig, SpatialQuery, SpatialQueryFilter};
 
 use crate::game::components::plasma::PlasmaBeam;
+use crate::game::debug_stats::DebugStats;
 use crate::game::components::{
     Blocking, Collider, ColliderShape, Damageable, Health, RigidBody, StateMachine, Team,
 };
@@ -22,6 +24,7 @@ const TOI_EPSILON: f32 = 1e-4;
 const NEUTRAL_TEAM: &str = "Neutral";
 const PLASMA_HIT_SFX: &str = "audio/plasma-hit.ogg";
 const BEAM_AFTERGLOW_SECS: f32 = 0.28;
+const PROJECTILE_SHAPE_MAX_HITS: u32 = 32;
 
 #[derive(SystemParam)]
 pub(crate) struct ProjectileCollisionRuntime<'w, 's> {
@@ -36,10 +39,12 @@ pub(crate) struct ProjectileCollisionRuntime<'w, 's> {
     particle_image_res: Option<Res<'w, PlasmaParticleImage>>,
     fire_particle_image_res: Option<Res<'w, FireParticleImage>>,
     stats: ResMut<'w, crate::LevelStats>,
+    debug_stats: ResMut<'w, DebugStats>,
 }
 
 pub fn projectile_collision_system(
     mut runtime: ProjectileCollisionRuntime,
+    spatial_query: SpatialQuery,
     projectiles: Query<(Entity, &Transform, &Collider, &RigidBody, &Projectile)>,
     targets: Query<(
         Entity,
@@ -89,23 +94,57 @@ pub fn projectile_collision_system(
 
         let projectile_center =
             projectile_transform.translation.truncate() + projectile_collider.offset;
-        let projectile_motion = projectile_body.velocity * dt;
+        let projectile_delta = projectile_body.velocity * dt;
+
+        let Ok(cast_direction) = bevy::math::Dir2::new(projectile_delta) else {
+            continue;
+        };
+        let cast_distance = projectile_delta.length();
+        if cast_distance <= f32::EPSILON {
+            continue;
+        }
+
+        runtime.debug_stats.projectile_shape_hits_calls = runtime
+            .debug_stats
+            .projectile_shape_hits_calls
+            .saturating_add(1);
+
+        let shape_config = ShapeCastConfig::from_max_distance(cast_distance);
+        let shape = AvCollider::rectangle(
+            projectile_half_extents.x * 2.0,
+            projectile_half_extents.y * 2.0,
+        );
+        let filter = SpatialQueryFilter::from_excluded_entities([projectile_entity, projectile.owner]);
+        let hits = spatial_query.shape_hits(
+            &shape,
+            projectile_center,
+            0.0,
+            cast_direction,
+            PROJECTILE_SHAPE_MAX_HITS,
+            &shape_config,
+            &filter,
+        );
 
         let mut best_hit: Option<HitCandidate> = None;
 
-        for (
-            target_entity,
-            target_transform,
-            target_collider,
-            blocking,
-            target_body,
-            target_team,
-            target_player_tag,
-        ) in &targets
-        {
-            if target_entity == projectile.owner || target_entity == projectile_entity {
+        for hit_data in hits {
+            runtime.debug_stats.projectile_shape_hit_candidates = runtime
+                .debug_stats
+                .projectile_shape_hit_candidates
+                .saturating_add(1);
+
+            let Ok((
+                target_entity,
+                target_transform,
+                _target_collider,
+                blocking,
+                _target_body,
+                target_team,
+                target_player_tag,
+            )) = targets.get(hit_data.entity)
+            else {
                 continue;
-            }
+            };
 
             let is_blocking = blocking.is_some();
             let is_damageable = damageable_query.contains(target_entity);
@@ -125,25 +164,12 @@ pub fn projectile_collision_system(
                 continue;
             }
 
-            let Some(target_half_extents) = rectangle_half_extents(target_collider) else {
-                continue;
+            let distance = hit_data.distance;
+            let toi = if cast_distance > f32::EPSILON {
+                (distance / cast_distance).clamp(0.0, 1.0)
+            } else {
+                0.0
             };
-
-            let target_center = target_transform.translation.truncate() + target_collider.offset;
-            let target_velocity = target_body.map(|rb| rb.velocity).unwrap_or(Vec2::ZERO);
-            let relative_motion = (projectile_body.velocity - target_velocity) * dt;
-
-            let Some(toi) = swept_aabb_toi(
-                projectile_center,
-                projectile_half_extents,
-                relative_motion,
-                target_center,
-                target_half_extents,
-            ) else {
-                continue;
-            };
-
-            let distance = projectile_motion.length() * toi;
             let class_rank = if is_blocking { 0_u8 } else { 1_u8 };
             let candidate = HitCandidate {
                 entity: target_entity,
@@ -151,7 +177,7 @@ pub fn projectile_collision_system(
                 distance,
                 class_rank,
                 is_damageable,
-                impact_position: projectile_center + (projectile_motion * toi),
+                impact_position: hit_data.point1,
                 impact_z: target_transform.translation.z,
                 is_controlled: target_player_tag.is_some(),
             };
@@ -332,57 +358,4 @@ fn rectangle_half_extents(collider: &Collider) -> Option<Vec2> {
     match &collider.shape {
         ColliderShape::Rectangle { half_extents } => Some(*half_extents),
     }
-}
-
-fn swept_aabb_toi(
-    moving_center: Vec2,
-    moving_half_extents: Vec2,
-    moving_delta: Vec2,
-    target_center: Vec2,
-    target_half_extents: Vec2,
-) -> Option<f32> {
-    let target_min = target_center - target_half_extents - moving_half_extents;
-    let target_max = target_center + target_half_extents + moving_half_extents;
-
-    if moving_delta.abs_diff_eq(Vec2::ZERO, f32::EPSILON) {
-        if point_in_aabb(moving_center, target_min, target_max) {
-            return Some(0.0);
-        }
-        return None;
-    }
-
-    let (tx_min, tx_max) =
-        ray_axis_times(moving_center.x, moving_delta.x, target_min.x, target_max.x)?;
-    let (ty_min, ty_max) =
-        ray_axis_times(moving_center.y, moving_delta.y, target_min.y, target_max.y)?;
-
-    let t_enter = tx_min.max(ty_min);
-    let t_exit = tx_max.min(ty_max);
-
-    if t_enter > t_exit || t_exit < 0.0 || t_enter > 1.0 {
-        return None;
-    }
-
-    Some(t_enter.max(0.0))
-}
-
-fn ray_axis_times(origin: f32, delta: f32, slab_min: f32, slab_max: f32) -> Option<(f32, f32)> {
-    if delta.abs() <= f32::EPSILON {
-        if origin < slab_min || origin > slab_max {
-            return None;
-        }
-        return Some((f32::NEG_INFINITY, f32::INFINITY));
-    }
-
-    let inv = 1.0 / delta;
-    let mut t1 = (slab_min - origin) * inv;
-    let mut t2 = (slab_max - origin) * inv;
-    if t1 > t2 {
-        std::mem::swap(&mut t1, &mut t2);
-    }
-    Some((t1, t2))
-}
-
-fn point_in_aabb(point: Vec2, min: Vec2, max: Vec2) -> bool {
-    point.x >= min.x && point.x <= max.x && point.y >= min.y && point.y <= max.y
 }

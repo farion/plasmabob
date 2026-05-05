@@ -1,7 +1,9 @@
 use bevy::prelude::*;
+use avian2d::prelude::Collider as AvCollider;
 
 use crate::game::components::orientation::{FacingDirection, Orientation};
 use crate::game::components::{AutoMovement, Collider, ControlledMovement, RigidBody};
+use crate::game::setup::collider_helper::build_avian_collider_from_game;
 use crate::game::setup::flip_utils::flip_entity_preserve_collider;
 
 /// Updates the `Orientation` component for entities that have a movement component.
@@ -20,6 +22,7 @@ pub fn orientation_update_system(
             &mut Sprite,
             Option<&mut Transform>,
             Option<&mut Collider>,
+            Option<&mut AvCollider>,
         ),
         With<ControlledMovement>,
     >,
@@ -30,11 +33,14 @@ pub fn orientation_update_system(
             &mut Sprite,
             Option<&mut Transform>,
             Option<&mut Collider>,
+            Option<&mut AvCollider>,
         ),
         Without<ControlledMovement>,
     >,
 ) {
-    for (rb, mut orientation, mut sprite, mut maybe_tr, mut maybe_col) in &mut controlled {
+    for (rb, mut orientation, mut sprite, mut maybe_tr, mut maybe_col, mut maybe_av_col) in
+        &mut controlled
+    {
         let prev = orientation.facing;
         if rb.velocity.x < -f32::EPSILON {
             orientation.facing = FacingDirection::Left;
@@ -46,6 +52,11 @@ pub fn orientation_update_system(
             if let (Some(col), Some(tr)) = (maybe_col.as_mut(), maybe_tr.as_mut()) {
                 let desired_flip = matches!(orientation.facing, FacingDirection::Left);
                 flip_entity_preserve_collider(tr, col, &mut sprite, desired_flip);
+                if let Some(av_col) = maybe_av_col.as_mut()
+                    && let Some(built) = build_avian_collider_from_game(col)
+                {
+                    **av_col = built;
+                }
             } else {
                 // No collider/transform available to preserve; just set flip.
                 sprite.flip_x = matches!(orientation.facing, FacingDirection::Left);
@@ -54,7 +65,9 @@ pub fn orientation_update_system(
         // Velocity near zero: keep current facing direction.
     }
 
-    for (auto_mov, mut orientation, mut sprite, mut maybe_tr, mut maybe_col) in &mut auto_mover {
+    for (auto_mov, mut orientation, mut sprite, mut maybe_tr, mut maybe_col, mut maybe_av_col) in
+        &mut auto_mover
+    {
         let prev = orientation.facing;
         if auto_mov.direction.x < -f32::EPSILON {
             orientation.facing = FacingDirection::Left;
@@ -65,6 +78,11 @@ pub fn orientation_update_system(
             if let (Some(col), Some(tr)) = (maybe_col.as_mut(), maybe_tr.as_mut()) {
                 let desired_flip = matches!(orientation.facing, FacingDirection::Left);
                 flip_entity_preserve_collider(tr, col, &mut sprite, desired_flip);
+                if let Some(av_col) = maybe_av_col.as_mut()
+                    && let Some(built) = build_avian_collider_from_game(col)
+                {
+                    **av_col = built;
+                }
             } else {
                 sprite.flip_x = matches!(orientation.facing, FacingDirection::Left);
             }

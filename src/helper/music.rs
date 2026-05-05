@@ -5,7 +5,7 @@ use crate::helper::audio_settings::AudioSettings;
 use crate::helper::audio_toast::AudioToastRequest;
 use crate::helper::active_character::ActiveCharacter;
 use crate::helper::asset_io::load_character_asset;
-use crate::helper::key_bindings::{KeyAction, KeyBindings};
+use crate::helper::input::{Action, InputActionState};
 
 fn effective_music_volume(audio_settings: &AudioSettings) -> f32 {
     if audio_settings.music_enabled {
@@ -51,14 +51,12 @@ impl Plugin for MusicPlugin {
 }
 
 fn toggle_music_mute(
-    keys: Res<ButtonInput<KeyCode>>,
-    key_bindings: Res<KeyBindings>,
+    action_state: Res<InputActionState>,
     mut sinks: Query<&mut AudioSink, With<MusicEntity>>,
     mut audio_settings: ResMut<AudioSettings>,
     mut toast_request: ResMut<AudioToastRequest>,
 ) {
-    let toggle_key = key_bindings.get(KeyAction::ToggleMute);
-    if !keys.just_pressed(toggle_key) {
+    if !action_state.just_pressed(Action::ToggleMusicMute) {
         return;
     }
 

@@ -144,6 +144,9 @@ impl Plugin for SystemsPlugin {
                 // Debug maintenance systems
                 toggle_hitbox_debug_lines.in_set(GameplaySet::Input),
                 toggle_enemy_ai_debug_lines.in_set(GameplaySet::Input),
+                // New debug toggles: Alt+F2/F4 for various debug outputs
+                crate::game::systems::maintenance::toggle_debug_fps::toggle_debug_fps.in_set(GameplaySet::Input),
+                crate::game::systems::maintenance::toggle_debug_stats_no_fps::toggle_debug_stats_no_fps.in_set(GameplaySet::Input),
                 toggle_parallax_system.in_set(GameplaySet::Input),
                 update_pause_menu.in_set(GameplaySet::Input),
                 // Level end detection should run in the finalize stage so

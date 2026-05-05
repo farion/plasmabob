@@ -8,10 +8,10 @@ use crate::game::components::{
     MovingPlatform, RigidBody, StateMachine,
 };
 use crate::game::runtime_components::{AnimationConfig, SpawnedLevelEntity};
-use crate::game::setup::collider_helper::build_collider_from_box;
+use crate::game::setup::collider_helper::{build_avian_collider_from_game, build_collider_from_box};
 use crate::game::setup::entity_type_assets::EntityTypeAssets;
 use crate::game::setup::flip_utils::adjust_new_collider_preserve_world_center;
-use crate::helper::key_bindings::KeyBindings;
+use crate::helper::input::{Action, InputActionState};
 
 /// Drives every entity's `StateMachine` state each frame based on movement, physics,
 /// combat and damage signals.
@@ -37,8 +37,7 @@ const COLLECTED_UPWARD_SPEED: f32 = 80.0;
 pub fn state_machine_update_system(
     mut commands: Commands,
     time: Res<Time>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    key_bindings: Res<KeyBindings>,
+    action_state: Res<InputActionState>,
     entity_type_assets: Option<Res<EntityTypeAssets>>,
     mut entities: Query<(
         Entity,
@@ -59,7 +58,6 @@ pub fn state_machine_update_system(
     )>,
 ) {
     let dt = time.delta_secs();
-    let crouch_key = key_bindings.crouch;
 
     for (
         entity,
@@ -112,7 +110,9 @@ pub fn state_machine_update_system(
         if sm.is(EntityState::Dying) {
             if sm.state_time >= sm.dying_duration_secs {
                 apply_transition(
+                    &mut commands,
                     &mut sm,
+                    entity,
                     EntityState::Dead,
                     entity_type_assets.as_deref(),
                     spawned,
@@ -127,7 +127,9 @@ pub fn state_machine_update_system(
         if let Some(hp) = health {
             if hp.is_dead() {
                 apply_transition(
+                    &mut commands,
                     &mut sm,
+                    entity,
                     EntityState::Dying,
                     entity_type_assets.as_deref(),
                     spawned,
@@ -175,7 +177,7 @@ pub fn state_machine_update_system(
         let vel_x_abs = rigid_body.map(|rb| rb.velocity.x.abs()).unwrap_or(0.0);
 
         let is_jumping = controlled_movement.is_some() && !grounded && vel_y > f32::EPSILON;
-        let is_crouching = controlled_movement.is_some() && keyboard.pressed(crouch_key);
+        let is_crouching = controlled_movement.is_some() && action_state.pressed(Action::Crouch);
         let is_falling = gravity.is_some() && !grounded && vel_y < -f32::EPSILON;
         let is_moving = (controlled_movement.is_some() && vel_x_abs > f32::EPSILON)
             || auto_movement
@@ -208,7 +210,9 @@ pub fn state_machine_update_system(
             let locked = check_lock_ms(&sm, entity_type_assets.as_deref(), spawned);
             if !locked {
                 apply_transition(
+                    &mut commands,
                     &mut sm,
+                    entity,
                     new_state,
                     entity_type_assets.as_deref(),
                     spawned,
@@ -254,7 +258,9 @@ fn resolve_attack_state(
 
 /// Transition to `new_state` and update `AnimationConfig` + `Collider` from the cache.
 fn apply_transition(
+    commands: &mut Commands,
     sm: &mut StateMachine,
+    entity: Entity,
     new_state: EntityState,
     eta: Option<&EntityTypeAssets>,
     spawned: Option<&SpawnedLevelEntity>,
@@ -305,6 +311,9 @@ fn apply_transition(
         );
 
         **col = new_col;
+        if let Some(built) = build_avian_collider_from_game(col) {
+            commands.entity(entity).insert(built);
+        }
     }
 
     // Update AnimationConfig with new state's frames & timer and then set
@@ -390,4 +399,3 @@ mod tests {
         assert!(!check_lock_ms(&sm, Some(&eta), Some(&spawned)));
     }
 }
-

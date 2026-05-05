@@ -1,4 +1,5 @@
 use bevy::prelude::Vec2;
+use avian2d::prelude::Collider as AvCollider;
 
 use crate::game::components::{Collider, ColliderShape};
 
@@ -47,6 +48,18 @@ pub fn build_collider_from_box(
         shape: ColliderShape::Rectangle {
             half_extents: Vec2::new(sprite_w / 2.0, sprite_h / 2.0),
         },
+    }
+}
+
+pub fn build_avian_collider_from_game(collider: &Collider) -> Option<AvCollider> {
+    match collider.shape {
+        ColliderShape::Rectangle { half_extents } => Some(AvCollider::compound(vec![
+            (
+                collider.offset,
+                0.0,
+                AvCollider::rectangle(half_extents.x * 2.0, half_extents.y * 2.0),
+            ),
+        ])),
     }
 }
 

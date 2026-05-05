@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use avian2d::prelude::{ColliderAabb, SpatialQuery};
 
 use crate::game::components::{
     Blocking, Collider, ColliderShape, Gravity, RigidBody, StateMachine,
@@ -10,6 +11,7 @@ const MAX_GROUND_ANGLE_DEG: f32 = 45.0;
 pub fn movement_resolution_system(
     mut commands: Commands,
     time: Res<Time>,
+    spatial_query: SpatialQuery,
     mut movers: Query<
         (
             Entity,
@@ -80,6 +82,7 @@ pub fn movement_resolution_system(
             mover_half_extents,
             &mut rigid_body,
             &blockers,
+            &spatial_query,
             &mut step_grounding,
             dt,
             max_ground_dot,
@@ -94,6 +97,7 @@ pub fn movement_resolution_system(
             mover_half_extents,
             &mut rigid_body,
             &blockers,
+            &spatial_query,
             &mut step_grounding,
             dt,
             max_ground_dot,
@@ -128,6 +132,7 @@ fn resolve_axis(
         ),
         With<Blocking>,
     >,
+    spatial_query: &SpatialQuery,
     step_grounding: &mut GroundingState,
     dt: f32,
     max_ground_dot: f32,
@@ -141,15 +146,27 @@ fn resolve_axis(
 
     let mut mover_aabb = aabb_from_rect(position + mover_collider.offset, mover_half_extents);
 
-    for (
-        blocker_entity,
-        blocker_transform,
-        blocker_collider,
-        blocker_rb,
-        blocker_prev,
-        blocker_sm,
-    ) in blockers
-    {
+    let previous_position = position - (axis * delta_axis);
+    let previous_aabb = aabb_from_rect(previous_position + mover_collider.offset, mover_half_extents);
+    let query_aabb = ColliderAabb::from_min_max(
+        mover_aabb.min.min(previous_aabb.min) - mover_half_extents,
+        mover_aabb.max.max(previous_aabb.max) + mover_half_extents,
+    );
+    let overlap_entities = spatial_query.aabb_intersections_with_aabb(query_aabb);
+
+    for blocker_entity in overlap_entities {
+        let Ok((
+            blocker_entity,
+            blocker_transform,
+            blocker_collider,
+            blocker_rb,
+            blocker_prev,
+            blocker_sm,
+        )) = blockers.get(blocker_entity)
+        else {
+            continue;
+        };
+
         if blocker_sm.is_some_and(|sm| sm.is_non_interactive()) {
             continue;
         }

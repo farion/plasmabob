@@ -12,6 +12,7 @@ use crate::game::gfx::plasma_shoot::{
 use crate::game::gfx::poison::spawn_poison_particles;
 use crate::game::gfx::spit::spawn_spit_particles;
 use crate::game::runtime_components::{GameEntity, Projectile};
+use avian2d::prelude::Collider as AvCollider;
 use crate::helper::active_character::ActiveCharacter;
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::sounds::spawn_combat_sfx;
@@ -141,6 +142,7 @@ pub fn auto_range_attack_system(
                         half_extents: Vec2::splat(PROJECTILE_HALF_EXTENT),
                     },
                 },
+                AvCollider::rectangle(PROJECTILE_HALF_EXTENT * 2.0, PROJECTILE_HALF_EXTENT * 2.0),
                 RigidBody {
                     velocity: projectile_velocity,
                     ..default()

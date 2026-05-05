@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use avian2d::prelude::Collider as AvCollider;
 
 use crate::game::components::{
     CollectibleEffect, Collider, ControlledMovement, EntityState, Health, StateMachine,
@@ -72,6 +73,7 @@ pub fn collectible_collision_system(
 
                 // Prevent further pickups in the same frame by removing the collider.
                 commands.entity(col_ent).remove::<Collider>();
+                commands.entity(col_ent).remove::<AvCollider>();
 
                 // Transition to Collected state if we have a StateMachine. This
                 // moves the Mut<StateMachine> out of the option so we can mutate it.

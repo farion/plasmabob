@@ -2,6 +2,7 @@ pub mod active_character;
 pub mod audio_toast;
 pub mod asset_io;
 pub mod audio_settings;
+pub mod input;
 pub mod settings;
 pub mod fonts;
 pub mod i18n;

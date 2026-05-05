@@ -5,7 +5,7 @@ use crate::helper::active_character::ActiveCharacter;
 use crate::helper::asset_io::load_character_asset;
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::audio_toast::AudioToastRequest;
-use crate::helper::key_bindings::{KeyAction, KeyBindings};
+use crate::helper::input::{Action, InputActionState};
 use crate::helper::music::MusicEntity;
 
 fn effective_sounds_volume(audio_settings: &AudioSettings) -> f32 {
@@ -75,14 +75,12 @@ pub(crate) fn spawn_combat_sfx(
 }
 
 fn toggle_sound_mute(
-    keys: Res<ButtonInput<KeyCode>>,
-    key_bindings: Res<KeyBindings>,
+    action_state: Res<InputActionState>,
     mut sinks: Query<&mut AudioSink, Without<MusicEntity>>,
     mut audio_settings: ResMut<AudioSettings>,
     mut toast_request: ResMut<AudioToastRequest>,
 ) {
-    let toggle_key = key_bindings.get(KeyAction::ToggleSound);
-    if !keys.as_ref().just_pressed(toggle_key) {
+    if !action_state.just_pressed(Action::ToggleSoundMute) {
         return;
     }
 

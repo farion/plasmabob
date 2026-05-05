@@ -70,22 +70,24 @@ Konvention der Einträge
 - Hinweise: Wendet linear damping an (clamped multiplikativer Dämpfungsfaktor). Kann leicht in Fixed-step-System verschoben werden, falls nötig.
 
 ### `movement_resolution_system.rs` — `movement_resolution_system`
-- Zweck: Löst Bewegungskollisionen zwischen beweglichen Objekten (Mover) und Blockern; führt AABB-basierte Kollisionserkennung und -auflösung durch und aktualisiert Grounding-Informationen.
+- Zweck: Löst Bewegungskollisionen zwischen beweglichen Objekten (Mover) und Blockern; verwendet eine Avian-SpatialQuery-Broadphase und führt danach AABB-basierte Auflösung und Grounding-Updates durch.
 - Öffentliche Funktion(en): `movement_resolution_system`
 - Signatur (vereinfacht):
   - `commands: Commands`
   - `time: Res<Time>`
+  - `spatial_query: SpatialQuery`
   - `movers: Query<(Entity, &mut Transform, &Collider, &mut RigidBody, &Gravity, Option<&mut GroundingState>), Without<Blocking>>`
   - `blockers: Query<(Entity, &Transform, &Collider, Option<&RigidBody>, Option<&PreviousTransform>), With<Blocking>>`
 - Verwendete Components/Runtime-Components: `Collider`, `RigidBody`, `Gravity`, `GroundingState`, `PreviousTransform`, `Blocking`
 - Wichtige Hilfsfunktionen (intern): `resolve_axis`, `blocker_step_velocity`, `rectangle_half_extents`, `aabb_from_rect` und `Aabb::overlaps`.
 - Verhalten:
   - Trennt X- und Y-Achse und löst Überschneidungen jeweils separat.
+  - Nutzt pro Achse eine Broadphase via `SpatialQuery::aabb_intersections_with_aabb(...)` auf einer erweiterten Query-AABB (vereint vorherige/aktuelle Mover-AABB plus Half-Extents-Marge), um relevante Blocker vorzuselektieren.
   - Erlaubt horizontales Durchschreiten, wenn Kontakt ground-like ist (obenauf, schmale vertikale Überlappung).
   - Setzt `rigid_body.velocity` Komponenten auf `0.0` bei Kollision
   - Aktualisiert oder fügt `GroundingState` per `commands.entity().insert(...)` hinzu
 - Seiteneffekte: Transform-Änderungen, Insert von `GroundingState`, Mutationen von `RigidBody.velocity`.
-- Hinweise: `MAX_GROUND_ANGLE_DEG` wird zur Bestimmung von Ground-Normalen-Schwelle genutzt; intern AABB-basierte TOI/Overlap-Logik (keine physikalische Penetration-Resolving außerhalb AABB).
+- Hinweise: `MAX_GROUND_ANGLE_DEG` wird zur Bestimmung von Ground-Normalen-Schwelle genutzt; intern AABB-basierte Overlap-Auflösung bleibt unverändert, aber die Pair-Iteration ist über SpatialQuery deutlich reduziert.
 
 ### `grounding_evaluation_system.rs` — `grounding_evaluation_system`
 - Zweck: Wertet gesammelte Kontaktinformationen (`GroundingState`) aus und entscheidet, ob ein Entity als `grounded` gilt.
@@ -102,24 +104,26 @@ Konvention der Einträge
 - Seiteneffekte: Mutiert `Gravity.grounded` und setzt ggf. `GroundingState.support_velocity` zurück.
 
 ### `projectile_collision_system.rs` — `projectile_collision_system`
-- Zweck: Ermittelt Kollisionen für Projektile gegen Ziele per swept-AABB (time-of-impact) und wendet Schaden an / despawnt Projektile.
+- Zweck: Ermittelt Kollisionen für Projektile über Avian-ShapeCasts (`SpatialQuery::shape_hits`) und wendet Schaden/Effekte an bzw. despawnt Projektile.
 - Öffentliche Funktion(en): `projectile_collision_system`
 - Signatur (vereinfacht):
-  - `commands: Commands`
-  - `time: Res<Time>`
+  - `runtime: ProjectileCollisionRuntime` (`Commands`, `Time`, Assets, Audio, LevelStats)
+  - `spatial_query: SpatialQuery`
   - `projectiles: Query<(Entity, &Transform, &Collider, &RigidBody, &Projectile)>`
-  - `targets: Query<(Entity, &Transform, &Collider, Option<&Blocking>, Option<&Damageable>, Option<&RigidBody>, Option<&Team>)>`
+  - `targets: Query<(Entity, &Transform, &Collider, Option<&Blocking>, Option<&RigidBody>, Option<&Team>, Option<&PlayerTag>)>`
   - `teams: Query<&Team>`
+  - `state_machines: Query<&StateMachine>`
+  - `mut damageable_query: Query<&mut Damageable>`
   - `mut health_query: Query<&mut Health>`
-- Verwendete Components/Runtime-Components: `Projectile`, `Collider`, `RigidBody`, `Blocking`, `Damageable`, `Health`, `Team`
+- Verwendete Components/Runtime-Components: `Projectile`, `Collider`, `RigidBody`, `Blocking`, `Damageable`, `Health`, `Team`, `StateMachine`, `PlasmaBeam`
 - Wichtiges Verhalten:
-  - Berechnet relative Motion (projectile - target)
-  - Nutzt `swept_aabb_toi` und `ray_axis_times` um TOI zu finden
-  - Wählt bestes Trefferziel (TOI, Distanz, Priorität blocking vs damageable)
-  - Wendet Standard-Schaden (`DEFAULT_PROJECTILE_DAMAGE`) an, falls Ziel damageable
-  - Despawnt das Projectile nach Treffer
-- Seiteneffekte: Mutiert `Health` via `health.damage(...)`, ruft `commands.entity(...).despawn()` auf.
-- Hinweise: Team-Check (`NEUTRAL_TEAM`) verhindert Friendly-Fire; TOI-Epsilon (`TOI_EPSILON`) steuert Toleranzen bei Auswahl.
+  - Nutzt `ShapeCastConfig::from_max_distance(delta.length())` und `shape_hits(..., max_hits = 32, ...)` pro Projectile.
+  - Kandidaten-Filter: ignoriert Owner/Selbst, Non-Interactive States und Friendly-Fire (inkl. Neutral-Team-Regel).
+  - Wählt bestes Trefferziel weiterhin deterministisch per vorhandener Tie-Break-Regeln (TOI, Distanz, Blocking vor Damageable, Entity-ID).
+  - Wendet Schaden + Damage-Timer + Popup an, startet Impact-VFX/SFX und setzt Plasma-Beams auf Afterglow.
+  - Despawnt Projectile via `try_despawn()` nach Treffer/Owner-Non-Interactive.
+- Seiteneffekte: Mutiert `Health`/`Damageable`, spawnt VFX/SFX/Popups, mutiert `PlasmaBeam`, erhöht `LevelStats`-Counter.
+- Hinweise: Alte swept-AABB-TOI-Hilfsfunktionen wurden entfernt; Broadphase/Narrowphase laufen über Avian-SpatialQuery + bestehende Spielregeln.
 
 ### `track_previous_transform_system.rs` — `track_previous_transform_system`
 - Zweck: Speichert die vorherige Position von Blockern (Entities mit `Blocking`) in `PreviousTransform` für Velocity-Abschätzung.
@@ -137,8 +141,8 @@ Konvention der Einträge
 ---
 
 Weitere Hinweise und TODOs
-- Tests: Viele Systeme sind deterministisch und eignen sich gut für Unit-Tests (z. B. `swept_aabb_toi`, `ray_axis_times`, `movement resolve`-Grenzfälle). Erwäge kleine Test-Utilities zur Erstellung einfacher Entities mit minimalen Komponenten.
-- Performance: `movement_resolution_system` und `projectile_collision_system` iterieren über viele Pairings; falls Skalierung ein Thema wird, erwäge räumliche Partitionierung (Zellen/Quadtree) oder Broadphase.
+- Tests: Viele Systeme sind deterministisch und eignen sich gut für Unit-Tests (z. B. Hit-Tie-Breaking und movement resolve Grenzfälle). Erwäge kleine Test-Utilities zur Erstellung einfacher Entities mit minimalen Komponenten.
+- Performance: Pairwise-Hotspots wurden auf Avian-SpatialQuery umgestellt; bei sehr großen Szenen ggf. zusätzlich Query-Filter/Layers schärfen.
 - Robustheit: Einige Funktionen erwarten Rectangle-Colliders; andere Collider-Shapes werden aktuell ignoriert (`rectangle_half_extents` returns Option). Entweder dokumentieren oder ausbauen.
 
 Wenn du möchtest, kann ich:

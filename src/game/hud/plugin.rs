@@ -11,16 +11,20 @@ use crate::game::hud::update_hud_bars_system::update_hud_bars_system;
 use crate::game::hud::update_hud_lives_system::update_hud_lives_system;
 use crate::game::hud::update_hud_text_system::update_hud_text_system;
 use crate::game::systems::plugin::GameplaySet;
+use crate::game::debug_stats::DebugStats;
+use crate::game::hud::debug_hud::{spawn_debug_hud, update_debug_hud};
 
 pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HudState>()
+            .init_resource::<DebugStats>()
             .add_systems(
                 OnEnter(AppState::GameView),
                 (reset_hud_state_system, spawn_hud_system).chain(),
             )
+            .add_systems(OnEnter(AppState::GameView), spawn_debug_hud)
             .add_systems(OnExit(AppState::GameView), cleanup_hud_system)
             .add_systems(
                 Update,
@@ -34,6 +38,7 @@ impl Plugin for HudPlugin {
                 )
                     .chain()
                     .run_if(in_state(AppState::GameView)),
-            );
+            )
+            .add_systems(Update, update_debug_hud.run_if(in_state(AppState::GameView)));
     }
 }

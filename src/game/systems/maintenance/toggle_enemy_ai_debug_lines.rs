@@ -1,13 +1,16 @@
 use bevy::prelude::*;
 
-/// Toggle enemy AI debug overlays with Ctrl+Shift+A.
+use crate::helper::input::{Action, ActionPressed};
+
+/// Toggle enemy AI debug overlays with Alt+F4.
 pub(crate) fn toggle_enemy_ai_debug_lines(
-    keys: Res<ButtonInput<KeyCode>>,
+    mut action_pressed: MessageReader<ActionPressed>,
     mut debug_settings: ResMut<crate::DebugRenderSettings>,
 ) {
-    let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
-    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
-    if ctrl && shift && keys.just_pressed(KeyCode::KeyA) {
+    for event in action_pressed.read() {
+        if event.0 != Action::ToggleEnemyAiDebug {
+            continue;
+        }
         debug_settings.show_enemy_ai_debug = !debug_settings.show_enemy_ai_debug;
     }
 }

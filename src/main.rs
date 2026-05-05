@@ -4,6 +4,7 @@ use crate::helper::active_character::ActiveCharacter;
 use crate::helper::audio_toast::{AudioToastPlugin, AudioToastRequest};
 use crate::helper::audio_settings::AudioSettings;
 use crate::helper::fonts;
+use crate::helper::input::{Action, ActionPressed, InputPlugin};
 use crate::helper::i18n;
 use crate::helper::key_bindings;
 use crate::helper::music::MusicPlugin;
@@ -12,6 +13,7 @@ use avian2d::{
     math::Vector,
     prelude::{Gravity, PhysicsPlugins},
 };
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy::camera::ScalingMode;
 use bevy::window::{MonitorSelection, PrimaryWindow, WindowMode};
@@ -62,6 +64,7 @@ pub(crate) struct LevelStats {
     pub(crate) jumps: u32,
     pub(crate) shots: u32,
     pub(crate) hits: u32,
+    // Debug/telemetry moved to `game::debug_stats::DebugStats` resource.
     pub(crate) exit_bonus: u64,
     pub(crate) score: u64,
 }
@@ -192,6 +195,7 @@ fn main() {
         .insert_resource(audio_settings)
         .insert_resource(active_character)
         .insert_resource(key_bindings)
+        .add_plugins(InputPlugin)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "PlasmaBob".into(),
@@ -205,6 +209,8 @@ fn main() {
         // Replaces Bevy's default FiraMono with SpaceMono Regular globally.
         .add_plugins(fonts::FontsPlugin)
         .add_plugins(FramepacePlugin)
+        // Diagnostics plugin provides FPS and frame-time statistics used by the debug HUD
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(PhysicsPlugins::default().with_length_unit(100.0))
         .add_plugins(MusicPlugin)
         .add_plugins(SoundPlugin)
@@ -255,11 +261,14 @@ fn setup_camera(mut commands: Commands) {
 }
 
 fn toggle_fullscreen(
-    keys: Res<ButtonInput<KeyCode>>,
-    key_bindings: Res<key_bindings::KeyBindings>,
+    mut action_pressed: MessageReader<ActionPressed>,
     mut window: Single<&mut Window, With<PrimaryWindow>>,
 ) {
-    if keys.just_pressed(key_bindings.fullscreen) {
+    for event in action_pressed.read() {
+        if event.0 != Action::ToggleFullscreen {
+            continue;
+        }
+
         window.mode = match window.mode {
             WindowMode::Windowed => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
             _ => WindowMode::Windowed,

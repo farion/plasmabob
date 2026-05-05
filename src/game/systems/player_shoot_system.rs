@@ -9,10 +9,11 @@ use crate::game::gfx::plasma_shoot::{
     ensure_plasma_particle_image, spawn_plasma_beam_particles, PlasmaParticleImage,
 };
 use crate::game::runtime_components::{Facing, GameEntity, Projectile};
+use avian2d::prelude::Collider as AvCollider;
 use crate::game::tags::PlayerTag;
 use crate::helper::active_character::ActiveCharacter;
 use crate::helper::audio_settings::AudioSettings;
-use crate::helper::key_bindings::{KeyAction, KeyBindings};
+use crate::helper::input::{Action, InputActionState};
 use crate::helper::sounds::spawn_combat_sfx;
 
 const PLASMA_SHOT_SFX: &str = "audio/plasma-shot.ogg";
@@ -21,8 +22,7 @@ const PROJECTILE_HALF_EXTENT: f32 = 4.0;
 pub fn player_shoot_system(
     mut commands: Commands,
     time: Res<Time>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    key_bindings: Res<KeyBindings>,
+    action_state: Res<InputActionState>,
     asset_server: Res<AssetServer>,
     active_character: Res<ActiveCharacter>,
     audio_settings: Res<AudioSettings>,
@@ -54,8 +54,8 @@ pub fn player_shoot_system(
     // Determine shoot press: prefer just_pressed but also treat the rising
     // edge of `pressed` (pressed && !prev) as a press. This helps with
     // some keyboard ghosting where just_pressed may be missed.
-    let shoot_pressed_now = keyboard.pressed(key_bindings.get(KeyAction::Shoot));
-    let shoot_just_pressed = keyboard.just_pressed(key_bindings.get(KeyAction::Shoot))
+    let shoot_pressed_now = action_state.pressed(Action::Shoot);
+    let shoot_just_pressed = action_state.just_pressed(Action::Shoot)
         || (shoot_pressed_now && !*prev_shoot_pressed);
     // Set the request flag when the key was just pressed.
     if shoot_just_pressed {
@@ -100,6 +100,7 @@ pub fn player_shoot_system(
                         half_extents: Vec2::splat(PROJECTILE_HALF_EXTENT),
                     },
                 },
+                AvCollider::rectangle(PROJECTILE_HALF_EXTENT * 2.0, PROJECTILE_HALF_EXTENT * 2.0),
                 RigidBody {
                     velocity: facing_dir * attack.speed,
                     ..default()
@@ -156,5 +157,5 @@ pub fn player_shoot_system(
     }
 
     // Update previous pressed state for next frame edge detection.
-    *prev_shoot_pressed = keyboard.pressed(key_bindings.get(KeyAction::Shoot));
+    *prev_shoot_pressed = action_state.pressed(Action::Shoot);
 }
