@@ -1,0 +1,65 @@
+use bevy::prelude::Vec2;
+use avian2d::prelude::Collider as AvCollider;
+
+use crate::game::components::{Collider, ColliderShape};
+
+/// Build a [`Collider`] from a `collider_box` polygon (pixel coords in sprite-image
+/// space, origin bottom-left). Falls back to the full sprite rectangle when
+/// `collider_box` is `None` or has fewer than two points.
+///
+/// Conversion from image space → entity-local Bevy space (entity origin at
+/// sprite centre, Y axis pointing up):
+///   local_x = pixel_x − sprite_w / 2          (shift origin to centre)
+///   local_y = pixel_y − sprite_h / 2          (bottom-left origin -> centre)
+pub fn build_collider_from_box(
+    collider_box: Option<&[[f32; 2]]>,
+    sprite_w: f32,
+    sprite_h: f32,
+) -> Collider {
+    if let Some(pts) = collider_box {
+        if pts.len() >= 2 {
+            let min_x = pts.iter().map(|p| p[0]).fold(f32::MAX, f32::min);
+            let max_x = pts.iter().map(|p| p[0]).fold(f32::MIN, f32::max);
+            let min_y = pts.iter().map(|p| p[1]).fold(f32::MAX, f32::min);
+            let max_y = pts.iter().map(|p| p[1]).fold(f32::MIN, f32::max);
+
+            let half_w = (max_x - min_x) / 2.0;
+            let half_h = (max_y - min_y) / 2.0;
+
+            let cx_img = (min_x + max_x) / 2.0;
+            let cy_img = (min_y + max_y) / 2.0;
+            let offset_x = cx_img - sprite_w / 2.0;
+            // Treat incoming collider_box coordinates as bottom-left origin so
+            // the local Y offset is (cy_img - sprite_h/2).
+            let offset_y = cy_img - sprite_h / 2.0;
+
+            return Collider {
+                offset: Vec2::new(offset_x, offset_y),
+                shape: ColliderShape::Rectangle {
+                    half_extents: Vec2::new(half_w, half_h),
+                },
+            };
+        }
+    }
+
+    // Fallback: full sprite bounding box centred at origin.
+    Collider {
+        offset: Vec2::ZERO,
+        shape: ColliderShape::Rectangle {
+            half_extents: Vec2::new(sprite_w / 2.0, sprite_h / 2.0),
+        },
+    }
+}
+
+pub fn build_avian_collider_from_game(collider: &Collider) -> Option<AvCollider> {
+    match collider.shape {
+        ColliderShape::Rectangle { half_extents } => Some(AvCollider::compound(vec![
+            (
+                collider.offset,
+                0.0,
+                AvCollider::rectangle(half_extents.x * 2.0, half_extents.y * 2.0),
+            ),
+        ])),
+    }
+}
+

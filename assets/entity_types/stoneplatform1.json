@@ -1,12 +1,27 @@
 {
-  "component": ["collision", "floor"],
-  "height": 80,
-  "states": {
-    "default": {
-      "animation": ["sprites/stoneplatform1/stoneplatform1-default.png"],
-      "animation_frame_ms": 180,
-      "hitbox": [[2, 1], [336, 1], [336, 60], [2, 60]]
+  "category_tag": "Environment",
+  "components": {
+    "blocking": {},
+    "collider": {
+      "mode": "from_state"
+    },
+    "moving_platform": {
+      "repeat": true,
+      "speed": 0.0,
+      "waypoints": []
+    },
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": ["sprites/stoneplatform1/stoneplatform1-default.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[2.0, 1.0], [336.0, 1.0], [336.0, 60.0], [2.0, 60.0]],
+          "lock_ms": 0
+        }
+      }
     }
   },
-  "width": 337
+  "height": 80.0,
+  "width": 337.0
 }

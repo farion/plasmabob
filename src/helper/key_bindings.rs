@@ -9,6 +9,7 @@ pub(crate) enum KeyAction {
     MoveLeft,
     MoveRight,
     Jump,
+    Crouch,
     Shoot,
     Fullscreen,
     ToggleMute,
@@ -22,6 +23,7 @@ impl KeyAction {
             Self::MoveLeft => "action.move_left",
             Self::MoveRight => "action.move_right",
             Self::Jump => "action.jump",
+            Self::Crouch => "action.crouch",
             Self::Shoot => "action.shoot",
             Self::Fullscreen => "action.fullscreen",
             Self::ToggleMute => "action.toggle_mute",
@@ -29,11 +31,12 @@ impl KeyAction {
         }
     }
 
-    pub(crate) fn all() -> [KeyAction; 7] {
+    pub(crate) fn all() -> [KeyAction; 8] {
                 [
                     Self::MoveLeft,
                     Self::MoveRight,
                     Self::Jump,
+                    Self::Crouch,
                     Self::Shoot,
                     Self::Fullscreen,
                     Self::ToggleMute,
@@ -51,6 +54,8 @@ pub(crate) struct KeyBindings {
     #[serde(with = "keycode_serde")]
     pub(crate) jump: KeyCode,
     #[serde(with = "keycode_serde")]
+    pub(crate) crouch: KeyCode,
+    #[serde(with = "keycode_serde")]
     pub(crate) shoot: KeyCode,
     #[serde(with = "keycode_serde")]
     pub(crate) fullscreen: KeyCode,
@@ -66,6 +71,7 @@ impl Default for KeyBindings {
             move_left: KeyCode::ArrowLeft,
             move_right: KeyCode::ArrowRight,
             jump: KeyCode::ArrowUp,
+            crouch: KeyCode::ArrowDown,
             shoot: KeyCode::Space,
             fullscreen: KeyCode::KeyF,
             toggle_mute: KeyCode::KeyM,
@@ -88,6 +94,7 @@ impl KeyBindings {
             KeyAction::MoveLeft => self.move_left,
             KeyAction::MoveRight => self.move_right,
             KeyAction::Jump => self.jump,
+            KeyAction::Crouch => self.crouch,
             KeyAction::Shoot => self.shoot,
             KeyAction::Fullscreen => self.fullscreen,
             KeyAction::ToggleMute => self.toggle_mute,
@@ -100,6 +107,7 @@ impl KeyBindings {
             KeyAction::MoveLeft => self.move_left = key,
             KeyAction::MoveRight => self.move_right = key,
             KeyAction::Jump => self.jump = key,
+            KeyAction::Crouch => self.crouch = key,
             KeyAction::Shoot => self.shoot = key,
             KeyAction::Fullscreen => self.fullscreen = key,
             KeyAction::ToggleMute => self.toggle_mute = key,

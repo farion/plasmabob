@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use crate::CampaignProgress;
 use crate::app_model::AppState;
 use crate::i18n::LocalizedText;
+use crate::CampaignProgress;
 
 pub struct LoseViewPlugin;
 
@@ -79,10 +79,21 @@ fn return_to_world_map(
     keys: Res<ButtonInput<KeyCode>>,
     mut progress: ResMut<CampaignProgress>,
     mut next_state: ResMut<NextState<AppState>>,
+    level_selection: Res<crate::LevelSelection>,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
         progress.clear_planet_progress();
-        next_state.set(AppState::WorldMapView);
+        if level_selection
+            .asset_path()
+            .ends_with("assets/debug/testlevel.json")
+            || level_selection
+                .asset_path()
+                .ends_with("debug/testlevel.json")
+        {
+            next_state.set(AppState::MainMenu);
+        } else {
+            next_state.set(AppState::WorldMapView);
+        }
     }
 }
 

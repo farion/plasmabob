@@ -1,51 +1,201 @@
 {
-  "component": ["collision", "npc", "hostile", "moving", "health", "melee_attack", "range_attack"],
-  "melee_attack": {
-    "damage": 10
-  },
-  "health": {
-    "health": 30
-  },
-  "range_attack": {
-    "damage": 10,
-    "speed": 250,
-    "frequency": 2000,
-    "max_range": 1000,
-    "aggro_range": 1000,
-    "particle_effect": "fire"
-  },
-  "height": 128,
-  "states": {
-    "default": {
-      "animation": ["sprites/cockroach/cockroach-default.png"],
-      "animation_frame_ms": 300,
-      "hitbox": [[13, 5], [139, 5], [139, 119], [13, 119]]
+  "components": {
+    "health": {
+      "max": 30,
+      "despawn_on_death": true,
+      "despawn_delay_ms": 5000
     },
-    "die": {
-      "animation": ["sprites/cockroach/cockroach-die.png"],
-      "animation_frame_ms": 300,
-      "hitbox": [[0, 0], [166, 0], [166, 94], [0, 94]]
+    "auto_movement": {
+      "speed": 50.0,
+      "aggro": true,
+      "aggro_range": 300.0,
+      "deaggro_range": 600.0,
+      "default_strategy": "random_patrol",
+      "aggro_strategy": "follow",
+      "patrol_range": 500.0,
+      "vision_angle": 360.0,
+      "can_fall_when_following": true,
+      "max_speed": 100.0,
+      "acceleration": 300.0,
+      "share_aggro_with_team": "",
+      "jump_on_aggro": true,
+      "jump_on_default": false,
+      "jump_on_return_to_origin": true,
+      "jump_force": 800.0
     },
-    "melee_attack": {
-      "animation": ["sprites/cockroach/cockroach-attack-1.png", "sprites/cockroach/cockroach-attack-2.png", "sprites/cockroach/cockroach-attack-3.png"],
-      "animation_frame_ms": 300,
-      "hitbox": [[7, 5], [159, 5], [159, 121], [7, 121]]
+    "rigid_body": {},
+    "gravity": {},
+    "auto_melee_attack": {
+      "damage": 10
     },
-    "range_attack": {
-      "animation": ["sprites/cockroach/cockroach-range_attack.png"],
-      "animation_frame_ms": 300,
-      "hitbox": [[7, 5], [159, 5], [159, 121], [7, 121]]
+    "damageable": {},
+    "team": {
+      "name": "enemy"
     },
-    "hit": {
-      "animation": ["sprites/cockroach/cockroach-hit.png"],
-      "animation_frame_ms": 300,
-      "hitbox": [[14, 5], [150, 5], [150, 123], [14, 123]]
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": [
+            "sprites/cockroach/cockroach-default.png"
+          ],
+          "animation_frame_ms": 300,
+          "collider_box": [
+            [
+              13.0,
+              5.0
+            ],
+            [
+              139.0,
+              5.0
+            ],
+            [
+              139.0,
+              119.0
+            ],
+            [
+              13.0,
+              119.0
+            ]
+          ],
+          "lock_ms": 0
+        },
+        "dead": {
+          "animation": [
+            "sprites/cockroach/cockroach-die.png"
+          ],
+          "animation_frame_ms": 300,
+          "collider_box": [
+            [
+              0.0,
+              6.0
+            ],
+            [
+              166.0,
+              6.0
+            ],
+            [
+              166.0,
+              102.0
+            ],
+            [
+              0.0,
+              102.0
+            ]
+          ],
+          "lock_ms": 0
+        },
+        "melee_attacking": {
+          "animation": [
+            "sprites/cockroach/cockroach-attack-1.png",
+            "sprites/cockroach/cockroach-attack-2.png",
+            "sprites/cockroach/cockroach-attack-3.png",
+            "sprites/cockroach/cockroach-range_attack.png"
+          ],
+          "animation_frame_ms": 300,
+          "collider_box": [
+            [
+              7.0,
+              5.0
+            ],
+            [
+              159.0,
+              5.0
+            ],
+            [
+              159.0,
+              121.0
+            ],
+            [
+              7.0,
+              121.0
+            ]
+          ],
+          "lock_ms": 500
+        },
+        "moving": {
+          "animation": [
+            "sprites/cockroach/cockroach-walk-1.png",
+            "sprites/cockroach/cockroach-walk-2.png"
+          ],
+          "animation_frame_ms": 300,
+          "collider_box": [
+            [
+              17.0,
+              5.0
+            ],
+            [
+              153.0,
+              5.0
+            ],
+            [
+              153.0,
+              121.0
+            ],
+            [
+              17.0,
+              121.0
+            ]
+          ],
+          "lock_ms": 0
+        },
+        "range_attacking": {
+          "animation": [
+            "sprites/cockroach/cockroach-range_attack.png"
+          ],
+          "animation_frame_ms": 180,
+          "collider_box": [
+            [
+              11.0,
+              5.0
+            ],
+            [
+              164.0,
+              5.0
+            ],
+            [
+              164.0,
+              120.0
+            ],
+            [
+              11.0,
+              120.0
+            ]
+          ],
+          "lock_ms": 0
+        },
+        "damaged": {
+          "animation": [
+            "sprites/cockroach/cockroach-hit.png"
+          ],
+          "animation_frame_ms": 300,
+          "collider_box": [
+            [
+              14.0,
+              5.0
+            ],
+            [
+              150.0,
+              5.0
+            ],
+            [
+              150.0,
+              123.0
+            ],
+            [
+              14.0,
+              123.0
+            ]
+          ],
+          "lock_ms": 300
+        }
+      }
     },
-    "walk": {
-      "animation": ["sprites/cockroach/cockroach-walk-1.png", "sprites/cockroach/cockroach-walk-2.png"],
-      "animation_frame_ms": 300,
-      "hitbox": [[17, 5], [153, 5], [153, 121], [17, 121]]
+    "collider": {
+      "mode": "from_state"
     }
   },
-  "width": 166
+  "category_tag": "enemy",
+  "width": 166.0,
+  "height": 128.0
 }

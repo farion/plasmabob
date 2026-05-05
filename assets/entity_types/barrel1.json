@@ -1,12 +1,23 @@
 {
-  "component": ["collision", "doodad"],
-  "height": 100,
-  "states": {
-    "default": {
-      "animation": ["sprites/barrel1/barrel1-default.png"],
-      "animation_frame_ms": 500,
-      "hitbox": [[1, 3], [67, 3], [67, 100], [1, 100]]
+  "category_tag": "item",
+  "components": {
+    "blocking": {},
+    "collider": {
+      "mode": "from_state"
+    },
+    "rigid_body": {},
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": ["sprites/barrel1/barrel1-default.png"],
+          "animation_frame_ms": 500,
+          "collider_box": [[1.0, 3.0], [67.0, 3.0], [67.0, 100.0], [1.0, 100.0]],
+          "lock_ms": 500
+        }
+      }
     }
   },
-  "width": 67
+  "height": 100.0,
+  "width": 67.0
 }

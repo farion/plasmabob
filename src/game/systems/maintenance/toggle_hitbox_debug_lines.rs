@@ -1,55 +1,32 @@
 use bevy::prelude::*;
 
-use crate::game::components::SpawnedLevelEntity;
-use crate::game::systems::systems_api::{DebugStatsLabel, GameViewEntity};
+use super::draw_hitbox_debug_lines::DebugHitbox;
+use super::update_debug_stats_labels::DebugStatsLabel;
+use crate::helper::input::{Action, ActionPressed};
 
-use crate::game::systems::maintenance::helpers::{build_stats_text, toggle_hitbox_lines};
-
+/// Toggle `DebugRenderSettings.show_hitbox_lines` with Alt+F5. When
+/// disabling the debug view we also despawn all debug helper entities.
 pub(crate) fn toggle_hitbox_debug_lines(
     mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
+    mut action_pressed: MessageReader<ActionPressed>,
     mut debug_settings: ResMut<crate::DebugRenderSettings>,
+    hitbox_query: Query<Entity, With<DebugHitbox>>,
     label_query: Query<Entity, With<DebugStatsLabel>>,
-    entity_query: Query<
-        (
-            Entity,
-            Option<&crate::game::components::health::Health>,
-            Option<&crate::game::components::health::Damage>,
-            Option<&crate::game::components::player::PlasmaAttack>,
-            Option<&crate::game::components::animation::AnimationState>,
-        ),
-        With<SpawnedLevelEntity>,
-    >,
 ) {
-    let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
-    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
-    if !keys.just_pressed(KeyCode::KeyL) || !ctrl || !shift {
-        return;
-    }
-
-    toggle_hitbox_lines(&mut debug_settings);
-
-    if debug_settings.show_hitbox_lines {
-        for (target, health, damage, plasma, state) in &entity_query {
-            let text = build_stats_text(health, damage, plasma, state);
-            if text.is_empty() {
-                continue;
-            }
-            commands.spawn((
-                Text2d::new(text),
-                crate::TextFont {
-                    font_size: 13.0,
-                    ..default()
-                },
-                crate::TextColor(Color::srgb(1.0, 1.0, 0.25)),
-                Transform::default(),
-                DebugStatsLabel { target },
-                GameViewEntity,
-            ));
+    for event in action_pressed.read() {
+        if event.0 != Action::ToggleHitboxDebug {
+            continue;
         }
-    } else {
-        for entity in &label_query {
-            commands.entity(entity).despawn();
+        debug_settings.show_hitbox_lines = !debug_settings.show_hitbox_lines;
+
+        if !debug_settings.show_hitbox_lines {
+            // Despawn any debug helper entities.
+            for e in &hitbox_query {
+                commands.entity(e).try_despawn();
+            }
+            for e in &label_query {
+                commands.entity(e).try_despawn();
+            }
         }
     }
 }

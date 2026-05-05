@@ -3,7 +3,9 @@ use bevy::window::PrimaryWindow;
 use std::f32::consts::TAU;
 
 use crate::app_model::AppState;
-use crate::helper::particles::create_round_particle_image;
+use crate::game::gfx::particles::create_round_particle_image;
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::i18n::{CurrentLanguage, Translations};
 use crate::world::WorldCatalog;
 use crate::world::find_directional_neighbor;
@@ -64,6 +66,7 @@ impl Plugin for WorldMapViewPlugin {
 fn setup_world_map_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     mut images: ResMut<Assets<Image>>,
     world_catalog: Res<WorldCatalog>,
     mut selection: ResMut<WorldMapSelection>,
@@ -108,7 +111,11 @@ fn setup_world_map_view(
         .min(world_entry.definition.planets.len().saturating_sub(1));
 
     commands.spawn((
-        Sprite::from_image(asset_server.load(&world_entry.definition.background)),
+        Sprite::from_image(load_character_asset::<Image>(
+            &asset_server,
+            &world_entry.definition.background,
+            *active_character,
+        )),
         Transform::from_xyz(0.0, 0.0, -1.0),
         WorldMapBackground,
         WorldMapEntity,
@@ -171,8 +178,7 @@ fn setup_world_map_view(
 }
 
 fn update_world_map_layout(
-    windows: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<&Camera, With<MainCamera>>,
+    camera_query: Query<&Projection, With<MainCamera>>,
     world_catalog: Res<WorldCatalog>,
     progress: Res<CampaignProgress>,
     mut render_config: ResMut<WorldMapRenderConfig>,
@@ -182,11 +188,7 @@ fn update_world_map_layout(
         return;
     };
 
-    let Ok(window) = windows.single() else {
-        return;
-    };
-
-    let Ok(camera) = camera_query.single() else {
+    let Ok(projection) = camera_query.single() else {
         return;
     };
 
@@ -199,13 +201,27 @@ fn update_world_map_layout(
         return;
     }
 
-    let viewport_size = camera
-        .logical_viewport_size()
-        .unwrap_or(Vec2::new(window.width(), window.height()));
-    let scale = (viewport_size.x / virtual_size.x).min(viewport_size.y / virtual_size.y);
+    // Use the camera's actual world-space viewport so the map fills the
+    // screen regardless of physical resolution.
+    let (vw, vh) = match projection {
+        Projection::Orthographic(ortho) => {
+            let w = ortho.area.width();
+            let h = ortho.area.height();
+            // area starts as (2×2) from default(); wait for a real value.
+            if w > 2.0 && h > 2.0 { (w, h) } else { return; }
+        }
+        _ => return,
+    };
+
+    // Fit so the whole map is visible (letterbox/pillarbox).
+    let scale = (vw / virtual_size.x).min(vh / virtual_size.y);
 
     sprite.custom_size = Some(virtual_size);
     transform.scale = Vec3::splat(scale);
+    // Keep the background centred at the camera (world origin 0, 0).
+    transform.translation.x = 0.0;
+    transform.translation.y = 0.0;
+
     render_config.virtual_size = virtual_size;
     render_config.scale = scale;
 }
@@ -387,7 +403,13 @@ fn start_selected_planet(
     progress.planet_index = Some(selection.index);
     progress.level_index = 0;
     level_selection.set_asset_path(&first_level.json);
-    next_state.set(AppState::LoadView);
+    tracing::info!(
+        world = progress.world_index,
+        planet = progress.planet_index,
+        level = %first_level.json,
+        "Planet selected: transitioning to StartView"
+    );
+    next_state.set(AppState::StartView);
 }
 
 fn update_planet_label(

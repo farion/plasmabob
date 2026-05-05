@@ -1,22 +1,25 @@
 use bevy::prelude::*;
-use bevy::audio::{AudioPlayer, AudioSink, PlaybackSettings, Volume};
+use bevy::audio::{AudioPlayer, AudioSink, AudioSource, PlaybackSettings, Volume};
 
 use crate::helper::audio_settings::AudioSettings;
+use crate::helper::audio_toast::AudioToastRequest;
 use crate::helper::active_character::ActiveCharacter;
-use crate::helper::key_bindings::{KeyAction, KeyBindings};
+use crate::helper::asset_io::load_character_asset;
+use crate::helper::input::{Action, InputActionState};
+
+fn effective_music_volume(audio_settings: &AudioSettings) -> f32 {
+    if audio_settings.music_enabled {
+        audio_settings.music_volume
+    } else {
+        0.0
+    }
+}
 
 /// Pending request for the music player.
 /// None == no request pending.
-/// Some(MusicRequestKind::Play(path)) == play that path.
-/// Some(MusicRequestKind::PlayMenu) == restore menu music (based on ActiveCharacter).
-#[derive(Debug, Clone)]
-pub(crate) enum MusicRequestKind {
-    Play(String),
-    PlayMenu,
-}
-
+/// Some(Vec<String>) == play the given playlist (can be a single entry).
 #[derive(Resource, Default, Debug, Clone)]
-pub(crate) struct MusicRequest(pub(crate) Option<MusicRequestKind>);
+pub(crate) struct MusicRequest(pub(crate) Option<Vec<String>>);
 
 /// Marker for our central music entity
 #[derive(Component)]
@@ -27,6 +30,9 @@ pub(crate) struct MusicEntity;
 pub(crate) struct MusicManager {
     pub(crate) entity: Option<Entity>,
     pub(crate) current_track: Option<String>,
+    /// Optional playlist active while in a level
+    pub(crate) playlist: Option<Vec<String>>,
+    pub(crate) playlist_index: usize,
 }
 
 pub(crate) struct MusicPlugin;
@@ -37,6 +43,7 @@ impl Plugin for MusicPlugin {
             .init_resource::<MusicRequest>()
             .add_systems(Startup, start_background_music)
             .add_systems(Update, handle_music_requests)
+            .add_systems(Update, advance_playlist_if_finished)
             .add_systems(Update, toggle_music_mute)
             .add_systems(Update, sync_music_track)
             .add_systems(Update, apply_music_volume_change);
@@ -44,17 +51,31 @@ impl Plugin for MusicPlugin {
 }
 
 fn toggle_music_mute(
-    keys: Res<ButtonInput<KeyCode>>,
-    key_bindings: Res<KeyBindings>,
+    action_state: Res<InputActionState>,
     mut sinks: Query<&mut AudioSink, With<MusicEntity>>,
+    mut audio_settings: ResMut<AudioSettings>,
+    mut toast_request: ResMut<AudioToastRequest>,
 ) {
-    let toggle_key = key_bindings.get(KeyAction::ToggleMute);
-    if !keys.just_pressed(toggle_key) {
+    if !action_state.just_pressed(Action::ToggleMusicMute) {
         return;
     }
 
+    // Toggle persistent setting and save
+    let new_enabled = !audio_settings.music_enabled;
+    if audio_settings.set_music_enabled(new_enabled) {
+        // best-effort save; ignore errors for now
+        let _ = audio_settings.save_to_disk();
+    }
+
+    toast_request.set(if new_enabled {
+        "toast.music.on"
+    } else {
+        "toast.music.off"
+    });
+
+    // Apply immediately to running sinks: set volume to 0 when disabled, restore when enabled
     for mut sink in &mut sinks {
-        sink.toggle_mute();
+        sink.set_volume(bevy::audio::Volume::Linear(effective_music_volume(&audio_settings)));
     }
 }
 
@@ -70,13 +91,17 @@ fn start_background_music(
         return;
     }
 
-    let handle = asset_server.load(active_character.menu_music_path());
+    let handle = load_character_asset::<AudioSource>(
+        &asset_server,
+        "music/start.ogg",
+        *active_character,
+    );
     let entity = commands
         .spawn((
             AudioPlayer::new(handle),
             PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Loop,
-                volume: Volume::Linear(audio_settings.music_volume),
+                volume: Volume::Linear(effective_music_volume(&audio_settings)),
                 ..default()
             },
             MusicEntity,
@@ -84,7 +109,7 @@ fn start_background_music(
         .id();
 
     manager.entity = Some(entity);
-    manager.current_track = Some(active_character.menu_music_path().to_string());
+    manager.current_track = "music/start.ogg".to_string().into();
 }
 
 fn sync_music_track(
@@ -98,20 +123,24 @@ fn sync_music_track(
     // If there is no music entity (e.g., was removed externally), ensure we spawn one
     if manager.entity.is_none() {
         // spawn fresh
-        let handle = asset_server.load(active_character.menu_music_path());
+        let handle = load_character_asset::<AudioSource>(
+            &asset_server,
+            "music/start.ogg",
+            *active_character,
+        );
         let entity = commands
             .spawn((
                 AudioPlayer::new(handle),
                 PlaybackSettings {
                     mode: bevy::audio::PlaybackMode::Loop,
-                    volume: Volume::Linear(audio_settings.music_volume),
+                    volume: Volume::Linear(effective_music_volume(&audio_settings)),
                     ..default()
                 },
                 MusicEntity,
             ))
             .id();
         manager.entity = Some(entity);
-        manager.current_track = Some(active_character.menu_music_path().to_string());
+        manager.current_track = "music/start.ogg".to_string().into();
         return;
     }
     // Only change to the active character's menu track when the active character actually changed.
@@ -119,23 +148,24 @@ fn sync_music_track(
         return;
     }
 
-    let desired = active_character.menu_music_path().to_string();
-    if manager.current_track.as_deref() == Some(&desired) {
-        return;
-    }
+    let desired = "music/start.ogg".to_string();
 
     // despawn any existing MusicEntity entities to ensure a clean restart
     for e in &query {
         commands.entity(e).despawn();
     }
 
-    let handle = asset_server.load(active_character.menu_music_path());
+    let handle = load_character_asset::<AudioSource>(
+        &asset_server,
+        "music/start.ogg",
+        *active_character,
+    );
     let entity = commands
         .spawn((
             AudioPlayer::new(handle),
             PlaybackSettings {
                 mode: bevy::audio::PlaybackMode::Loop,
-                volume: Volume::Linear(audio_settings.music_volume),
+                volume: Volume::Linear(effective_music_volume(&audio_settings)),
                 ..default()
             },
             MusicEntity,
@@ -155,7 +185,7 @@ fn apply_music_volume_change(
         return;
     }
 
-    let vol = Volume::Linear(audio_settings.music_volume);
+    let vol = Volume::Linear(effective_music_volume(&audio_settings));
 
     // Runtime audio control must happen through AudioSink.
     for mut sink in &mut sinks {
@@ -179,34 +209,31 @@ fn handle_music_requests(
     query: Query<Entity, With<MusicEntity>>,
 ) {
     let pending = request.0.take();
-    let Some(kind) = pending else {
+    let Some(list) = pending else {
         return;
     };
 
-    let desired = match kind {
-        MusicRequestKind::Play(path) => path,
-        MusicRequestKind::PlayMenu => active_character.menu_music_path().to_string(),
-    };
-
-    // If already playing desired track, just update volume
-    if manager.current_track.as_deref() == Some(&desired) {
-        manager.current_track = Some(desired);
+    // replace playlist and start at index 0
+    if list.is_empty() {
         return;
     }
+    manager.playlist = Some(list.clone());
+    manager.playlist_index = 0;
 
-    // Despawn any existing music entities
+    // Despawn existing music entities so we spawn the first playlist track
     for e in &query {
         commands.entity(e).despawn();
     }
 
-    // Spawn new requested track
-    let handle = asset_server.load(desired.clone());
+    let desired = manager.playlist.as_ref().unwrap()[0].clone();
+    // spawn once (we will advance manually)
+    let handle = load_character_asset::<AudioSource>(&asset_server, &desired, *active_character);
     let entity = commands
         .spawn((
             AudioPlayer::new(handle),
             PlaybackSettings {
-                mode: bevy::audio::PlaybackMode::Loop,
-                volume: Volume::Linear(audio_settings.music_volume),
+                mode: bevy::audio::PlaybackMode::Once,
+                volume: Volume::Linear(effective_music_volume(&audio_settings)),
                 ..default()
             },
             MusicEntity,
@@ -215,5 +242,60 @@ fn handle_music_requests(
 
     manager.entity = Some(entity);
     manager.current_track = Some(desired);
+}
+
+fn advance_playlist_if_finished(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    audio_settings: Res<AudioSettings>,
+    active_character: Res<ActiveCharacter>,
+    mut manager: ResMut<MusicManager>,
+    sink_query: Query<&AudioSink, With<MusicEntity>>,
+    entity_query: Query<Entity, With<MusicEntity>>,
+) {
+    // Clone the playlist so we don't hold an immutable borrow across
+    // a mutable borrow of `manager` below.
+    let playlist = match manager.playlist.clone() {
+        Some(p) => p,
+        None => return,
+    };
+
+    // If there is no sink yet (entity not spawned or not attached), nothing to do
+    let mut finished = false;
+    for sink in &sink_query {
+        if sink.empty() {
+            finished = true;
+            break;
+        }
+    }
+
+    if !finished {
+        return;
+    }
+
+    // advance index and wrap
+    manager.playlist_index = (manager.playlist_index + 1) % playlist.len();
+    let next = playlist[manager.playlist_index].clone();
+
+    // despawn existing music entities
+    for e in &entity_query {
+        commands.entity(e).despawn();
+    }
+
+    let handle = load_character_asset::<AudioSource>(&asset_server, &next, *active_character);
+    let entity = commands
+        .spawn((
+            AudioPlayer::new(handle),
+            PlaybackSettings {
+                mode: bevy::audio::PlaybackMode::Once,
+                volume: Volume::Linear(effective_music_volume(&audio_settings)),
+                ..default()
+            },
+            MusicEntity,
+        ))
+        .id();
+
+    manager.entity = Some(entity);
+    manager.current_track = Some(next);
 }
 

@@ -1,9 +1,16 @@
 use bevy::prelude::*;
 
-pub mod fire;
+pub mod aggro;
+pub mod fire_impact;
+pub mod fire_shoot;
+pub mod helpers;
+pub mod plasma_impact;
+pub mod plasma_sizes;
+pub mod plasma_shoot;
 pub mod poison;
 pub mod spit;
-pub mod helpers;
+pub mod particles;
+pub mod jump;
 
 /// Shared helper used by the three projectile effect modules.
 /// Spawns `count` particles using the provided functions for velocity/size/color.
@@ -34,14 +41,13 @@ pub(crate) fn spawn_effect_particles(
                 ..default()
             },
             Transform::from_xyz(origin.x, origin.y, z),
-            crate::game::systems::gameplay::types::ProjectileEffectParticle {
+            crate::game::gfx::helpers::ProjectileEffectParticle {
                 velocity,
                 lifetime: Timer::from_seconds(lifetime_secs, TimerMode::Once),
                 start_size: size,
                 base_color,
             },
-            crate::game::systems::systems_api::GameViewEntity,
+            crate::game::runtime_components::GameEntity,
         ));
     }
 }
-

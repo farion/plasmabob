@@ -1,0 +1,1397 @@
+{
+    "quotes": [],
+    "music": [
+        "music/level1.ogg"
+    ],
+    "bounds": {
+        "width": 20000.0,
+        "height": 1024.0
+    },
+    "entities": [
+        {
+            "id": "street",
+            "entity_type": "street",
+            "x": 0.0,
+            "y": 0.0,
+            "z_index": 98.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "player",
+            "entity_type": "player",
+            "x": 39.272583,
+            "y": 174.16464,
+            "z_index": 101.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "enemy",
+            "entity_type": "cockroach",
+            "x": 344.71014,
+            "y": 157.06285,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "exit",
+            "entity_type": "exit",
+            "x": 19797.182,
+            "y": 181.00006,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "street1",
+            "entity_type": "street",
+            "x": 1524.5403,
+            "y": 0.46073914,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "flora11",
+            "entity_type": "flora1",
+            "x": 693.2551,
+            "y": 6.655777,
+            "z_index": 150.0,
+            "layer": "foreground"
+        },
+        {
+            "id": "mountain11",
+            "entity_type": "mountain1",
+            "x": -0.24926758,
+            "y": 119.55165,
+            "z_index": 50.0,
+            "layer": "background"
+        },
+        {
+            "id": "cockroach1",
+            "entity_type": "cockroach",
+            "x": 499.16455,
+            "y": 169.67044,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform11",
+            "entity_type": "stoneplatform1",
+            "x": 1934.1959,
+            "y": 572.3731,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel12",
+            "entity_type": "barrel1",
+            "x": 280.46655,
+            "y": 150.74623,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach3",
+            "entity_type": "cockroach",
+            "x": 567.9236,
+            "y": 172.75099,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "mountain12",
+            "entity_type": "mountain1",
+            "x": 941.2113,
+            "y": 106.20596,
+            "z_index": 50.0,
+            "layer": "background"
+        },
+        {
+            "id": "mountain13",
+            "entity_type": "mountain1",
+            "x": 1875.9365,
+            "y": 98.142,
+            "z_index": 50.0,
+            "layer": "background"
+        },
+        {
+            "id": "cockroach5",
+            "entity_type": "cockroach",
+            "x": 1484.8575,
+            "y": 175.15959,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach6",
+            "entity_type": "cockroach",
+            "x": 1380.671,
+            "y": 172.58731,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach7",
+            "entity_type": "cockroach",
+            "x": 1275.1982,
+            "y": 166.15591,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach8",
+            "entity_type": "cockroach",
+            "x": 1159.4357,
+            "y": 170.01463,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach9",
+            "entity_type": "cockroach",
+            "x": 1053.963,
+            "y": 170.01465,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach10",
+            "entity_type": "cockroach",
+            "x": 935.62775,
+            "y": 172.58714,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach11",
+            "entity_type": "cockroach",
+            "x": 799.28503,
+            "y": 162.29703,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach12",
+            "entity_type": "cockroach",
+            "x": 677.0913,
+            "y": 168.72844,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach24",
+            "entity_type": "cockroach",
+            "x": 2265.6123,
+            "y": 176.446,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach25",
+            "entity_type": "cockroach",
+            "x": 2152.422,
+            "y": 164.86967,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach26",
+            "entity_type": "cockroach",
+            "x": 2018.652,
+            "y": 181.59096,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach27",
+            "entity_type": "cockroach",
+            "x": 1917.038,
+            "y": 181.59084,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach28",
+            "entity_type": "cockroach",
+            "x": 1824.4277,
+            "y": 181.5908,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach29",
+            "entity_type": "cockroach",
+            "x": 1725.3865,
+            "y": 179.01836,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach30",
+            "entity_type": "cockroach",
+            "x": 1600.62,
+            "y": 175.15962,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform31",
+            "entity_type": "stoneplatform3",
+            "x": 1121.0277,
+            "y": 464.69302,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform21",
+            "entity_type": "stoneplatform2",
+            "x": 355.40137,
+            "y": 319.80972,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach31",
+            "entity_type": "cockroach",
+            "x": 2003.4169,
+            "y": 627.4161,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach32",
+            "entity_type": "cockroach",
+            "x": 2121.4321,
+            "y": 632.9206,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel13",
+            "entity_type": "barrel1",
+            "x": 1685.6365,
+            "y": 525.9032,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "healthpotion1",
+            "entity_type": "healthpotion",
+            "x": 730.849,
+            "y": 841.08356,
+            "z_index": 150.0,
+            "layer": "foreground"
+        },
+        {
+            "id": "stoneplatform12",
+            "entity_type": "stoneplatform1",
+            "x": 292.8451,
+            "y": 513.0303,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform13",
+            "entity_type": "stoneplatform1",
+            "x": 445.78198,
+            "y": 786.51825,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach34",
+            "entity_type": "cockroach",
+            "x": 328.84973,
+            "y": 574.09845,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform14",
+            "entity_type": "stoneplatform1",
+            "x": -23.945312,
+            "y": 715.8337,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach35",
+            "entity_type": "cockroach",
+            "x": 77.75244,
+            "y": 759.91705,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach36",
+            "entity_type": "cockroach",
+            "x": 1316.4438,
+            "y": 525.0951,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach37",
+            "entity_type": "cockroach",
+            "x": 1573.394,
+            "y": 535.1448,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach38",
+            "entity_type": "cockroach",
+            "x": 1453.6945,
+            "y": 527.33813,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "betty1",
+            "entity_type": "betty",
+            "x": 19577.162,
+            "y": 184.2103,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel14",
+            "entity_type": "barrel1",
+            "x": 937.17804,
+            "y": 626.7094,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform15",
+            "entity_type": "stoneplatform1",
+            "x": 18132.951,
+            "y": 579.74066,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel15",
+            "entity_type": "barrel1",
+            "x": 18091.316,
+            "y": 532.90173,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach39",
+            "entity_type": "cockroach",
+            "x": 576.76355,
+            "y": 211.17467,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach40",
+            "entity_type": "cockroach",
+            "x": 576.76355,
+            "y": 211.17467,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach41",
+            "entity_type": "cockroach",
+            "x": 576.76355,
+            "y": 211.17467,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach42",
+            "entity_type": "cockroach",
+            "x": 576.76355,
+            "y": 211.17467,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach43",
+            "entity_type": "cockroach",
+            "x": 576.76355,
+            "y": 211.17467,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach44",
+            "entity_type": "cockroach",
+            "x": 576.76355,
+            "y": 211.17467,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach45",
+            "entity_type": "cockroach",
+            "x": 576.76355,
+            "y": 211.17467,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach46",
+            "entity_type": "cockroach",
+            "x": 576.76355,
+            "y": 211.17467,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach47",
+            "entity_type": "cockroach",
+            "x": 576.76355,
+            "y": 211.17467,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel16",
+            "entity_type": "barrel1",
+            "x": 19229.412,
+            "y": 501.3236,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel17",
+            "entity_type": "barrel1",
+            "x": 18709.889,
+            "y": 431.97595,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel18",
+            "entity_type": "barrel1",
+            "x": 18712.492,
+            "y": 463.20197,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel19",
+            "entity_type": "barrel1",
+            "x": 18708.588,
+            "y": 537.36383,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel110",
+            "entity_type": "barrel1",
+            "x": 18705.986,
+            "y": 590.70807,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel111",
+            "entity_type": "barrel1",
+            "x": 18702.084,
+            "y": 675.2788,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel112",
+            "entity_type": "barrel1",
+            "x": 18699.48,
+            "y": 752.0426,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel113",
+            "entity_type": "barrel1",
+            "x": 18473.092,
+            "y": 413.7608,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel114",
+            "entity_type": "barrel1",
+            "x": 18465.287,
+            "y": 480.1161,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel115",
+            "entity_type": "barrel1",
+            "x": 18469.19,
+            "y": 533.4606,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel116",
+            "entity_type": "barrel1",
+            "x": 18490.008,
+            "y": 759.84924,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel117",
+            "entity_type": "barrel1",
+            "x": 18475.695,
+            "y": 681.78406,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel118",
+            "entity_type": "barrel1",
+            "x": 18467.89,
+            "y": 603.7191,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel119",
+            "entity_type": "barrel1",
+            "x": 18097.08,
+            "y": 379.93246,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel120",
+            "entity_type": "barrel1",
+            "x": 18098.38,
+            "y": 443.68567,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel121",
+            "entity_type": "barrel1",
+            "x": 18097.08,
+            "y": 770.25793,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel122",
+            "entity_type": "barrel1",
+            "x": 18091.875,
+            "y": 692.1926,
+            "z_index": 150.0,
+            "layer": "foreground"
+        },
+        {
+            "id": "barrel123",
+            "entity_type": "barrel1",
+            "x": 18090.574,
+            "y": 620.63306,
+            "z_index": 0.0,
+            "layer": "background"
+        },
+        {
+            "id": "stoneplatform16",
+            "entity_type": "stoneplatform1",
+            "x": 18711.936,
+            "y": 413.20187,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform17",
+            "entity_type": "stoneplatform1",
+            "x": 18713.236,
+            "y": 600.5581,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform18",
+            "entity_type": "stoneplatform1",
+            "x": 18696.322,
+            "y": 804.8283,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform19",
+            "entity_type": "stoneplatform1",
+            "x": 19219.229,
+            "y": 429.9859,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel125",
+            "entity_type": "barrel1",
+            "x": 19813.246,
+            "y": 574.22253,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel126",
+            "entity_type": "barrel1",
+            "x": 19846.164,
+            "y": 661.5254,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel127",
+            "entity_type": "barrel1",
+            "x": 19816.11,
+            "y": 707.3237,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel128",
+            "entity_type": "barrel1",
+            "x": 19622.898,
+            "y": 462.58954,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel129",
+            "entity_type": "barrel1",
+            "x": 19627.191,
+            "y": 541.3052,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel130",
+            "entity_type": "barrel1",
+            "x": 19615.742,
+            "y": 624.3147,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel131",
+            "entity_type": "barrel1",
+            "x": 19611.45,
+            "y": 710.18604,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel132",
+            "entity_type": "barrel1",
+            "x": 19236.477,
+            "y": 734.51624,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel133",
+            "entity_type": "barrel1",
+            "x": 19232.184,
+            "y": 657.2316,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel134",
+            "entity_type": "barrel1",
+            "x": 19225.025,
+            "y": 577.0851,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel135",
+            "entity_type": "barrel1",
+            "x": 19232.184,
+            "y": 458.29596,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform110",
+            "entity_type": "stoneplatform1",
+            "x": 19602.79,
+            "y": 531.6006,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform111",
+            "entity_type": "stoneplatform1",
+            "x": 19571.3,
+            "y": 796.3714,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel136",
+            "entity_type": "barrel1",
+            "x": 19627.117,
+            "y": 421.39883,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform22",
+            "entity_type": "stoneplatform2",
+            "x": 2336.1138,
+            "y": 361.86127,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach48",
+            "entity_type": "cockroach",
+            "x": 2404.8406,
+            "y": 409.13358,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach49",
+            "entity_type": "cockroach",
+            "x": 2399.631,
+            "y": 397.76987,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach50",
+            "entity_type": "cockroach",
+            "x": 2377.2312,
+            "y": 428.85504,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "healthpotion3",
+            "entity_type": "healthpotion",
+            "x": 2580.9048,
+            "y": 470.0593,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform23",
+            "entity_type": "stoneplatform2",
+            "x": 2384.631,
+            "y": 736.18976,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel137",
+            "entity_type": "barrel1",
+            "x": 238.32861,
+            "y": 545.91296,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "barrel138",
+            "entity_type": "barrel1",
+            "x": 237.3269,
+            "y": 624.3418,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "street2",
+            "entity_type": "street",
+            "x": 3046.0425,
+            "y": 2.0592651,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "mountain14",
+            "entity_type": "mountain1",
+            "x": 2817.052,
+            "y": 77.9126,
+            "z_index": 50.0,
+            "layer": "background"
+        },
+        {
+            "id": "runestone11",
+            "entity_type": "runestone1",
+            "x": 2366.2263,
+            "y": 3.4903564,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "flora21",
+            "entity_type": "flora2",
+            "x": 1101.0516,
+            "y": 4.92157,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "flora12",
+            "entity_type": "flora1",
+            "x": 1430.2258,
+            "y": 2.059204,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "runestone12",
+            "entity_type": "runestone1",
+            "x": 1639.1804,
+            "y": 2.0592651,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "runestone13",
+            "entity_type": "runestone1",
+            "x": 801.9324,
+            "y": 3.4902344,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "runestone14",
+            "entity_type": "runestone1",
+            "x": 285.27148,
+            "y": 7.7839966,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "flora22",
+            "entity_type": "flora2",
+            "x": 1680.6844,
+            "y": 12.077332,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "flora13",
+            "entity_type": "flora1",
+            "x": 2248.8682,
+            "y": 13.508911,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach51",
+            "entity_type": "cockroach",
+            "x": 459.87695,
+            "y": 565.94946,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "healthpotion4",
+            "entity_type": "healthpotion",
+            "x": 690.2993,
+            "y": 833.58234,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "healthpotion5",
+            "entity_type": "healthpotion",
+            "x": 2611.5327,
+            "y": 794.36774,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "healthpotion6",
+            "entity_type": "healthpotion",
+            "x": 2579.5737,
+            "y": 515.08466,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "healthpotion7",
+            "entity_type": "healthpotion",
+            "x": 2580.519,
+            "y": 426.45074,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "stoneplatform32",
+            "entity_type": "stoneplatform3",
+            "x": 2939.7766,
+            "y": 462.34525,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach52",
+            "entity_type": "cockroach",
+            "x": 2973.7815,
+            "y": 203.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach53",
+            "entity_type": "cockroach",
+            "x": 2931.2756,
+            "y": 174.71857,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach54",
+            "entity_type": "cockroach",
+            "x": 2812.2578,
+            "y": 194.55487,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach55",
+            "entity_type": "cockroach",
+            "x": 2728.6614,
+            "y": 187.47021,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach56",
+            "entity_type": "cockroach",
+            "x": 2612.4773,
+            "y": 200.22241,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach57",
+            "entity_type": "cockroach",
+            "x": 2509.0447,
+            "y": 193.13794,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach58",
+            "entity_type": "cockroach",
+            "x": 2374.441,
+            "y": 184.6366,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach59",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach60",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach61",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach62",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach63",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach64",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach65",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach66",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach67",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach68",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach69",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach70",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach71",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach72",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach73",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach74",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach75",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach76",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach77",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach78",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach79",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach80",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach81",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach82",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach83",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach84",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach85",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach86",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach87",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach88",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach89",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach90",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach91",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach92",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach93",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach94",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach95",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach96",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach97",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach98",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach99",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach100",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach101",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach102",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach103",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach104",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach105",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach106",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach107",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach108",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        },
+        {
+            "id": "cockroach109",
+            "entity_type": "cockroach",
+            "x": 3023.7815,
+            "y": 253.05603,
+            "z_index": 100.0,
+            "layer": "gameplay"
+        }
+    ],
+    "background": "worlds/auralis/backgrounds/level1.png"
+}

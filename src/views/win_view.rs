@@ -2,7 +2,6 @@ use bevy::prelude::*;
 
 use crate::app_model::AppState;
 use crate::i18n::LocalizedText;
-use crate::level::CachedLevelDefinition;
 use crate::world::WorldCatalog;
 use crate::{CampaignProgress, LevelSelection, LevelStats};
 
@@ -27,7 +26,6 @@ fn setup_win_view(
     world_catalog: Res<WorldCatalog>,
     progress: Res<CampaignProgress>,
     stats: Res<LevelStats>,
-    cached_level: Res<CachedLevelDefinition>,
 ) {
     let has_next_level = next_level_json(&world_catalog, &progress).is_some();
 
@@ -136,27 +134,8 @@ fn setup_win_view(
                     let accuracy = if stats.shots == 0 {
                         0.0
                     } else {
-                        (stats.hits as f32) / (stats.shots as f32)
+                        (stats.enemies_killed as f32) / (stats.shots as f32)
                     };
-
-                    // derive level metrics from cached level definition when available
-                    let mut total_enemies: u32 = 0;
-                    let mut level_length: f32 = 800.0; // fallback length in px
-                    if let Ok(level_def) = cached_level.level_definition() {
-                        if let Some(bounds) = &level_def.bounds {
-                            level_length = bounds.width.max(bounds.height);
-                        }
-
-                        for ent in &level_def.entities {
-                            if let Some(entity_type_def) =
-                                level_def.entity_types.get(&ent.entity_type)
-                            {
-                                if entity_type_def.components.iter().any(|c| c == "hostile") {
-                                    total_enemies += 1;
-                                }
-                            }
-                        }
-                    }
 
                     row(
                         table,
@@ -172,20 +151,6 @@ fn setup_win_view(
                     row(table, "stats.shots", format!("{}", stats.shots));
                     row(table, "stats.accuracy", format!("{:.1}%", accuracy * 100.0));
 
-                    // compute reference time and total score
-                    // reference time derived from level length and enemy count
-                    const PLAYER_REF_SPEED: f32 = 40.0; // px/s
-                    const TIME_PER_ENEMY: f32 = 8.0; // seconds expected per enemy
-                    let travel_time = level_length / PLAYER_REF_SPEED;
-                    let reference_time = travel_time + (total_enemies as f32 * TIME_PER_ENEMY);
-
-                    let score = compute_score(
-                        stats.enemies_killed,
-                        total_enemies,
-                        stats.total_time_seconds,
-                        reference_time,
-                        accuracy,
-                    );
                     table
                         .spawn((
                             Node {
@@ -211,7 +176,7 @@ fn setup_win_view(
                                 WinViewEntity,
                             ));
                             row.spawn((
-                                Text::new(format!("{}", score)),
+                                Text::new(format!("{}", stats.score)),
                                 TextFont {
                                     font_size: 22.0,
                                     ..default()
@@ -224,48 +189,25 @@ fn setup_win_view(
         });
 }
 
-fn compute_score(
-    enemies_killed: u32,
-    total_enemies: u32,
-    total_time_s: f32,
-    reference_time_s: f32,
-    accuracy: f32,
-) -> u32 {
-    // Algorithm design:
-    // - kills component: up to 500 points, proportional to fraction of enemies killed (full 500 if all killed)
-    // - time component: up to 300 points, faster times than reference_time give more points
-    // - accuracy component: up to 200 points, linear with accuracy (0.0..1.0)
-    // Total max = 1000
-
-    // Kills points: proportional to fraction of enemies killed, full 500 if all killed. If no enemies present, award full kills points.
-    let kills_points = if total_enemies == 0 {
-        500.0
-    } else {
-        ((enemies_killed as f32 / total_enemies as f32).clamp(0.0, 1.0) * 500.0).round()
-    };
-
-    // Time points: compare against reference_time_s derived from level length & enemies
-    let time_ratio = if reference_time_s <= 0.0 {
-        0.0
-    } else {
-        ((reference_time_s - total_time_s) / reference_time_s).clamp(0.0, 1.0)
-    };
-    let time_points = (time_ratio * 300.0).round();
-
-    let accuracy_points = (accuracy.clamp(0.0, 1.0) * 200.0).round();
-
-    let total = kills_points + time_points + accuracy_points;
-    total.min(1000.0) as u32
-}
-
 fn return_to_world_map(
     keys: Res<ButtonInput<KeyCode>>,
     mut progress: ResMut<CampaignProgress>,
     mut next_state: ResMut<NextState<AppState>>,
+    level_selection: Res<LevelSelection>,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
         progress.clear_planet_progress();
-        next_state.set(AppState::WorldMapView);
+        if level_selection
+            .asset_path()
+            .ends_with("assets/debug/testlevel.json")
+            || level_selection
+                .asset_path()
+                .ends_with("debug/testlevel.json")
+        {
+            next_state.set(AppState::MainMenu);
+        } else {
+            next_state.set(AppState::WorldMapView);
+        }
     }
 }
 

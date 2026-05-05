@@ -1,42 +1,52 @@
-use bevy::prelude::*;
+use bevy::prelude::Component;
 
-#[derive(Component, Debug, Clone)]
-pub(crate) struct Health {
-    pub(crate) current: i32,
-    pub(crate) max: i32,
+/// Health component representing hit points for entities.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Health {
+    pub current: i32,
+    pub max: i32,
+    /// If true, the entity is removed after death according to `despawn_delay_ms` + fade-out.
+    pub despawn_on_death: bool,
+    /// Delay in milliseconds before fade-out starts after death.
+    pub despawn_delay_ms: u64,
 }
 
 impl Health {
-    pub(crate) fn new(max: i32) -> Self {
-        Self { current: max, max }
+    pub fn new(max: i32) -> Self {
+        Health {
+            current: max,
+            max,
+            despawn_on_death: false,
+            despawn_delay_ms: 0,
+        }
     }
 
-    pub(crate) fn is_dead(&self) -> bool {
+    pub fn is_dead(&self) -> bool {
         self.current <= 0
     }
 
-    pub(crate) fn take_damage(&mut self, amount: i32) {
-        self.current = (self.current - amount).max(0);
+    pub fn damage(&mut self, amount: i32) -> i32 {
+        let prev = self.current;
+        self.current = (self.current - amount).clamp(0, self.max);
+        prev - self.current
+    }
+
+    pub fn heal(&mut self, amount: i32) -> i32 {
+        let prev = self.current;
+        self.current = (self.current + amount).clamp(0, self.max);
+        self.current - prev
     }
 }
 
-#[derive(Component, Debug, Clone, Copy)]
-pub(crate) struct Damage(pub(crate) i32);
-
-/// Tracks remaining invincibility frames after taking damage.
-#[derive(Component, Debug, Clone)]
-pub(crate) struct InvincibilityTimer(pub(crate) Timer);
-
-impl InvincibilityTimer {
-    pub(crate) fn new(seconds: f32) -> Self {
-        let mut timer = Timer::from_seconds(seconds, TimerMode::Once);
-        timer.reset();
-        Self(timer)
+impl Default for Health {
+    fn default() -> Self {
+        Health::new(1)
     }
 }
 
-/// Helper used by `spawn_entity` to insert a `Health` component with the
-/// provided hp value.
-pub(crate) fn insert(entity: &mut EntityCommands, hp: i32) {
-    entity.insert(Health::new(hp));
-}
+crate::impl_override_with_u32_default!(Health, crate::game::level::configs::health_config::HealthConfig,
+    current => max,
+    pick_u32 => [max, current],
+    pick_bool => [despawn_on_death],
+    pick_u64 => [despawn_delay_ms],
+);

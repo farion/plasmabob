@@ -9,8 +9,12 @@ const DEFAULT_SOUNDS_VOLUME: f32 = 0.5;
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct AudioSettings {
     pub(crate) music_volume: f32,
+    #[serde(default = "default_music_enabled")]
+    pub(crate) music_enabled: bool,
     #[serde(default = "default_sounds_volume")]
     pub(crate) sounds_volume: f32,
+    #[serde(default = "default_sounds_enabled")]
+    pub(crate) sounds_enabled: bool,
 }
 
 fn default_sounds_volume() -> f32 {
@@ -21,7 +25,9 @@ impl Default for AudioSettings {
     fn default() -> Self {
         Self {
             music_volume: DEFAULT_MUSIC_VOLUME,
+            music_enabled: true,
             sounds_volume: DEFAULT_SOUNDS_VOLUME,
+            sounds_enabled: true,
         }
     }
 }
@@ -46,6 +52,14 @@ impl AudioSettings {
         true
     }
 
+    pub(crate) fn set_music_enabled(&mut self, enabled: bool) -> bool {
+        if self.music_enabled == enabled {
+            return false;
+        }
+        self.music_enabled = enabled;
+        true
+    }
+
     pub(crate) fn set_sounds_volume(&mut self, value: f32) -> bool {
         let clamped = clamp_volume(value);
         if (self.sounds_volume - clamped).abs() < f32::EPSILON {
@@ -55,10 +69,26 @@ impl AudioSettings {
         true
     }
 
+    pub(crate) fn set_sounds_enabled(&mut self, enabled: bool) -> bool {
+        if self.sounds_enabled == enabled {
+            return false;
+        }
+        self.sounds_enabled = enabled;
+        true
+    }
+
     fn sanitize(&mut self) {
         self.music_volume = clamp_volume(self.music_volume);
         self.sounds_volume = clamp_volume(self.sounds_volume);
     }
+}
+
+fn default_music_enabled() -> bool {
+    true
+}
+
+fn default_sounds_enabled() -> bool {
+    true
 }
 
 fn clamp_volume(value: f32) -> f32 {

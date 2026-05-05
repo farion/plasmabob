@@ -1,7 +1,33 @@
-pub mod gameplay;
+pub mod animation_system;
+pub mod apply_parallax_system;
+pub mod auto_melee_attack_system;
+pub mod auto_range_attack_system;
+pub mod beam_update_system;
+pub mod collectible_collision_system;
+pub mod count_deaths_system;
+pub mod damage_popup_system;
+pub mod death_despawn_system;
+pub mod despawn_registry;
+pub mod enemy_ai_debug_draw_system;
+pub mod enemy_ai_system;
+pub mod enemy_aggro_particles_system;
+pub mod enemy_random_patrol_system;
+pub mod gravity_integration_system;
+pub mod grounding_evaluation_system;
+pub mod init_parallax_system;
+pub mod level_end;
 pub mod maintenance;
-pub mod presentation;
-pub mod setup_spawn;
-pub mod systems_api;
-// Note: helper.rs and types.rs live inside each submodule directory
-// (e.g. `gameplay/helpers.rs`, `presentation/types.rs`).
+pub mod movement_resolution_system;
+pub mod moving_platform_system;
+pub mod orientation_update_system;
+pub mod player_control_system;
+pub mod player_shoot_system;
+pub mod plugin;
+pub mod projectile_collision_system;
+pub mod projectile_movement_system;
+pub mod sound_system;
+pub mod state_machine_update_system;
+pub mod toggle_parallax_system;
+pub mod track_previous_transform_system;
+
+pub use plugin::SystemsPlugin;

@@ -1,56 +1,73 @@
 {
-    "terrain":  {
-                    "background":  "worlds/auralis/backgrounds/level1.png"
-                },
-    "music":  "music/level1.ogg",
-    "bounds":  {
-                   "width":  4096,
-                   "height":  1024
-               },
-    "entity_types_path":  "entity_types",
-    "story":  {
-                  "start":  {
-                                "text":  "worlds/auralis/story/zephyria_level1_start.md",
-                                "background":  "worlds/auralis/story/viridara_level1.jpg"
-                            },
-                  "win":  {
-                              "text":  "worlds/auralis/story/zephyria_level1_win.md",
-                              "background":  "worlds/auralis/story/viridara_level1.jpg"
-                          },
-                  "lose":  {
-                               "text":  "worlds/auralis/story/zephyria_level1_lose.md",
-                               "background":  "worlds/auralis/story/viridara_level1.jpg"
-                           }
-              },
-    "entities":  [
-                     {
-                         "id":  "street",
-                         "entity_type":  "street",
-                         "x":  0,
-                         "y":  0,
-                         "z_index":  98
-                     },
-                     {
-                         "id":  "player",
-                         "entity_type":  "bob",
-                         "x":  10,
-                         "y":  181,
-                         "z_index":  101
-                     },
-                     {
-                         "id":  "enemy",
-                         "entity_type":  "cockroach",
-                         "x":  720,
-                         "y":  181,
-                         "z_index":  100
-                     },
-                     {
-                         "id":  "exit",
-                         "entity_type":  "exit",
-                         "x":  3800,
-                         "y":  181,
-                         "z_index":  100
-                     }
-                 ]
+  "music": [
+    "music/level1.ogg"
+  ],
+  "bounds": {
+    "width": 4096,
+    "height": 1024
+  },
+  "story": {
+    "start": {
+      "text": "worlds/auralis/story/zephyria_level1_start.md",
+      "background": "worlds/auralis/story/viridara_level1.jpg"
+    },
+    "win": {
+      "text": "worlds/auralis/story/zephyria_level1_win.md",
+      "background": "worlds/auralis/story/viridara_level1.jpg"
+    },
+    "lose": {
+      "text": "worlds/auralis/story/zephyria_level1_lose.md",
+      "background": "worlds/auralis/story/viridara_level1.jpg"
+    }
+  },
+  "entities": [
+    {
+      "id": "street",
+      "entity_type": "street",
+      "x": 0,
+      "y": 0,
+      "z_index": 98,
+      "layer": "gameplay"
+    },
+    {
+      "id": "player",
+      "entity_type": "player",
+      "x": 10,
+      "y": 181,
+      "z_index": 101,
+      "layer": "gameplay"
+    },
+    {
+      "id": "enemy",
+      "entity_type": "cockroach",
+      "x": 720,
+      "y": 181,
+      "z_index": 100,
+      "layer": "gameplay"
+    },
+    {
+      "id": "exit",
+      "entity_type": "exit",
+      "x": 3800,
+      "y": 181,
+      "z_index": 100,
+      "layer": "gameplay"
+    },
+    {
+      "id": "platform1",
+      "entity_type": "stoneplatform1",
+      "x": 150,
+      "y": 200,
+      "z_index": 100,
+      "layer": "gameplay",
+      "components": {
+        "moving_platform": {
+          "speed": 300,
+          "waypoints": [[150, 200], [400, 400], [600, 400]],
+          "repeat": true
+        }
+      }
+    }
+  ],
+  "background": "worlds/auralis/backgrounds/level1.png"
 }
-

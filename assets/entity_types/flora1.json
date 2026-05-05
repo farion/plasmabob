@@ -1,12 +1,21 @@
 {
-  "component": ["doodad"],
-  "height": 100,
-  "states": {
-    "default": {
-      "animation": ["sprites/flora1/flora1-default.png"],
-      "animation_frame_ms": 500,
-      "hitbox": [[0, 2], [217, 2], [217, 97], [0, 97]]
+  "category_tag": "doodad",
+  "components": {
+    "collider": {
+      "mode": "from_state"
+    },
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": ["sprites/flora1/flora1-default.png"],
+          "animation_frame_ms": 500,
+          "collider_box": [[0.0, 2.0], [217.0, 2.0], [217.0, 97.0], [0.0, 97.0]],
+          "lock_ms": 0
+        }
+      }
     }
   },
-  "width": 217
+  "height": 100.0,
+  "width": 217.0
 }

@@ -1,14 +1,16 @@
 use bevy::prelude::*;
 use bevy::ui::ZIndex;
-use bevy::window::PrimaryWindow;
 
 use crate::app_model::{
-    AppState, EXIT_CONFIRM_ITEMS, ExitConfirmAction, ExitConfirmButton, ExitConfirmModalRoot,
-    ExitConfirmModalState, MENU_ITEMS, MainMenuEntity, MenuAction, MenuButton,
-    MenuSelection, StartScreenBackground, menu_action_label_key,
+    menu_action_label_key, AppState, ExitConfirmAction, ExitConfirmButton, ExitConfirmModalRoot,
+    ExitConfirmModalState, MainMenuEntity, MenuAction, MenuButton, MenuSelection,
+    StartScreenBackground, EXIT_CONFIRM_ITEMS, MENU_ITEMS,
 };
 use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
 use crate::helper::i18n;
+use crate::LevelSelection;
+use bevy::prelude::KeyCode;
 
 pub struct MainViewPlugin;
 
@@ -52,6 +54,8 @@ impl Plugin for MainViewPlugin {
                 (
                     open_or_close_exit_modal_with_escape,
                     menu_keyboard_navigation,
+                    // Ctrl+Shift+D: start debug test level
+                    debug_start_level_hotkey,
                     menu_pointer_input,
                 )
                     .in_set(MainMenuSet::Input)
@@ -95,7 +99,11 @@ pub fn spawn_main_menu_ui(
 ) {
     // Background image
     commands.spawn((
-        Sprite::from_image(asset_server.load(active_character.menu_background_path())),
+        Sprite::from_image(load_character_asset::<Image>(
+            asset_server,
+            "start.jpg",
+            *active_character,
+        )),
         Transform::from_xyz(0.0, 0.0, -1.0),
         MainMenuEntity,
         StartScreenBackground,
@@ -111,7 +119,11 @@ pub fn spawn_main_menu_ui(
             left: Val::Px(50.0),
             ..default()
         },
-        ImageNode::new(asset_server.load(active_character.menu_logo_path())),
+        ImageNode::new(load_character_asset::<Image>(
+            asset_server,
+            "logo.png",
+            *active_character,
+        )),
         ZIndex(200),
         MainMenuEntity,
         MainMenuLogo,
@@ -121,7 +133,7 @@ pub fn spawn_main_menu_ui(
     commands
         .spawn((
             Node {
-                width: Val::Px(512.0),
+                width: Val::Percent(20.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
@@ -217,7 +229,7 @@ pub fn setup_main_menu(
     modal_state.suppress_enter_until_release = false;
 
     // Refresh world catalog early so the main menu can make decisions.
-    world_catalog.refresh(&asset_server);
+    world_catalog.refresh(&asset_server, *active_character);
 
     // Music is now managed centrally by `helper::music::MusicPlugin`.
     // The menu view no longer spawns or manages music entities.
@@ -397,6 +409,21 @@ fn activate_action(
     }
 }
 
+/// Listen for Ctrl+Shift+D in the main menu and start the debug test level.
+fn debug_start_level_hotkey(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut level_selection: ResMut<LevelSelection>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+    let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    if ctrl && shift && keys.just_pressed(KeyCode::KeyD) {
+        // Point the global LevelSelection to the debug test level and start loading.
+        level_selection.set_asset_path("assets/debug/testlevel.json");
+        next_state.set(AppState::LoadView);
+    }
+}
+
 fn sync_main_menu_theme(
     mut commands: Commands,
     active_character: Res<ActiveCharacter>,
@@ -410,7 +437,7 @@ fn sync_main_menu_theme(
     }
 
     for mut sprite in &mut backgrounds {
-        sprite.image = asset_server.load(active_character.menu_background_path());
+        sprite.image = load_character_asset::<Image>(&asset_server, "start.jpg", *active_character);
     }
 
     for mut text in &mut toggle_labels {
@@ -435,7 +462,11 @@ fn sync_main_menu_theme(
             left: Val::Px(50.0),
             ..default()
         },
-        ImageNode::new(asset_server.load(active_character.menu_logo_path())),
+        ImageNode::new(load_character_asset::<Image>(
+            &asset_server,
+            "logo.png",
+            *active_character,
+        )),
         ZIndex(200),
         MainMenuEntity,
         MainMenuLogo,
@@ -724,31 +755,44 @@ pub(crate) fn update_menu_visuals(
 }
 
 pub(crate) fn fit_background_to_window(
-    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<&Projection, With<crate::MainCamera>>,
     images: Res<Assets<Image>>,
     mut backgrounds: Query<(&Sprite, &mut Transform), With<StartScreenBackground>>,
 ) {
-    let Ok(window) = windows.single() else {
+    // Derive the visible world-space area from the orthographic projection.
+    // With ScalingMode::AutoMin the area changes whenever the window is resized.
+    let Ok(projection) = camera_query.single() else {
         return;
     };
 
-    let window_size = Vec2::new(window.width(), window.height());
+    let (vw, vh) = match projection {
+        Projection::Orthographic(ortho) => {
+            let w = ortho.area.width();
+            let h = ortho.area.height();
+            // area is initialised to (2×2) by default; wait for a real size.
+            if w > 2.0 && h > 2.0 {
+                (w, h)
+            } else {
+                return;
+            }
+        }
+        _ => return,
+    };
 
     for (sprite, mut transform) in &mut backgrounds {
         let Some(image) = images.get(&sprite.image) else {
             continue;
         };
 
-        let image_size = Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
-        );
+        let img_w = image.texture_descriptor.size.width as f32;
+        let img_h = image.texture_descriptor.size.height as f32;
 
-        if image_size.x <= 0.0 || image_size.y <= 0.0 {
+        if img_w <= 0.0 || img_h <= 0.0 {
             continue;
         }
 
-        let scale = (window_size.x / image_size.x).max(window_size.y / image_size.y);
+        // "Cover" scale: fill the full viewport without leaving black bars.
+        let scale = (vw / img_w).max(vh / img_h);
         transform.scale = Vec3::splat(scale);
         transform.translation.x = 0.0;
         transform.translation.y = 0.0;

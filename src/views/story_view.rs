@@ -1,15 +1,15 @@
-use bevy::asset::io::AssetSourceId;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
-use futures_lite::AsyncReadExt;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use thiserror::Error;
 
+use crate::MainCamera;
 use crate::PendingStoryScreen;
 use crate::app_model::AppState;
+use crate::helper::active_character::ActiveCharacter;
+use crate::helper::asset_io::load_character_asset;
+use crate::helper::input::{Action, InputActionState};
 use crate::i18n::{CurrentLanguage, LocalizedText, Translations};
-use crate::key_bindings::KeyBindings;
 
 pub struct StoryViewPlugin;
 
@@ -82,6 +82,7 @@ impl Plugin for StoryViewPlugin {
 fn setup_story_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    active_character: Res<ActiveCharacter>,
     mut pending_story: ResMut<PendingStoryScreen>,
     mut scroll_state: ResMut<StoryScrollState>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -101,13 +102,18 @@ fn setup_story_view(
     let story_text = read_asset_text_from_server(
         &asset_server,
         &story.text_asset_path,
+        *active_character,
         &translations,
         &current,
     )
     .unwrap_or_else(|error| error.to_string());
 
     commands.spawn((
-        Sprite::from_image(asset_server.load(&story.background_asset_path)),
+        Sprite::from_image(load_character_asset::<Image>(
+            &asset_server,
+            &story.background_asset_path,
+            *active_character,
+        )),
         Transform::from_xyz(0.0, 0.0, -1.0),
         StoryBackground,
         StoryViewEntity,
@@ -207,33 +213,42 @@ fn setup_story_view(
 }
 
 fn fit_story_background_to_viewport(
-    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<&Projection, With<MainCamera>>,
     images: Res<Assets<Image>>,
     mut backgrounds: Query<(&Sprite, &mut Transform), With<StoryBackground>>,
 ) {
-    let Ok(window) = windows.single() else {
+    // Derive the visible world-space area from the orthographic projection.
+    let Ok(projection) = camera_query.single() else {
         return;
     };
 
-    let viewport = Vec2::new(window.width(), window.height());
+    let (vw, vh) = match projection {
+        Projection::Orthographic(ortho) => {
+            let w = ortho.area.width();
+            let h = ortho.area.height();
+            // area is initialised to (2×2) by default; wait for a real size.
+            if w > 2.0 && h > 2.0 { (w, h) } else { return; }
+        }
+        _ => return,
+    };
 
     for (sprite, mut transform) in &mut backgrounds {
         let Some(image) = images.get(&sprite.image) else {
             continue;
         };
 
-        let image_size = Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
-        );
+        let img_w = image.texture_descriptor.size.width as f32;
+        let img_h = image.texture_descriptor.size.height as f32;
 
-        if image_size.x <= 0.0 || image_size.y <= 0.0 {
+        if img_w <= 0.0 || img_h <= 0.0 {
             continue;
         }
 
-        // Contain scaling: keep full image visible without stretching.
-        let scale = (viewport.x / image_size.x).min(viewport.y / image_size.y);
+        // "Cover" scale: fill the full viewport without leaving black bars.
+        let scale = (vw / img_w).max(vh / img_h);
         transform.scale = Vec3::splat(scale);
+        transform.translation.x = 0.0;
+        transform.translation.y = 0.0;
     }
 }
 
@@ -325,7 +340,7 @@ fn smooth_scroll(
 
 fn continue_story(
     keys: Res<ButtonInput<KeyCode>>,
-    key_bindings: Res<KeyBindings>,
+    action_state: Res<InputActionState>,
     target_query: Query<&StoryContinueTarget>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
@@ -333,15 +348,10 @@ fn continue_story(
         return;
     };
 
-    // Reserve arrow keys for scrolling while StoryView is active.
-    let jump_pressed = keys.just_pressed(key_bindings.jump)
-        && key_bindings.jump != KeyCode::ArrowUp
-        && key_bindings.jump != KeyCode::ArrowDown;
-
     if keys.just_pressed(KeyCode::Enter)
         || keys.just_pressed(KeyCode::NumpadEnter)
-        || keys.just_pressed(key_bindings.shoot)
-        || jump_pressed
+        || action_state.just_pressed(Action::Shoot)
+        || action_state.just_pressed(Action::Jump)
     {
         next_state.set(target.0);
     }
@@ -359,87 +369,25 @@ fn cleanup_story_view(
 fn read_asset_text_from_server(
     asset_server: &AssetServer,
     asset_path: &str,
+    active_character: ActiveCharacter,
     translations: &Translations,
     current: &CurrentLanguage,
 ) -> Result<String, StoryLoadError> {
-    let source = asset_server
-        .get_source(AssetSourceId::Default)
+    crate::helper::asset_io::read_asset_text(asset_server, asset_path, active_character)
+        .map(|text| text.trim_start_matches('\u{feff}').to_string())
         .map_err(|error| {
             StoryLoadError::Message(
                 translations
                     .tr(&current.effective(&translations), "story.asset_read_error")
                     .map(|t| {
                         t.replace("{asset}", asset_path)
-                            .replace("{error}", &format!("{error}", error = error))
-                    })
-                    .unwrap_or_else(|| format!("Asset source error: {error}", error = error)),
-            )
-        })?;
-
-    let mut bytes = Vec::new();
-    pollster::block_on(async {
-        let mut reader = source
-            .reader()
-            .read(asset_path.as_ref())
-            .await
-            .map_err(|error| {
-                StoryLoadError::Message(
-                    translations
-                        .tr(&current.effective(&translations), "story.asset_read_error")
-                        .map(|t| {
-                            t.replace("{asset}", asset_path)
-                                .replace("{error}", &format!("{error}", error = error))
-                        })
-                        .unwrap_or_else(|| {
-                            format!(
-                                "Asset '{asset}' could not be read: {error}",
-                                asset = asset_path,
-                                error = error
-                            )
-                        }),
-                )
-            })?;
-
-        reader.read_to_end(&mut bytes).await.map_err(|error| {
-            StoryLoadError::Message(
-                translations
-                    .tr(&current.effective(&translations), "story.asset_read_error")
-                    .map(|t| {
-                        t.replace("{asset}", asset_path)
-                            .replace("{error}", &format!("{error}", error = error))
+                            .replace("{error}", &format!("{error}"))
                     })
                     .unwrap_or_else(|| {
-                        format!(
-                            "Asset bytes for '{asset}' could not be read: {error}",
-                            asset = asset_path,
-                            error = error
-                        )
+                        format!("Asset '{asset_path}' could not be read: {error}")
                     }),
             )
-        })?;
-
-        Ok::<(), StoryLoadError>(())
-    })?;
-
-    let text = String::from_utf8(bytes).map_err(|error| {
-        StoryLoadError::Message(
-            translations
-                .tr(&current.effective(&translations), "story.asset_utf8_error")
-                .map(|t| {
-                    t.replace("{asset}", asset_path)
-                        .replace("{error}", &format!("{error}", error = error))
-                })
-                .unwrap_or_else(|| {
-                    format!(
-                        "Asset '{asset}' is not valid UTF-8: {error}",
-                        asset = asset_path,
-                        error = error
-                    )
-                }),
-        )
-    })?;
-
-    Ok(text.trim_start_matches('\u{feff}').to_string())
+        })
 }
 
 #[derive(Error, Debug)]

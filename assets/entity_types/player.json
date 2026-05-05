@@ -1,0 +1,75 @@
+{
+  "category_tag": "player",
+  "components": {
+    "collider": {
+      "mode": "from_state"
+    },
+    "controlled_movement": {
+      "jump_force": 800.0,
+      "speed": 300.0
+    },
+    "controlled_range_attack": {
+      "damage": 23,
+      "projectile_type": "player_projectile",
+      "range": 1000.0,
+      "speed": 2000.0,
+      "cooldown": 500
+    },
+    "damageable": {},
+    "gravity": {},
+    "health": {
+      "max": 135
+    },
+    "rigid_body": {},
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "damaged": {
+          "animation": ["sprites/player/player-hit.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[28.0, 11.0], [90.0, 11.0], [90.0, 121.0], [28.0, 121.0]],
+          "lock_ms": 300
+        },
+        "dead": {
+          "animation": ["sprites/player/player-die.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[5.0, 19.0], [98.0, 19.0], [98.0, 76.0], [5.0, 76.0]],
+          "lock_ms": 0,
+          "sound_start": "sounds/player-die.wav"
+        },
+        "idle": {
+          "animation": ["sprites/player/player-default.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[31.0, 10.0], [98.0, 10.0], [98.0, 118.0], [31.0, 118.0]],
+          "lock_ms": 0
+        },
+        "jumping": {
+          "animation": ["sprites/player/player-jump.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[29.0, 19.0], [92.0, 19.0], [92.0, 124.0], [29.0, 124.0]],
+          "lock_ms": 0
+        },
+        "moving": {
+          "animation": ["sprites/player/player-walk-1.png", "sprites/player/player-walk-2.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[32.0, 7.0], [102.0, 7.0], [102.0, 120.0], [32.0, 120.0]],
+          "lock_ms": 0,
+          "sound_end": "sounds/player-walk.wav",
+          "sound_loop": "sounds/player-walk.wav",
+          "sound_start": "sounds/player-startwalk.wav"
+        },
+        "range_attacking": {
+          "animation": ["sprites/player/player-fight.png"],
+          "animation_frame_ms": 180,
+          "collider_box": [[35.0, 10.0], [96.0, 10.0], [96.0, 121.0], [35.0, 121.0]],
+          "lock_ms": 500
+        }
+      }
+    },
+    "team": {
+      "name": "player"
+    }
+  },
+  "height": 128.0,
+  "width": 175.0
+}

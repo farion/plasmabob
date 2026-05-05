@@ -1,12 +1,21 @@
 {
-  "component": ["collision", "exit"],
-  "height": 128,
-  "states": {
-    "default": {
-      "animation": ["sprites/exit/exit-default.png"],
-      "animation_frame_ms": 500,
-      "hitbox": [[0, 0], [130, 0], [130, 128], [0, 128]]
+  "category_tag": "exit",
+  "components": {
+    "collider": {
+      "mode": "from_state"
+    },
+    "state_machine": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animation": ["sprites/exit/exit-default.png"],
+          "animation_frame_ms": 500,
+          "collider_box": [[0.0, 0.0], [130.0, 0.0], [130.0, 128.0], [0.0, 128.0]],
+          "lock_ms": 0
+        }
+      }
     }
   },
-  "width": 130
+  "height": 128.0,
+  "width": 130.0
 }

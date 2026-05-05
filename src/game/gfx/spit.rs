@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use crate::game::gfx::spawn_effect_particles;
 use crate::game::gfx::helpers::hash_to_unit;
+use crate::game::gfx::spawn_effect_particles;
+use bevy::prelude::*;
 
 pub fn spawn_spit_particles(
     commands: &mut Commands,
@@ -30,4 +30,3 @@ pub fn spawn_spit_particles(
         0.38,
     );
 }
-
